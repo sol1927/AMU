@@ -1,21 +1,17 @@
-# Node modules
+# Back‑end
 backend/node_modules/
-frontend/node_modules/
-
-# Env files
 backend/.env
+backend/dist/
+
+# Front‑end
+frontend/node_modules/
 frontend/.env
+frontend/.next
+frontend/out
 
 # Logs
 *.log
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
-
-# Next.js / Frontend build
-frontend/.next
-frontend/out
-
-# Backend build (if any)
-backend/dist
