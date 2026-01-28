@@ -5,21 +5,41 @@ import {
   setPassword,
   login,
   getCurrentUser,
-  requestPasswordReset, // ✅ import the new functions
+  requestPasswordReset,
   resetPassword,
-  logout, // ✅ import logout function
+  logout,
 } from "../controllers/auth.controller.js";
+
 import { verifyToken } from "../middlewares/auth.middleware.js";
+import {
+  otpLimiter,
+  otpVerifyLimiter,
+  passwordResetLimiter,
+  loginLimiter,
+} from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
 
-router.post("/request-otp", requestOTP); // Step 1
-router.post("/verify-otp", verifyOTP); // Step 2
-router.post("/set-password", setPassword); // Step 3
-router.post("/login", login);
-router.get("/me", verifyToken, getCurrentUser); // ✅ new route
-router.post("/request-password-reset", requestPasswordReset);
+// 🔐 OTP flow
+router.post("/request-otp", otpLimiter, requestOTP); // limit OTP requests
+router.post("/verify-otp", otpVerifyLimiter, verifyOTP); // limit OTP tries
+router.post("/set-password", setPassword);
+
+// 🔐 Login
+router.post("/login", loginLimiter, login); // limit login attempts
+
+// 👤 Auth user
+router.get("/me", verifyToken, getCurrentUser);
+
+// 🔐 Password reset
+router.post(
+  "/request-password-reset",
+  passwordResetLimiter,
+  requestPasswordReset,
+);
 router.post("/reset-password", resetPassword);
-router.post("/logout", logout); // ✅ new logout route
+
+// 🚪 Logout
+router.post("/logout", logout);
 
 export default router;
