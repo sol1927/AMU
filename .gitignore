@@ -1,0 +1,21 @@
+# Node modules
+backend/node_modules/
+frontend/node_modules/
+
+# Env files
+backend/.env
+frontend/.env
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Next.js / Frontend build
+frontend/.next
+frontend/out
+
+# Backend build (if any)
+backend/dist
