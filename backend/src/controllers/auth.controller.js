@@ -26,11 +26,17 @@ const createTransporter = () =>
 export const requestOTP = async (req, res) => {
   try {
     const { name, email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email is required" });
+    if (!email)
+      return res
+        .status(400)
+        .json({ message: "Please enter your email to receive an OTP." });
 
     const adminExists = await User.findOne({ email });
     if (adminExists)
-      return res.status(403).json({ message: "Admin already exists" });
+      return res.status(403).json({
+        message:
+          "An admin with this email already exists. Please login instead.",
+      });
 
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -81,10 +87,15 @@ export const requestOTP = async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         maxAge: 10 * 60 * 1000,
       })
-      .json({ message: "OTP sent to your email" });
+      .json({
+        message:
+          "We have sent an OTP to your email. Please check your inbox and enter it to continue.",
+      });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
@@ -97,24 +108,36 @@ export const verifyOTP = async (req, res) => {
     const token = req.cookies.otpToken;
 
     if (!token)
-      return res.status(400).json({ message: "OTP token missing or expired" });
+      return res.status(400).json({
+        message: "Your OTP session has expired. Please request a new OTP.",
+      });
 
     const { email } = jwt.verify(token, process.env.JWT_SECRET);
 
     const tempAdmin = await TempAdmin.findOne({ email });
     if (!tempAdmin)
-      return res.status(400).json({ message: "OTP request not found" });
+      return res.status(400).json({
+        message: "We could not find your OTP request. Please try again.",
+      });
 
     if (tempAdmin.verified)
-      return res.status(400).json({ message: "OTP already verified" });
+      return res.status(400).json({
+        message:
+          "This OTP has already been used. Please login or request a new OTP.",
+      });
 
     if (tempAdmin.otpExpires < new Date())
-      return res.status(400).json({ message: "OTP expired" });
+      return res
+        .status(400)
+        .json({ message: "Your OTP has expired. Please request a new one." });
 
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
     if (hashedOtp !== tempAdmin.otp)
-      return res.status(400).json({ message: "Invalid OTP" });
+      return res.status(400).json({
+        message:
+          "The OTP you entered is incorrect. Please check and try again.",
+      });
 
     tempAdmin.verified = true;
     tempAdmin.verifiedAt = new Date();
@@ -132,10 +155,12 @@ export const verifyOTP = async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         maxAge: 10 * 60 * 1000,
       })
-      .json({ message: "OTP verified." });
+      .json({ message: "OTP verified successfully!" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
@@ -148,25 +173,35 @@ export const setPassword = async (req, res) => {
     const token = req.cookies.registerToken;
 
     if (!token)
-      return res.status(400).json({ message: "Registration token expired" });
+      return res.status(400).json({
+        message:
+          "Your registration session has expired. Please verify your email again to continue.",
+      });
 
     if (!password || !confirmPassword)
-      return res.status(400).json({ message: "All fields required" });
+      return res
+        .status(400)
+        .json({ message: "Please enter both password and confirm password." });
 
     if (password !== confirmPassword)
-      return res.status(400).json({ message: "Passwords do not match" });
+      return res
+        .status(400)
+        .json({ message: "Passwords don’t match. Please try again." });
 
     if (!passwordRegex.test(password))
       return res.status(400).json({
         message:
-          "Password must be 8+ chars, include uppercase, lowercase, number & special character",
+          "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.",
       });
 
     const { email } = jwt.verify(token, process.env.JWT_SECRET);
 
     const tempAdmin = await TempAdmin.findOne({ email, verified: true });
     if (!tempAdmin)
-      return res.status(403).json({ message: "OTP not verified" });
+      return res.status(403).json({
+        message:
+          "You must verify your email first. Please complete OTP verification.",
+      });
 
     const hashedPassword = await bcrypt.hash(
       password,
@@ -185,12 +220,15 @@ export const setPassword = async (req, res) => {
 
     const { password: pwd, ...adminData } = admin._doc;
     res.status(201).json({
-      message: "Admin registered successfully",
+      message:
+        "Your account has been created successfully! You can now log in.",
       admin: adminData,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
@@ -201,7 +239,11 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password)
-      return res.status(400).json({ message: "Email and password required" });
+      return res
+        .status(400)
+        .json({
+          message: "Please enter both your email and password to log in.",
+        });
 
     const user = await User.findOne({ email });
     if (!user)
@@ -229,10 +271,10 @@ export const login = async (req, res) => {
     });
 
     const { password: pwd, ...userData } = user._doc;
-    res.json({ message: "Login successful", user: userData });
+    res.json({ message: "You’ve successfully logged in.", user: userData });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Something went wrong. Please try again later." });
   }
 };
 
