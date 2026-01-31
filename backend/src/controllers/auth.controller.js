@@ -88,8 +88,7 @@ export const requestOTP = async (req, res) => {
         maxAge: 10 * 60 * 1000,
       })
       .json({
-        message:
-          "We have sent an OTP to your email. Please check your inbox and enter it to continue.",
+        message: "OTP sent to your email. Please check your inbox.",
       });
   } catch (err) {
     console.error(err);
@@ -239,11 +238,9 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password)
-      return res
-        .status(400)
-        .json({
-          message: "Please enter both your email and password to log in.",
-        });
+      return res.status(400).json({
+        message: "Please enter both your email and password to log in.",
+      });
 
     const user = await User.findOne({ email });
     if (!user)
@@ -274,24 +271,9 @@ export const login = async (req, res) => {
     res.json({ message: "You’ve successfully logged in.", user: userData });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Something went wrong. Please try again later." });
-  }
-};
-
-/* =========================
-   AUTH MIDDLEWARE
-========================= */
-export const verifyAuth = (req, res, next) => {
-  const token = req.cookies.accessToken;
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id; // ✅ add this line
-    req.userRole = decoded.role; // ✅ optional, useful for admin routes
-    next();
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
@@ -301,12 +283,18 @@ export const verifyAuth = (req, res, next) => {
 export const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user)
+      return res.status(404).json({
+        message: "We couldn’t find your account. Please log in again.",
+      });
 
     res.json({ user });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message:
+        "Something went wrong while loading your profile. Please try again later.",
+    });
   }
 };
 
@@ -347,7 +335,7 @@ export const requestPasswordReset = async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; text-align: center;">
             <img src="https://example.com/logo.png" alt="Logo" style="width: 120px; margin-bottom: 20px;" />
-            <h2 style="color: #333;">Hello,</h2>
+            <h2 style="color: #333;">Hello there,</h2>
             <p style="font-size: 16px; color: #555;">
               You requested a password reset. Click the button below to set a new password:
             </p>
@@ -371,7 +359,9 @@ export const requestPasswordReset = async (req, res) => {
     }, wait);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
@@ -420,11 +410,15 @@ export const resetPassword = async (req, res) => {
     res.json({ message: "Password has been reset successfully" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
-// LogOut
+/* =========================
+    LOGOUT
+========================= */
 
 export const logout = (req, res) => {
   res

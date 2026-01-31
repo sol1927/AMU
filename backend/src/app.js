@@ -2,6 +2,7 @@ import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { clearExpiredResetTokens } from "./utils/cleanup.js";
 
 const app = express();
 
@@ -27,5 +28,9 @@ app.use((req, res, next) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+
+// 🔄 Schedule expired reset token cleanup
+setInterval(clearExpiredResetTokens, 3600000); // every hour
+clearExpiredResetTokens(); // run once immediately
 
 export default app;
