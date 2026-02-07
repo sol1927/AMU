@@ -2,8 +2,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTempAdmin } from "../context/TempAdminContext";
+import { useUser } from "../context/UserContext";
 
 export default function Login() {
+  const { setCurrentUser } = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -11,6 +14,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { setEmail: setTempEmail } = useTempAdmin();
 
   useEffect(() => {
     if (!message) return;
@@ -24,11 +28,15 @@ export default function Login() {
     setLoading(true);
 
     try {
+      const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
+      localStorage.setItem("deviceId", deviceId);
+      const deviceName = "My Device";
+
       const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
         credentials: "include",
+        body: JSON.stringify({ email, password, deviceId, deviceName }),
       });
 
       const data = await res.json();
@@ -38,9 +46,19 @@ export default function Login() {
         return setMessage(data.message || "Login failed");
       }
 
+      // New device OTP
+      if (data.requireDeviceOtp) {
+        setTempEmail(email);
+        sessionStorage.setItem("tempAdminEmail", email);
+        router.push("/verify-device-otp");
+        return;
+      }
+
+      // ✅ Set current user in context
+      setCurrentUser(data.user);
+
       setMessageType("success");
       setMessage("Login successful");
-
       setTimeout(() => router.push("/dashboard"), 800);
     } catch {
       setMessageType("error");

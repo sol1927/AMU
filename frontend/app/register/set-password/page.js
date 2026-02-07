@@ -172,6 +172,7 @@ export default function SetPassword() {
           </div>
         )}
 
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={loading}
@@ -183,6 +184,18 @@ export default function SetPassword() {
         >
           {loading ? "Setting..." : "Set Password"}
         </button>
+
+        {/* Back to Login */}
+        <p className="mt-4 text-center text-sm text-gray-500">
+          Already have an account?{" "}
+          <button
+            type="button"
+            onClick={() => router.push("/login")}
+            className="text-green-600 font-semibold hover:underline"
+          >
+            Go to Login
+          </button>
+        </p>
       </form>
     </div>
   );

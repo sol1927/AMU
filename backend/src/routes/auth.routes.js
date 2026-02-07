@@ -1,45 +1,45 @@
 import express from "express";
+
+import { login, logout } from "../controllers/auth.controller.js";
+
 import {
   requestOTP,
   verifyOTP,
   setPassword,
-  login,
-  getCurrentUser,
+} from "../controllers/otp.controller.js";
+
+import {
+  verifyAdminDeviceOtp,
+  resendDeviceOtp,
+} from "../controllers/device.controller.js";
+
+import {
   requestPasswordReset,
   resetPassword,
-  logout,
-} from "../controllers/auth.controller.js";
+} from "../controllers/password.controller.js";
 
-import { verifyToken } from "../middlewares/auth.middleware.js";
 import {
   otpLimiter,
   otpVerifyLimiter,
   passwordResetLimiter,
   loginLimiter,
+  deviceOtpLimiter,
 } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
 
-// 🔐 OTP flow
-router.post("/request-otp", otpLimiter, requestOTP); // limit OTP requests
-router.post("/verify-otp", otpVerifyLimiter, verifyOTP); // limit OTP tries
+router.post("/request-otp", otpLimiter, requestOTP);
+router.post("/verify-otp", otpVerifyLimiter, verifyOTP);
 router.post("/set-password", setPassword);
-
-// 🔐 Login
-router.post("/login", loginLimiter, login); // limit login attempts
-
-// 👤 Auth user
-router.get("/me", verifyToken, getCurrentUser);
-
-// 🔐 Password reset
+router.post("/login", loginLimiter, login);
+router.post("/verify-device-otp", verifyAdminDeviceOtp);
+router.post("/resend-device-otp", deviceOtpLimiter, resendDeviceOtp);
 router.post(
   "/request-password-reset",
   passwordResetLimiter,
   requestPasswordReset,
 );
 router.post("/reset-password", resetPassword);
-
-// 🚪 Logout
 router.post("/logout", logout);
 
 export default router;

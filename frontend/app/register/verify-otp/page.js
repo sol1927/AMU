@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTempAdmin } from "../../context/TempAdminContext";
 
@@ -8,23 +8,37 @@ export default function VerifyOTPPage() {
   const { email } = useTempAdmin(); // read email from context
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("error"); // error or success
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
-  // Function to partially mask email
+  // Mask email
   const maskEmail = (email) => {
-    const [name, domain] = email.split("@");
-    const maskedName =
-      name.length <= 2
-        ? name[0] + "*"
-        : name[0] + "*".repeat(name.length - 2) + name[name.length - 1];
-    return maskedName + "@" + domain;
+    if (!email) return "";
+    const [local, domain] = email.split("@");
+    if (local.length <= 3) {
+      return local[0] + "*" + "@" + domain;
+    }
+    const maskedLocal =
+      local[0] + "*".repeat(local.length - 3) + local.slice(-2);
+    return maskedLocal + "@" + domain;
   };
+
+  // Clear messages after 3 seconds
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), 3000);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
-    setLoading(true);
+    if (!otp || otp.length !== 6) {
+      setMessageType("error");
+      return setMessage("Please enter the 6-digit OTP");
+    }
 
+    setLoading(true);
     try {
       const res = await fetch("http://localhost:5000/api/auth/verify-otp", {
         method: "POST",
@@ -36,17 +50,46 @@ export default function VerifyOTPPage() {
       const data = await res.json();
       setMessage(data.message);
 
-      setTimeout(() => setMessage(""), 2000);
-
-      if (res.ok) {
+      if (!res.ok) {
+        setMessageType("error");
+      } else {
+        setMessageType("success");
+        // Auto redirect to set password page
         setTimeout(() => router.push("/register/set-password"), 1500);
       }
     } catch (err) {
       console.error(err);
+      setMessageType("error");
       setMessage("Something went wrong. Please try again.");
-      setTimeout(() => setMessage(""), 2000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) return;
+    setResending(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessageType("error");
+        setMessage(data.message || "Failed to resend OTP. Try again.");
+      } else {
+        setMessageType("success");
+        setMessage("OTP resent successfully! Check your email.");
+      }
+    } catch (err) {
+      console.error(err);
+      setMessageType("error");
+      setMessage("Failed to resend OTP. Try again.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -59,15 +102,18 @@ export default function VerifyOTPPage() {
         <h2 className="text-3xl font-extrabold mb-6 text-center text-gray-800">
           Verify Your OTP
         </h2>
-        <p className="text-center text-gray-500 mb-6">
-          Enter the 6-digit OTP sent to{" "}
-          <span className="font-medium">{maskEmail(email)}</span>
-        </p>
+
+        {email && (
+          <p className="text-center text-gray-500 mb-6">
+            Enter the 6-digit OTP sent to{" "}
+            <span className="font-medium">{maskEmail(email)}</span>
+          </p>
+        )}
 
         {message && (
           <p
             className={`mb-4 text-center p-2 rounded ${
-              message.toLowerCase().includes("verified")
+              messageType === "success"
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-700"
             }`}
@@ -76,18 +122,16 @@ export default function VerifyOTPPage() {
           </p>
         )}
 
-        <div className="mb-6">
-          <input
-            type="text"
-            value={otp}
-            onChange={(e) =>
-              setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-            }
-            placeholder="6-digit OTP"
-            required
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="6-digit OTP"
+          value={otp}
+          onChange={(e) =>
+            setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+          }
+          maxLength={6}
+          className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-gray-400 text-center tracking-widest"
+        />
 
         <button
           type="submit"
@@ -101,15 +145,26 @@ export default function VerifyOTPPage() {
           {loading ? "Verifying..." : "Verify OTP"}
         </button>
 
-        <p className="text-center text-gray-500 text-sm mt-6">
-          Didn't receive OTP?{" "}
-          <a
-            href="/register/request-otp"
-            className="text-green-600 font-semibold hover:underline"
+        <div className="flex justify-between mt-4">
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resending}
+            className={`text-sm text-green-600 font-semibold hover:underline ${
+              resending ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
-            Request again
-          </a>
-        </p>
+            {resending ? "Resending..." : "Resend OTP"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/login")}
+            className="text-sm text-gray-600 hover:underline"
+          >
+            Back to Login
+          </button>
+        </div>
       </form>
     </div>
   );

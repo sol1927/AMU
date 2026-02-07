@@ -62,3 +62,17 @@ export const loginLimiter = rateLimit({
     });
   },
 });
+
+// 🔐 NEW DEVICE OTP request limiter
+export const deviceOtpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // max 5 requests in 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const retryAfter = formatMs(req.rateLimit.resetTime - Date.now());
+    return res.status(429).json({
+      message: `Too many device OTP requests. Try again after ${retryAfter}.`,
+    });
+  },
+});

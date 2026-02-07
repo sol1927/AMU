@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTempAdmin } from "../../context/TempAdminContext";
 
@@ -8,6 +8,12 @@ export default function RequestOTP() {
   const { email, setEmail, name, setName } = useTempAdmin();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ✅ Reset email and name when page loads
+  useEffect(() => {
+    setEmail("");
+    setName("");
+  }, [setEmail, setName]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
