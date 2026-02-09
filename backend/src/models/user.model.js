@@ -4,15 +4,12 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, unique: true, required: true },
-    password: {
-      type: String,
-      required: true,
-      select: false, // 👈 ensures password is not returned by default
-    },
+    password: { type: String, required: true, select: false },
     role: { type: String, default: "admin" },
-
-    logo: { type: String }, // 👈 store Cloudinary URL here
-
+    logo: {
+      url: String,
+      public_id: String, // store Cloudinary public_id for deletion
+    },
     trustedDevices: [
       {
         deviceId: { type: String, required: true },

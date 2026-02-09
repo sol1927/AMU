@@ -47,20 +47,23 @@ export default function AdminNavbar() {
           className="flex items-center gap-2 text-white hover:opacity-90"
         >
           <div className="w-8 h-8 rounded-full overflow-hidden">
-            {currentUser?.logo ? (
-              <Image
-                src={currentUser.logo}
-                alt="Profile"
-                width={32}
-                height={32}
-                className="object-cover w-full h-full"
-                priority
-              />
-            ) : (
-              <div className="w-full h-full bg-white text-slate-800 flex items-center justify-center font-bold">
-                {currentUser?.name?.charAt(0) || "U"}
-              </div>
-            )}
+            <div className="w-8 h-8 rounded-full overflow-hidden">
+  {currentUser?.logo?.url ? (
+    <Image
+      src={currentUser.logo.url}
+      alt="Profile"
+      width={32}
+      height={32}
+      className="object-cover w-full h-full rounded-full"
+      priority
+    />
+  ) : (
+    <div className="w-full h-full bg-white text-slate-800 flex items-center justify-center rounded-full font-bold">
+      {currentUser?.name?.charAt(0) || "U"}
+    </div>
+  )}
+</div>
+
           </div>
 
           <span className="font-medium">{currentUser?.name || "User"}</span>

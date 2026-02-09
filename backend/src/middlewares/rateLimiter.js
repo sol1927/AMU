@@ -52,7 +52,7 @@ export const passwordResetLimiter = rateLimit({
 // 🔐 LOGIN limiter (anti brute-force)
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 115,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {

@@ -37,17 +37,12 @@ export default function ProfilePage() {
         const res = await fetch(`${API_URL}/profile/me`, {
           credentials: "include",
         });
-
-        if (!res.ok) {
-          router.replace("/login");
-          return;
-        }
+        if (!res.ok) return router.replace("/login");
 
         const data = await res.json();
         setName(data.user?.name || "");
         setEmail(data.user?.email || "");
-        setPhotoPreview(data.user?.logo || "");
-
+        setPhotoPreview(data.user?.logo?.url || ""); // use logo.url if Cloudinary
         setCurrentUser((prev) => ({ ...prev, ...data.user }));
       } catch {
         router.replace("/login");
@@ -55,7 +50,6 @@ export default function ProfilePage() {
         setLoading(false);
       }
     };
-
     fetchProfile();
   }, [router, setCurrentUser]);
 
@@ -92,9 +86,11 @@ export default function ProfilePage() {
           body: formData,
         });
         const dataPhoto = await resPhoto.json();
-        if (!resPhoto.ok) throw new Error(dataPhoto.message || "Photo upload failed");
-        photoUrl = dataPhoto.photoUrl || dataPhoto.logo;
-        setCurrentUser((prev) => ({ ...prev, logo: photoUrl }));
+        if (!resPhoto.ok)
+          throw new Error(dataPhoto.message || "Photo upload failed");
+
+        photoUrl = dataPhoto.photoUrl || dataPhoto.logo?.url;
+        setCurrentUser((prev) => ({ ...prev, logo: { url: photoUrl } }));
         setPhoto(null);
         setUploadingPhoto(false);
       }
@@ -107,13 +103,16 @@ export default function ProfilePage() {
         body: JSON.stringify({ name, email }),
       });
       const dataProfile = await resProfile.json();
-      if (!resProfile.ok) throw new Error(dataProfile.message || "Profile update failed");
+      if (!resProfile.ok)
+        throw new Error(dataProfile.message || "Profile update failed");
       setCurrentUser((prev) => ({ ...prev, name, email }));
 
       // 3️⃣ Update password if provided
       if (currentPassword || newPassword || confirmPassword) {
-        if (newPassword.length < 8) throw new Error("New password must be at least 8 characters");
-        if (newPassword !== confirmPassword) throw new Error("New password and confirm password do not match");
+        if (newPassword.length < 8)
+          throw new Error("New password must be at least 8 characters");
+        if (newPassword !== confirmPassword)
+          throw new Error("New password and confirm password do not match");
 
         const resPass = await fetch(`${API_URL}/profile/me/password`, {
           method: "PUT",
@@ -122,7 +121,9 @@ export default function ProfilePage() {
           body: JSON.stringify({ currentPassword, newPassword }),
         });
         const dataPass = await resPass.json();
-        if (!resPass.ok) throw new Error(dataPass.message || "Password change failed");
+        if (!resPass.ok)
+          throw new Error(dataPass.message || "Password change failed");
+
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -149,7 +150,7 @@ export default function ProfilePage() {
         {/* PHOTO UPLOAD */}
         <div className="flex flex-col items-center mb-6 relative">
           <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-gray-300">
-            {photoPreview ? (
+            {photoPreview && photoPreview.trim() !== "" ? (
               <Image
                 src={photoPreview}
                 alt="Profile"
@@ -158,15 +159,21 @@ export default function ProfilePage() {
                 className="object-cover w-full h-full"
               />
             ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
-                U
+              <div className="w-full h-full bg-gray-300 flex items-center justify-center text-white font-bold">
+                {currentUser?.name?.charAt(0) || "U"}
               </div>
             )}
           </div>
+
           {/* Camera Icon */}
           <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer shadow-lg">
             <FiCamera />
-            <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
           </label>
         </div>
 

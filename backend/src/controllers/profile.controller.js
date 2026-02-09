@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
+import cloudinary from "../config/cloudinary.js";
 
 export const getMyProfile = async (req, res) => {
   try {
@@ -47,17 +48,23 @@ export const updateProfilePhoto = async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // ✅ req.file.path already contains the Cloudinary URL
-    user.logo = req.file.path;
+    // Delete old photo if exists
+    if (user.logo?.public_id) {
+      await cloudinary.uploader.destroy(user.logo.public_id);
+    }
+    user.logo = {
+      url: req.file.path,
+      public_id: req.file.filename,
+    };
+
     await user.save();
 
-    res.json({ message: "Profile photo updated", photoUrl: user.logo });
+    res.json({ message: "Profile photo updated", photoUrl: user.logo.url });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Photo upload failed" });
   }
 };
-
 
 export const changePassword = async (req, res) => {
   try {
