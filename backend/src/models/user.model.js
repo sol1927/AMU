@@ -7,9 +7,11 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      select: false, // 👈 this is the key
+      select: false, // 👈 ensures password is not returned by default
     },
     role: { type: String, default: "admin" },
+
+    logo: { type: String }, // 👈 store Cloudinary URL here
 
     trustedDevices: [
       {

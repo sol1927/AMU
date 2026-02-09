@@ -3,11 +3,11 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "../context/UserContext"; // ✅ import UserContext
+import { useUser } from "../context/UserContext";
 
 export default function AdminNavbar() {
   const router = useRouter();
-  const { currentUser } = useUser(); // ✅ get logged-in user
+  const { currentUser } = useUser(); // ✅ reactive user context
   const [openMenu, setOpenMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -46,20 +46,22 @@ export default function AdminNavbar() {
           onClick={() => setOpenMenu(!openMenu)}
           className="flex items-center gap-2 text-white hover:opacity-90"
         >
-          {currentUser?.logo ? (
-            <Image
-              src={currentUser.logo}
-              alt="Profile"
-              width={32}
-              height={32}
-              className="rounded-full object-cover"
-              priority
-            />
-          ) : (
-            <div className="w-8 h-8 bg-white text-slate-800 flex items-center justify-center rounded-full font-bold">
-              {currentUser?.name?.charAt(0) || "U"}
-            </div>
-          )}
+          <div className="w-8 h-8 rounded-full overflow-hidden">
+            {currentUser?.logo ? (
+              <Image
+                src={currentUser.logo}
+                alt="Profile"
+                width={32}
+                height={32}
+                className="object-cover w-full h-full"
+                priority
+              />
+            ) : (
+              <div className="w-full h-full bg-white text-slate-800 flex items-center justify-center font-bold">
+                {currentUser?.name?.charAt(0) || "U"}
+              </div>
+            )}
+          </div>
 
           <span className="font-medium">{currentUser?.name || "User"}</span>
           <span
