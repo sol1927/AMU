@@ -65,8 +65,9 @@ export const resetPassword = async (req, res) => {
   try {
     const { email, token, newPassword } = req.body;
 
-    if (!email || !token || !newPassword)
+    if (!email || !token || !newPassword) {
       return res.status(400).json({ message: "All fields are required" });
+    }
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -76,17 +77,42 @@ export const resetPassword = async (req, res) => {
       resetTokenExpires: { $gt: new Date() },
     });
 
-    if (!user)
+    if (!user) {
       return res
         .status(400)
         .json({ message: "Link expired. Check your latest email." });
+    }
 
+    // 2️⃣ Password rules
+    const rules = [
+      { test: (pw) => pw.length >= 8, message: "At least 8 characters" },
+      { test: (pw) => /[A-Z]/.test(pw), message: "One uppercase letter (A-Z)" },
+      { test: (pw) => /[a-z]/.test(pw), message: "One lowercase letter (a-z)" },
+      { test: (pw) => /\d/.test(pw), message: "One number (0-9)" },
+      {
+        test: (pw) => /[@$!%*?&]/.test(pw),
+        message: "One special character (@$!%*?&)",
+      },
+    ];
+
+    const failedRules = rules.filter((rule) => !rule.test(newPassword));
+    if (failedRules.length > 0) {
+      return res.status(400).json({
+        message: `New password must include: ${failedRules
+          .map((r) => r.message)
+          .join(", ")}`,
+      });
+    }
+
+    // Prevent reusing old password
     const isSame = await bcrypt.compare(newPassword, user.password);
-    if (isSame)
+    if (isSame) {
       return res.status(400).json({
         message: "New password cannot be the same as the old password",
       });
+    }
 
+    // Hash and save
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
 

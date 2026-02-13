@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 
-export default function ForgotPassword() {
+export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success"); // "success" or "error"
@@ -13,6 +13,13 @@ export default function ForgotPassword() {
     const timer = setTimeout(() => setMessage(""), 2000);
     return () => clearTimeout(timer);
   }, [message]);
+
+  useEffect(() => {
+    if (show) {
+      setEmail("");
+      setMessage("");
+    }
+  }, [show]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,11 +54,16 @@ export default function ForgotPassword() {
     }
   };
 
+  if (!show) return null;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md"
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end items-start"
+      onClick={onClose} // close when clicking outside
+    >
+      <div
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-8 mt-20 mr-6"
+        onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside
       >
         <h2 className="text-3xl font-extrabold mb-6 text-center text-gray-800">
           Forgot Password
@@ -72,37 +84,43 @@ export default function ForgotPassword() {
           </p>
         )}
 
-        <input
-          type="email"
-          placeholder="Enter your email"
-          value={email}
-          required
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 mb-6 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
-        />
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <input
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            required
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-3 mb-6 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-800 placeholder-gray-500"
+          />
 
-        <button
-          type="submit"
-          disabled={loading}
-          className={`w-full p-2 rounded text-white ${
-            loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-green-500 hover:bg-green-600"
-          }`}
-        >
-          {loading ? "Sending..." : "Send Reset Link"}
-        </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full p-2 rounded text-white ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-500 hover:bg-green-600"
+            }`}
+          >
+            {loading ? "Sending..." : "Send Reset Link"}
+          </button>
+        </form>
 
         <p className="text-center text-gray-500 text-sm mt-6">
           Remembered your password?{" "}
-          <a
-            href="/login"
+          <button
+            type="button"
+            onClick={() => {
+              onClose(); // close forgot password modal
+              onOpenLogin(); // open login modal
+            }}
             className="text-green-600 font-semibold hover:underline"
           >
             Sign In
-          </a>
+          </button>
         </p>
-      </form>
+      </div>
     </div>
   );
 }

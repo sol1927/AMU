@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useUser } from "../../context/UserContext";
 import { FiCamera } from "react-icons/fi";
+import { IoChevronBackSharp } from "react-icons/io5";
+
+import AdminPasswordModal from "../../components/AdminPasswordModal";
+import EmailChangeModal from "../../components/EmailChangeModal";
+import ChangePasswordModal from "../../components/ChangePasswordModal";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -17,16 +22,24 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  // MODAL STATES
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [showEmailChangeModal, setShowEmailChangeModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Clear admin password error after 2 seconds
+  useEffect(() => {
+    if (!passwordError) return; // do nothing if no error
+    const timer = setTimeout(() => setPasswordError(""), 2000);
+    return () => clearTimeout(timer); // cleanup
+  }, [passwordError]);
 
   // ======================
   // LOAD PROFILE
@@ -41,8 +54,7 @@ export default function ProfilePage() {
 
         const data = await res.json();
         setName(data.user?.name || "");
-        setEmail(data.user?.email || "");
-        setPhotoPreview(data.user?.logo?.url || ""); // use logo.url if Cloudinary
+        setPhotoPreview(data.user?.logo?.url || "");
         setCurrentUser((prev) => ({ ...prev, ...data.user }));
       } catch {
         router.replace("/login");
@@ -64,7 +76,7 @@ export default function ProfilePage() {
   };
 
   // ======================
-  // SAVE ALL CHANGES
+  // SAVE NAME & PHOTO
   // ======================
   const handleSaveChanges = async (e) => {
     e.preventDefault();
@@ -95,62 +107,84 @@ export default function ProfilePage() {
         setUploadingPhoto(false);
       }
 
-      // 2️⃣ Update profile info
+      // 2️⃣ Update name only
       const resProfile = await fetch(`${API_URL}/profile/me`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name }),
       });
       const dataProfile = await resProfile.json();
+
       if (!resProfile.ok)
         throw new Error(dataProfile.message || "Profile update failed");
-      setCurrentUser((prev) => ({ ...prev, name, email }));
 
-      // 3️⃣ Update password if provided
-      if (currentPassword || newPassword || confirmPassword) {
-        if (newPassword.length < 8)
-          throw new Error("New password must be at least 8 characters");
-        if (newPassword !== confirmPassword)
-          throw new Error("New password and confirm password do not match");
-
-        const resPass = await fetch(`${API_URL}/profile/me/password`, {
-          method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ currentPassword, newPassword }),
-        });
-        const dataPass = await resPass.json();
-        if (!resPass.ok)
-          throw new Error(dataPass.message || "Password change failed");
-
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      }
-
+      setCurrentUser((prev) => ({ ...prev, name }));
       setPhotoPreview(photoUrl);
-      setMessage("All changes saved successfully");
+
+      // ✅ Show message from backend
+      setMessage(dataProfile.message || "Changes saved successfully");
+
+      // ✅ disappear after 2 seconds
+      setTimeout(() => setMessage(""), 2000);
     } catch (err) {
       console.error(err);
       setError(err.message || "Something went wrong");
+      // disappear after 2 seconds
+      setTimeout(() => setError(""), 2000);
     } finally {
       setSavingChanges(false);
       setUploadingPhoto(false);
     }
   };
 
+  // ======================
+  // HANDLE ADMIN PASSWORD SUBMIT
+  // ======================
+  const handleAdminPasswordSubmit = async (enteredPassword) => {
+    try {
+      const res = await fetch(`${API_URL}/profile/me/verify-admin-password`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: enteredPassword }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPasswordError(data.message || "Incorrect password");
+        return;
+      }
+
+      // password correct → open EmailChangeModal
+      setShowAdminPasswordModal(false);
+      setPasswordError("");
+      setShowEmailChangeModal(true);
+    } catch (err) {
+      console.error(err);
+      setPasswordError("Something went wrong");
+    }
+  };
+
   if (loading) return <p className="p-6">Loading...</p>;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center items-start py-12 px-4">
+    <div className="min-h-screen flex justify-center items-start pt-24">
+      <button
+        onClick={() => router.push("/dashboard")}
+        title="Back to Dashboard"
+        className="fixed left-4 z-10 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg"
+      >
+        <IoChevronBackSharp className="w-5 h-5" />
+      </button>
+
       <div className="w-full max-w-lg bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-bold mb-6 text-center">Edit Profile</h1>
 
         {/* PHOTO UPLOAD */}
         <div className="flex flex-col items-center mb-6 relative">
           <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-gray-300">
-            {photoPreview && photoPreview.trim() !== "" ? (
+            {photoPreview ? (
               <Image
                 src={photoPreview}
                 alt="Profile"
@@ -165,7 +199,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Camera Icon */}
           <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer shadow-lg">
             <FiCamera />
             <input
@@ -187,38 +220,35 @@ export default function ProfilePage() {
             className="w-full border rounded px-3 py-2"
             required
           />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full border rounded px-3 py-2"
-            required
-          />
 
-          <hr className="my-4" />
+          {/* EMAIL & PASSWORD BUTTONS */}
+          <div className="mt-6 flex flex-col gap-2">
+            {/* Email */}
+            <div className="w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-2 flex items-center justify-between text-gray-700">
+              <span className="truncate">
+                {currentUser?.email || "No email"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAdminPasswordModal(true)}
+                className="ml-2 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-sm transition"
+              >
+                Change
+              </button>
+            </div>
 
-          <input
-            type="password"
-            placeholder="Current Password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full border rounded px-3 py-2"
-          />
-          <input
-            type="password"
-            placeholder="New Password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full border rounded px-3 py-2"
-          />
-          <input
-            type="password"
-            placeholder="Confirm New Password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full border rounded px-3 py-2"
-          />
+            {/* Password */}
+            <div className="w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-2 flex items-center justify-between text-gray-700">
+              <span className="truncate">••••••••</span> {/* masked password */}
+              <button
+                type="button"
+                onClick={() => setShowChangePasswordModal(true)}
+                className="ml-2 bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition"
+              >
+                Change
+              </button>
+            </div>
+          </div>
 
           {/* MESSAGES */}
           {message && <p className="text-green-600 text-center">{message}</p>}
@@ -233,6 +263,32 @@ export default function ProfilePage() {
           </button>
         </form>
       </div>
+
+      {/* MODALS */}
+      {showAdminPasswordModal && (
+        <AdminPasswordModal
+          onCancel={() => {
+            setShowAdminPasswordModal(false);
+            setPasswordError("");
+          }}
+          onSubmit={handleAdminPasswordSubmit}
+          errorMessage={passwordError}
+        />
+      )}
+
+      {showEmailChangeModal && (
+        <EmailChangeModal
+          currentEmail={currentUser?.email}
+          onClose={() => setShowEmailChangeModal(false)}
+          setCurrentUser={setCurrentUser} // ✅ pass this
+        />
+      )}
+
+      {showChangePasswordModal && (
+        <ChangePasswordModal
+          onClose={() => setShowChangePasswordModal(false)}
+        />
+      )}
     </div>
   );
 }

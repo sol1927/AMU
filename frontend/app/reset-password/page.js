@@ -15,37 +15,10 @@ export default function ResetPassword() {
   const [messageType, setMessageType] = useState("error");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showRules, setShowRules] = useState(false);
 
   const rulesRef = useRef(null);
 
-  // Password rules
-  const rules = {
-    length: (pw) => pw.length >= 8,
-    uppercase: (pw) => /[A-Z]/.test(pw),
-    lowercase: (pw) => /[a-z]/.test(pw),
-    number: (pw) => /\d/.test(pw),
-    special: (pw) => /[@$!%*?&]/.test(pw),
-  };
-
-  const status = Object.fromEntries(
-    Object.entries(rules).map(([k, fn]) => [k, fn(newPassword)]),
-  );
-
-  const allValid = Object.values(status).every(Boolean);
-
-  // Hide rules when clicking outside
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (rulesRef.current && !rulesRef.current.contains(e.target)) {
-        if (allValid) setShowRules(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [allValid]);
-
-  // Auto-hide message
+  // Auto-hide message after 2s
   useEffect(() => {
     if (!message) return;
     const t = setTimeout(() => setMessage(""), 2000);
@@ -55,20 +28,6 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!allValid) {
-      setMessageType("error");
-      setMessage("Password does not meet all requirements");
-      setShowRules(true);
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setMessageType("error");
-      setMessage("Passwords do not match");
-      setShowRules(true);
-      return;
-    }
-
     try {
       const res = await fetch("http://localhost:5000/api/auth/reset-password", {
         method: "POST",
@@ -77,7 +36,7 @@ export default function ResetPassword() {
           email,
           token,
           newPassword,
-          confirmPassword, // ✅ FIXED
+          confirmPassword,
         }),
       });
 
@@ -90,7 +49,7 @@ export default function ResetPassword() {
       }
 
       setMessageType("success");
-      setMessage("Password reset successful");
+      setMessage(data.message || "Password reset successful");
 
       setTimeout(() => router.push("/login"), 1500);
     } catch {
@@ -118,15 +77,27 @@ export default function ResetPassword() {
         <h2 className="text-2xl font-bold mb-4 text-center">Reset Password</h2>
 
         {message && (
-          <p
-            className={`mb-4 p-2 text-center rounded ${
+          <div
+            className={`mb-4 p-2 rounded ${
               messageType === "success"
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-700"
             }`}
           >
-            {message}
-          </p>
+            {/* If backend message contains multiple rules, render as list */}
+            {message.includes("New password must include:") ? (
+              <ul className="list-disc list-inside text-left">
+                {message
+                  .replace("New password must include:", "")
+                  .split(",")
+                  .map((rule, idx) => (
+                    <li key={idx}>{rule.trim()}</li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="text-center">{message}</p>
+            )}
+          </div>
         )}
 
         {/* New Password */}
@@ -136,7 +107,6 @@ export default function ResetPassword() {
             placeholder="New Password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            onFocus={() => setShowRules(true)}
             required
             className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
@@ -167,39 +137,6 @@ export default function ResetPassword() {
             {showConfirm ? "Hide" : "Show"}
           </button>
         </div>
-
-        {/* Password Rules */}
-        {showRules && !allValid && (
-          <div
-            ref={rulesRef}
-            className="mb-4 p-3 bg-gray-50 border rounded text-sm"
-          >
-            <p className="font-semibold mb-1">Password must include:</p>
-            <ul className="space-y-1">
-              <li className={status.length ? "text-green-600" : "text-red-600"}>
-                {status.length ? "✅" : "❌"} At least 8 characters
-              </li>
-              <li
-                className={status.uppercase ? "text-green-600" : "text-red-600"}
-              >
-                {status.uppercase ? "✅" : "❌"} Uppercase letter
-              </li>
-              <li
-                className={status.lowercase ? "text-green-600" : "text-red-600"}
-              >
-                {status.lowercase ? "✅" : "❌"} Lowercase letter
-              </li>
-              <li className={status.number ? "text-green-600" : "text-red-600"}>
-                {status.number ? "✅" : "❌"} Number
-              </li>
-              <li
-                className={status.special ? "text-green-600" : "text-red-600"}
-              >
-                {status.special ? "✅" : "❌"} Special character
-              </li>
-            </ul>
-          </div>
-        )}
 
         <button
           type="submit"

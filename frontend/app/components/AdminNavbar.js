@@ -1,14 +1,14 @@
-"use client";
-
+import ConfirmModal from "./ConfirmModal";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useUser } from "../context/UserContext";
 
 export default function AdminNavbar() {
   const router = useRouter();
-  const { currentUser } = useUser(); // ✅ reactive user context
+  const { currentUser } = useUser();
   const [openMenu, setOpenMenu] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const menuRef = useRef(null);
 
   // Close dropdown if clicked outside
@@ -22,7 +22,13 @@ export default function AdminNavbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogoutClick = () => {
+    setOpenMenu(false);       // close dropdown
+    setShowLogoutModal(true); // show modal
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
     await fetch("http://localhost:5000/api/auth/logout", {
       method: "POST",
       credentials: "include",
@@ -31,47 +37,45 @@ export default function AdminNavbar() {
   };
 
   return (
-    <header className="bg-slate-800 px-6 py-4 flex justify-between items-center shadow">
-      {/* LEFT */}
-      <div className="flex items-center gap-2 text-white">
-        <div className="w-9 h-9 bg-white text-slate-800 flex items-center justify-center rounded-full font-bold">
-          W
-        </div>
-        <span className="text-lg font-semibold">Website Name</span>
+    <header className="fixed top-0 left-0 w-full z-50 bg-slate-800 px-6 py-4 flex justify-between items-center shadow">
+      {/* LEFT: Logo */}
+      <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push("/dashboard")}>
+        <Image
+          src="/logo.png"
+          alt="Logo"
+          width={36}
+          height={36}
+          className="rounded-full object-cover"
+          priority
+        />
+        <span className="text-lg font-semibold text-white">Website Name</span>
       </div>
 
-      {/* RIGHT */}
+      {/* RIGHT: User Menu */}
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setOpenMenu(!openMenu)}
           className="flex items-center gap-2 text-white hover:opacity-90"
         >
           <div className="w-8 h-8 rounded-full overflow-hidden">
-            <div className="w-8 h-8 rounded-full overflow-hidden">
-  {currentUser?.logo?.url ? (
-    <Image
-      src={currentUser.logo.url}
-      alt="Profile"
-      width={32}
-      height={32}
-      className="object-cover w-full h-full rounded-full"
-      priority
-    />
-  ) : (
-    <div className="w-full h-full bg-white text-slate-800 flex items-center justify-center rounded-full font-bold">
-      {currentUser?.name?.charAt(0) || "U"}
-    </div>
-  )}
-</div>
-
+            {currentUser?.logo?.url ? (
+              <Image
+                src={currentUser.logo.url}
+                alt="Profile"
+                width={32}
+                height={32}
+                className="object-cover w-full h-full rounded-full"
+                priority
+              />
+            ) : (
+              <div className="w-full h-full bg-white text-slate-800 flex items-center justify-center rounded-full font-bold">
+                {currentUser?.name?.charAt(0) || "U"}
+              </div>
+            )}
           </div>
 
           <span className="font-medium">{currentUser?.name || "User"}</span>
-          <span
-            className={`text-xs transition-transform duration-200 ${
-              openMenu ? "rotate-180" : ""
-            }`}
-          >
+          <span className={`text-xs transition-transform duration-200 ${openMenu ? "rotate-180" : ""}`}>
             ▼
           </span>
         </button>
@@ -115,12 +119,22 @@ export default function AdminNavbar() {
           <div className="border-t" />
 
           <button
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className="w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100"
           >
             Logout
           </button>
         </div>
+
+        {/* SEPARATE LOGOUT CONFIRM MODAL */}
+        <ConfirmModal
+          open={showLogoutModal}
+          position={{ top: "3rem", right: 0 }} // next to dropdown
+          title="Logout Confirmation"
+          message="Are you sure you want to logout?"
+          onCancel={() => setShowLogoutModal(false)}
+          onConfirm={confirmLogout}
+        />
       </div>
     </header>
   );
