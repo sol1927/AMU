@@ -1,3 +1,5 @@
+"use client";
+
 import ConfirmModal from "./ConfirmModal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -23,7 +25,7 @@ export default function AdminNavbar() {
   }, []);
 
   const handleLogoutClick = () => {
-    setOpenMenu(false);       // close dropdown
+    setOpenMenu(false); // close dropdown
     setShowLogoutModal(true); // show modal
   };
 
@@ -33,13 +35,16 @@ export default function AdminNavbar() {
       method: "POST",
       credentials: "include",
     });
-    router.replace("/login");
+    router.replace("/");
   };
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-slate-800 px-6 py-4 flex justify-between items-center shadow">
       {/* LEFT: Logo */}
-      <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push("/dashboard")}>
+      <div
+        className="flex items-center gap-2 cursor-pointer"
+        onClick={() => router.push("/dashboard")}
+      >
         <Image
           src="/logo.png"
           alt="Logo"
@@ -75,7 +80,9 @@ export default function AdminNavbar() {
           </div>
 
           <span className="font-medium">{currentUser?.name || "User"}</span>
-          <span className={`text-xs transition-transform duration-200 ${openMenu ? "rotate-180" : ""}`}>
+          <span
+            className={`text-xs transition-transform duration-200 ${openMenu ? "rotate-180" : ""}`}
+          >
             ▼
           </span>
         </button>

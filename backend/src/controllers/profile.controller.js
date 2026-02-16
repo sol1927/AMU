@@ -7,6 +7,16 @@ import jwt from "jsonwebtoken";
 import TempEmailChange from "../models/TempEmailChange.model.js";
 import { createTransporter } from "../utils/mailer.js";
 
+// 🔐 In-memory admin password attempt tracker
+const adminAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+const formatMinutes = (ms) => {
+  const minutes = Math.ceil(ms / (60 * 1000));
+  return `${minutes} minute${minutes > 1 ? "s" : ""}`;
+};
+
 export const getMyProfile = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("name email role logo");
@@ -141,29 +151,62 @@ export const changePassword = async (req, res) => {
 };
 
 // ✅ New function to verify admin password
+// ✅ Verify admin password (anti brute-force)
 export const verifyAdminPassword = async (req, res) => {
   try {
     const { password } = req.body;
+    const ip = req.ip;
 
+    // 1️⃣ Validate input
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    // 🔐 use logged-in admin from JWT
+    // 2️⃣ Check lock status
+    const record = adminAttempts.get(ip);
+    if (record && record.count >= MAX_ATTEMPTS) {
+      const remaining = record.resetTime - Date.now();
+      if (remaining > 0) {
+        return res.status(429).json({
+          message: `Too many attempts. Try again after ${formatMinutes(
+            remaining,
+          )}.`,
+        });
+      }
+      // ⏱️ Window expired → reset
+      adminAttempts.delete(ip);
+    }
+
+    // 3️⃣ Get logged-in admin (JWT required)
     const admin = await User.findById(req.userId).select("+password");
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
+    // 4️⃣ Compare password
     const isMatch = await bcrypt.compare(password, admin.password);
+
     if (!isMatch) {
+      // ❌ Failed attempt
+      if (!record) {
+        adminAttempts.set(ip, {
+          count: 1,
+          resetTime: Date.now() + WINDOW_MS,
+        });
+      } else {
+        record.count += 1;
+      }
+
       return res.status(401).json({ message: "Wrong password" });
     }
 
-    res.status(200).json({ message: "Password correct" });
+    // 5️⃣ ✅ SUCCESS → reset attempts
+    adminAttempts.delete(ip);
+
+    return res.status(200).json({ message: "Password correct" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("verifyAdminPassword error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

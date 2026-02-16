@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { clearExpiredResetTokens } from "./utils/cleanup.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import adminProfileRoutes from "./routes/adminProfile.routes.js";
+import campusRoutes from "./routes/campus.route.js";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/profile", adminProfileRoutes);
+app.use("/api/campus", campusRoutes);
 
 // 🔄 Schedule expired reset token cleanup
 setInterval(clearExpiredResetTokens, 3600000); // every hour

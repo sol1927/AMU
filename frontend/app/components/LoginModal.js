@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useTempAdmin } from "../context/TempAdminContext";
 import { useUser } from "../context/UserContext";
 
@@ -72,13 +71,21 @@ export default function LoginModal({ show, onClose, onLoginSuccess }) {
         return;
       }
 
-      setCurrentUser(data.user);
+      // ✅ Set current user
+      setCurrentUser({ ...data.user, role: data.role });
       setMessageType("success");
       setMessage("Login successful");
+
+      // ✅ Redirect based on role
       setTimeout(() => {
         onLoginSuccess?.(data.user);
+        if (data.role === "admin") {
+          router.push("/dashboard"); // Admin dashboard
+        } else if (data.role === "campus") {
+          router.push("/campus"); // Campus dashboard
+        }
       }, 800);
-    } catch {
+    } catch (err) {
       setMessageType("error");
       setMessage("Something went wrong");
       triggerShake();

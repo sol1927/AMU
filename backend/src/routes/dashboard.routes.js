@@ -1,8 +1,6 @@
 import express from "express";
 import { verifyToken } from "../middlewares/auth.middleware.js";
-import {
-  getAdminDashboard,
-} from "../controllers/dashboard.controller.js";
+import { getAdminDashboard } from "../controllers/dashboard.controller.js";
 import {
   createCampus,
   getCampuses,
@@ -20,7 +18,7 @@ router.get("/", verifyToken, getAdminDashboard);
 router.post("/campuses", verifyToken, createCampus);
 router.get("/campuses", verifyToken, getCampuses);
 // router.get("/campuses/:id", verifyToken, getCampus);
-router.put("/campuses/:id", verifyToken, updateCampus);
+router.patch("/campuses/:id", verifyToken, updateCampus);
 router.delete("/campuses/:id", verifyToken, deleteCampus);
 
 export default router;

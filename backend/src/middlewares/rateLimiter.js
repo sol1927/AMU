@@ -76,17 +76,3 @@ export const deviceOtpLimiter = rateLimit({
     });
   },
 });
-
-// Admin password verify limiter (anti brute-force)
-export const adminPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // allow max 5 attempts in 15 min
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    const retryAfter = formatMs(req.rateLimit.resetTime - Date.now());
-    return res.status(429).json({
-      message: `Too many attempts. Try again after ${retryAfter}.`,
-    });
-  },
-});
