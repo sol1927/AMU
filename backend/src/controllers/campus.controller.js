@@ -10,8 +10,6 @@ const campusAttempts = new Map();
 const MAX_ATTEMPTS = 5; // max tries
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes window
 
-const formatMinutes = (ms) => Math.ceil(ms / 60000);
-
 export const createCampus = async (req, res) => {
   try {
     if (req.userRole !== "admin") {
@@ -93,15 +91,32 @@ export const createCampus = async (req, res) => {
 };
 
 export const getCampuses = async (req, res) => {
-  if (req.userRole !== "admin") {
-    return res.status(403).json({ message: "Access denied" });
+  try {
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Fetch all campuses created by this admin
+    const campuses = await Campus.find({ createdBy: req.userId })
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .lean(); // plain JS objects
+
+    // Add the actual student count for each campus
+    const campusesWithStudentCount = await Promise.all(
+      campuses.map(async (campus) => {
+        const studentsCount = await Student.countDocuments({
+          campus: campus._id,
+        });
+        return { ...campus, students: studentsCount };
+      }),
+    );
+
+    res.json({ campuses: campusesWithStudentCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch campuses" });
   }
-
-  const campuses = await Campus.find({ createdBy: req.userId })
-    .select("-password")
-    .sort({ createdAt: -1 });
-
-  res.json({ campuses });
 };
 
 // export const getCampus = async (req, res) => {
@@ -242,20 +257,39 @@ export const updateCampus = async (req, res) => {
 };
 
 export const deleteCampus = async (req, res) => {
-  if (req.userRole !== "admin") {
-    return res.status(403).json({ message: "Access denied" });
+  try {
+    const { id } = req.params;
+
+    // 1️⃣ Find campus
+    const campus = await Campus.findById(id);
+    if (!campus) return res.status(404).json({ message: "Campus not found" });
+
+    // 2️⃣ Delete all students of that campus
+    const students = await Student.find({ campus: campus._id });
+
+    // 3️⃣ Delete each student's photo from Cloudinary
+    for (const student of students) {
+      if (student.profilePublicId) {
+        await cloudinary.uploader.destroy(student.profilePublicId);
+      }
+    }
+
+    // 4️⃣ Remove students from DB
+    await Student.deleteMany({ campus: campus._id });
+
+    // 5️⃣ Remove campus logo from Cloudinary if exists
+    if (campus.logoPublicId) {
+      await cloudinary.uploader.destroy(campus.logoPublicId);
+    }
+
+    // 6️⃣ Delete campus itself
+    await Campus.findByIdAndDelete(id);
+
+    res.json({ message: "Campus and its students deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
-
-  const campus = await Campus.findOneAndDelete({
-    _id: req.params.id,
-    createdBy: req.userId,
-  });
-
-  if (!campus) {
-    return res.status(404).json({ message: "Campus not found" });
-  }
-
-  res.json({ message: "Campus deleted successfully" });
 };
 
 // ---------- Campus Dashboard ----------
@@ -282,215 +316,60 @@ export const getCampusDashboard = async (req, res) => {
   }
 };
 
-// GET /api/campus/students?search=optionalQuery
-export const getCampusStudents = async (req, res) => {
-  try {
-    const campus = req.campus; // set from auth middleware
-    const search = req.query.search || "";
-
-    if (!campus) {
-      return res.status(404).json({ message: "Campus not found" });
-    }
-
-    // Find students for this campus
-    const students = await Student.find({
-      campus: campus._id,
-      name: { $regex: search, $options: "i" },
-    })
-      .sort({ name: 1 })
-      .select("name studentId batch department profileUrl");
-
-    if (!students.length) {
-      return res.json({ students: [] }); // frontend can show "Student not found"
-    }
-
-    res.json({ students });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch students" });
-  }
-};
-
-// Add student with optional photo upload
-export const addStudent = async (req, res) => {
-  try {
-    const { name, studentId, batch, department } = req.body;
-
-    // ✅ Validate required fields
-    if (!name || !studentId || !batch || !department) {
-      return res.status(400).json({
-        message: "Name, studentId, batch, and department are required",
-      });
-    }
-
-    let profileUrl = "";
-    let profilePublicId = "";
-
-    if (req.file) {
-      // ✅ Upload to Cloudinary: store URL and correct public_id (without extension)
-      profileUrl = req.file.path;
-      profilePublicId = req.file.filename.replace(/\.[^.]+$/, ""); // remove file extension
-    }
-
-    const student = await Student.create({
-      name,
-      studentId,
-      batch,
-      department,
-      profileUrl,
-      profilePublicId,
-      campus: req.campus._id,
-    });
-
-    res.status(201).json({ message: "Student added", student });
-  } catch (error) {
-    // Handle duplicate studentId
-    if (error.code === 11000) {
-      return res.status(400).json({ message: "Student ID must be unique" });
-    }
-
-    console.error("Add student error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
 export const verifyCampusPassword = async (req, res) => {
   try {
     const { password } = req.body;
+    const campusId = req.campus._id.toString(); // unique key per campus
 
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    // Use campus from middleware
-    const campus = await Campus.findById(req.campus._id).select("+password");
+    // Initialize attempts record if missing
+    if (!campusAttempts.has(campusId)) {
+      campusAttempts.set(campusId, { count: 0, firstAttemptAt: Date.now() });
+    }
+
+    const attempt = campusAttempts.get(campusId);
+
+    // Reset attempts if window passed
+    if (Date.now() - attempt.firstAttemptAt > WINDOW_MS) {
+      attempt.count = 0;
+      attempt.firstAttemptAt = Date.now();
+    }
+
+    // Block if max attempts reached
+    if (attempt.count >= MAX_ATTEMPTS) {
+      const minutesLeft = Math.ceil(
+        (WINDOW_MS - (Date.now() - attempt.firstAttemptAt)) / 60000,
+      );
+      return res.status(429).json({
+        message: `Too many attempts. Try again in ${minutesLeft} minute(s).`,
+      });
+    }
+
+    // Fetch campus password
+    const campus = await Campus.findById(campusId).select("+password");
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
 
     const isMatch = await bcrypt.compare(password, campus.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Wrong password" });
+      attempt.count += 1; // increment attempts
+      campusAttempts.set(campusId, attempt);
+
+      return res.status(401).json({
+        message: `Wrong password. ${MAX_ATTEMPTS - attempt.count} attempt(s) left.`,
+      });
     }
 
+    // Success → reset attempts
+    campusAttempts.delete(campusId);
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {
     console.error("verifyCampusPassword error:", err);
     return res.status(500).json({ message: "Server error" });
-  }
-};
-
-// ---------- Update Student ----------
-// PATCH /api/campus/students/:id
-export const updateStudent = async (req, res) => {
-  try {
-    const { name, studentId, batch, department } = req.body;
-
-    // Fetch student and verify it belongs to this campus
-    const student = await Student.findOne({
-      _id: req.params.id,
-      campus: req.campus._id,
-    });
-
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
-    }
-
-    // Update fields if provided
-    if (name) student.name = name;
-    if (studentId) student.studentId = studentId;
-    if (batch) student.batch = batch;
-    if (department) student.department = department;
-
-    await student.save();
-
-    res.json({
-      message: "Student updated successfully",
-      student,
-    });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ message: "Student ID must be unique" });
-    }
-    console.error(err);
-    res.status(500).json({ message: "Failed to update student" });
-  }
-};
-
-// ---------- Update Student Photo ----------
-export const updateStudentPhoto = async (req, res) => {
-  try {
-    if (!req.file)
-      return res.status(400).json({ message: "No image received" });
-
-    const student = await Student.findOne({
-      _id: req.params.id,
-      campus: req.campus._id,
-    });
-    if (!student) return res.status(404).json({ message: "Student not found" });
-
-    // Delete old photo from Cloudinary if exists
-    if (student.profilePublicId) {
-      try {
-        const result = await cloudinary.uploader.destroy(
-          student.profilePublicId,
-        );
-        if (result.result !== "ok" && result.result !== "not found") {
-          console.warn(`Cloudinary deletion issue: ${result.result}`);
-        }
-      } catch (err) {
-        console.error("Cloudinary delete error:", err);
-      }
-    }
-
-    // Save new photo info
-    student.profileUrl = req.file.path;
-    student.profilePublicId = req.file.filename.replace(/\.[^.]+$/, ""); // remove extension
-
-    await student.save();
-
-    res.json({
-      message: "Student photo updated",
-      profileUrl: student.profileUrl,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update photo" });
-  }
-};
-
-// ---------- Delete Student ----------
-export const deleteStudent = async (req, res) => {
-  try {
-    const student = await Student.findOne({
-      _id: req.params.id,
-      campus: req.campus._id,
-    });
-
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
-    }
-
-    // Delete photo from Cloudinary if exists
-    if (student.profilePublicId) {
-      try {
-        const result = await cloudinary.uploader.destroy(
-          student.profilePublicId,
-        );
-        if (result.result !== "ok" && result.result !== "not found") {
-          console.warn(`Cloudinary deletion issue: ${result.result}`);
-        }
-      } catch (err) {
-        console.error("Cloudinary delete error:", err);
-      }
-    }
-
-    await student.deleteOne();
-
-    res.json({ message: "Student deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to delete student" });
   }
 };
 

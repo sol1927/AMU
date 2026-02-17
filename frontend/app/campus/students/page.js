@@ -5,6 +5,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import AddStudentModal from "@/app/components/AddStudentModal";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
+import EditStudentModal from "@/app/components/EditStudentModal";
 
 export default function CampusStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -20,6 +21,8 @@ export default function CampusStudentsPage() {
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [passwordError, setPasswordError] = useState("");
   const [campusPassword, setCampusPassword] = useState("");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [studentToEditData, setStudentToEditData] = useState(null);
 
   /* ---------------- Fetch students ---------------- */
   const fetchStudents = async (query = "") => {
@@ -96,9 +99,8 @@ export default function CampusStudentsPage() {
       if (pendingAction === "delete" && studentToDelete) {
         await handleDelete(studentToDelete);
         setStudentToDelete(null);
-      } else if (pendingAction === "edit" && studentToEdit) {
-        // Redirect to edit page
-        window.location.href = `/campus/edit-student/${studentToEdit}`;
+      } else if (pendingAction === "edit" && studentToEditData) {
+        setShowEditModal(true); // Open edit modal after password is verified
       }
 
       setPendingAction(null);
@@ -121,6 +123,15 @@ export default function CampusStudentsPage() {
       if (!res.ok) throw new Error(data.message || "Delete failed");
 
       setStudents((prev) => prev.filter((s) => s._id !== id));
+
+      // Update campus students count
+      setCampuses((prev) =>
+        prev.map((c) =>
+          c._id === data.student.campus
+            ? { ...c, students: (c.students || 1) - 1 }
+            : c,
+        ),
+      );
     } catch (err) {
       alert(err.message);
     }
@@ -135,7 +146,7 @@ export default function CampusStudentsPage() {
     <>
       <CampusNavbar />
 
-      <div className="pt-24 h-screen max-w-5xl mx-auto px-6 flex flex-col overflow-hidden">
+      <div className="pt-24 h-screen max-w-5xl mx-auto px-6 flex flex-col">
         {/* Header */}
         <div>
           <div className="flex justify-between items-center mb-4">
@@ -172,11 +183,11 @@ export default function CampusStudentsPage() {
         </div>
 
         {/* Students list */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1 relative">
           {sortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex items-center gap-4 bg-white px-4 py-3 rounded shadow-sm text-sm"
+              className="flex items-center gap-4 bg-white px-4 py-3 rounded shadow-sm text-sm relative"
             >
               <span className="w-10 font-medium">{index + 1}</span>
 
@@ -216,18 +227,22 @@ export default function CampusStudentsPage() {
                 </button>
 
                 {openMenuId === student._id && (
-                  <div className="menu-button absolute right-0 top-full mt-1 w-28 bg-white border rounded shadow z-10">
+                  <div className="absolute right-0 top-full mt-1 w-28 bg-white border rounded shadow z-50">
                     <button
                       className="block w-full px-3 py-2 text-sm hover:bg-gray-100"
                       onClick={() => {
-                        setStudentToEdit(student._id);
-                        setPendingAction("edit");
-                        setShowPasswordModal(true);
-                        setOpenMenuId(null);
+                        const studentData = students.find(
+                          (s) => s._id === student._id,
+                        );
+                        setStudentToEditData(studentData); // Save student for edit modal
+                        setPendingAction("edit"); // Mark pending action as edit
+                        setShowPasswordModal(true); // Open campus password modal first
+                        setOpenMenuId(null); // Close dropdown
                       }}
                     >
                       Edit
                     </button>
+
                     <button
                       className="block w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
                       onClick={() => {
@@ -287,6 +302,81 @@ export default function CampusStudentsPage() {
 
               setStudents((prev) => [...prev, data.student]);
               setShowAddModal(false);
+
+              // Update campus students count
+              setCampuses((prev) =>
+                prev.map((c) =>
+                  c._id === data.student.campus
+                    ? { ...c, students: (c.students || 0) + 1 }
+                    : c,
+                ),
+              );
+            } catch (err) {
+              return err.message;
+            }
+          }}
+        />
+      )}
+
+      {showEditModal && studentToEditData && (
+        <EditStudentModal
+          student={studentToEditData} // Pass the student object
+          onCancel={() => setShowEditModal(false)}
+          onSubmit={async ({
+            id,
+            name,
+            studentId,
+            department,
+            batch,
+            photo,
+          }) => {
+            try {
+              // 1️⃣ Update text fields (JSON)
+              const resText = await fetch(
+                `http://localhost:5000/api/campus/students/${id}`,
+                {
+                  method: "PUT",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ name, studentId, department, batch }),
+                },
+              );
+              const dataText = await resText.json();
+              if (!resText.ok)
+                throw new Error(dataText.message || "Update failed");
+
+              // 2️⃣ Update photo if exists
+              let updatedStudent = dataText.student;
+              if (photo) {
+                const formData = new FormData();
+                formData.append("photo", photo);
+
+                const resPhoto = await fetch(
+                  `http://localhost:5000/api/campus/students/${id}/photo`,
+                  {
+                    method: "PUT",
+                    credentials: "include",
+                    body: formData,
+                  },
+                );
+                const dataPhoto = await resPhoto.json();
+                if (!resPhoto.ok)
+                  throw new Error(dataPhoto.message || "Photo update failed");
+
+                // update student object with new photo URL
+                updatedStudent = {
+                  ...updatedStudent,
+                  profileUrl: dataPhoto.profileUrl,
+                };
+              }
+
+              // 3️⃣ Update state
+              setStudents((prev) =>
+                prev.map((s) =>
+                  s._id === updatedStudent._id ? updatedStudent : s,
+                ),
+              );
+              setShowEditModal(false);
             } catch (err) {
               return err.message;
             }

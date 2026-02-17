@@ -20,14 +20,14 @@ export default function DashboardLayout({ children }) {
         });
 
         if (!res.ok) {
-          router.replace("/login");
+          router.replace("/");
           return;
         }
 
         const data = await res.json();
         setStats(data.stats); // only dashboard stats
       } catch {
-        router.replace("/login");
+        router.replace("/");
       } finally {
         setLoading(false);
       }

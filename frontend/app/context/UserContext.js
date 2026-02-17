@@ -9,11 +9,27 @@ export const UserProvider = ({ children }) => {
 
   // Optionally fetch /me on app load to restore user after refresh
   useEffect(() => {
-    fetch("http://localhost:5000/api/profile/me", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => setCurrentUser(data.user))
-      .catch(() => setCurrentUser(null));
-  }, []);
+  const fetchUser = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/profile/me", {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        setCurrentUser(null);
+        return;
+      }
+
+      const data = await res.json();
+      setCurrentUser(data.user);
+    } catch {
+      setCurrentUser(null);
+    }
+  };
+
+  fetchUser();
+}, []);
+
 
   return (
     <UserContext.Provider value={{ currentUser, setCurrentUser }}>

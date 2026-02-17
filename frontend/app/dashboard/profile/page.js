@@ -50,14 +50,14 @@ export default function ProfilePage() {
         const res = await fetch(`${API_URL}/profile/me`, {
           credentials: "include",
         });
-        if (!res.ok) return router.replace("/login");
+        if (!res.ok) return router.replace("/");
 
         const data = await res.json();
         setName(data.user?.name || "");
         setPhotoPreview(data.user?.logo?.url || "");
         setCurrentUser((prev) => ({ ...prev, ...data.user }));
       } catch {
-        router.replace("/login");
+        router.replace("/");
       } finally {
         setLoading(false);
       }
@@ -166,7 +166,8 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) return <p className="p-6">Loading...</p>;
+  if (loading)
+    return <p className="p-6 text-gray-500">Checking authentication...</p>;
 
   return (
     <div className="min-h-screen flex justify-center items-start pt-24">

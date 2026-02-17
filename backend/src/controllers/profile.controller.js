@@ -173,7 +173,7 @@ export const verifyAdminPassword = async (req, res) => {
           )}.`,
         });
       }
-      // ⏱️ Window expired → reset
+      // Reset if window expired
       adminAttempts.delete(ip);
     }
 
@@ -195,13 +195,25 @@ export const verifyAdminPassword = async (req, res) => {
         });
       } else {
         record.count += 1;
+        adminAttempts.set(ip, record);
       }
 
-      return res.status(401).json({ message: "Wrong password" });
+      return res.status(401).json({
+        message: `Wrong password. ${
+          MAX_ATTEMPTS - (record?.count || 1)
+        } attempt(s) left.`,
+      });
     }
 
-    // 5️⃣ ✅ SUCCESS → reset attempts
-    adminAttempts.delete(ip);
+    // 5️⃣ ✅ SUCCESS → decrement attempt or reset
+    if (record) {
+      // Option 1: Remove entirely after success
+      adminAttempts.delete(ip);
+
+      // Option 2: Or decrement count gradually (optional)
+      // record.count = Math.max(0, record.count - 1);
+      // adminAttempts.set(ip, record);
+    }
 
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {

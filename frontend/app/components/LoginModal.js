@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTempAdmin } from "../context/TempAdminContext";
 import { useUser } from "../context/UserContext";
+import { useCampus } from "../context/CampusContext";
 
 export default function LoginModal({ show, onClose, onLoginSuccess }) {
   const { setCurrentUser } = useUser();
@@ -14,13 +15,14 @@ export default function LoginModal({ show, onClose, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
+  const { setCurrentCampus } = useCampus();
 
   const router = useRouter();
   const { setEmail: setTempEmail } = useTempAdmin();
 
   useEffect(() => {
     if (!message) return;
-    const timer = setTimeout(() => setMessage(""), 2000);
+    const timer = setTimeout(() => setMessage(""), 3000);
     return () => clearTimeout(timer);
   }, [message]);
 
@@ -72,7 +74,16 @@ export default function LoginModal({ show, onClose, onLoginSuccess }) {
       }
 
       // ✅ Set current user
+      // ✅ Set current user
       setCurrentUser({ ...data.user, role: data.role });
+
+      // ✅ Handle campus context properly
+      if (data.role === "campus") {
+        setCurrentCampus(data.user);
+      } else {
+        setCurrentCampus(null); // prevent stale campus data
+      }
+
       setMessageType("success");
       setMessage("Login successful");
 

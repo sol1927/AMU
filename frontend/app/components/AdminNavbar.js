@@ -35,7 +35,7 @@ export default function AdminNavbar() {
       method: "POST",
       credentials: "include",
     });
-    router.replace("/");
+    window.location.replace("/");
   };
 
   return (

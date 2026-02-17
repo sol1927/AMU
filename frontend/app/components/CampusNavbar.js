@@ -40,7 +40,7 @@ export default function CampusNavbar() {
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-slate-800 px-6 py-4 flex justify-between items-center shadow">
-      {/* LEFT: Logo */}
+      {/* LEFT: Static Website Name */}
       <div
         className="flex items-center gap-2 cursor-pointer"
         onClick={() => router.push("/campus")}
@@ -53,12 +53,10 @@ export default function CampusNavbar() {
           className="rounded-full object-cover"
           priority
         />
-        <span className="text-lg font-semibold text-white">
-          {currentCampus?.name || "Campus"}
-        </span>
+        <span className="text-lg font-semibold text-white">Website Name</span>
       </div>
 
-      {/* RIGHT: User Menu */}
+      {/* RIGHT: Campus Menu */}
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setOpenMenu(!openMenu)}

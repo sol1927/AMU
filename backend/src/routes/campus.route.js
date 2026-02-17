@@ -2,13 +2,15 @@ import express from "express";
 import {
   logoutCampus,
   getCampusDashboard,
-  addStudent,
-  getCampusStudents,
-  updateStudentPhoto,
   verifyCampusPassword,
-  updateStudent, // newly added
-  deleteStudent, // newly added
 } from "../controllers/campus.controller.js";
+import {
+  getCampusStudents,
+  addStudent,
+  updateStudent,
+  updateStudentPhoto,
+  deleteStudent,
+} from "../controllers/student.controller.js";
 import { protectCampus } from "../middlewares/campusAuth.js";
 import upload from "../middlewares/upload.js"; // multer-cloudinary
 
@@ -30,7 +32,7 @@ router.get("/students", protectCampus, getCampusStudents);
 router.post("/verify-campus-password", protectCampus, verifyCampusPassword);
 
 // ---------- Update Student ----------
-router.patch("/students/:id", protectCampus, updateStudent);
+router.put("/students/:id", protectCampus, updateStudent);
 
 // ---------- Delete Student ----------
 router.delete("/students/:id", protectCampus, deleteStudent);

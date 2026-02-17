@@ -61,7 +61,7 @@ export default function CampusesPage() {
           { credentials: "include" },
         );
         if (!res.ok) {
-          router.replace("/login");
+          router.replace("/");
           return;
         }
         const data = await res.json();
@@ -135,6 +135,7 @@ export default function CampusesPage() {
     }
 
     setCampuses((prev) => prev.filter((c) => c._id !== id));
+
     showToast("Campus deleted");
   };
 
@@ -199,7 +200,7 @@ export default function CampusesPage() {
 
             {/* Students */}
             <span className="text-gray-500 w-[80px] text-center">
-              {campus.students || 0} {/* starts from 0 */}
+              {campus.students} {/* real count from backend */}
             </span>
 
             {/* Email */}
@@ -287,7 +288,7 @@ export default function CampusesPage() {
             const res = await fetch(
               `http://localhost:5000/api/dashboard/campuses/${data.id}`,
               {
-                method: "PUT",
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify(data),
