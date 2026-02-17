@@ -9,7 +9,7 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
   const [department, setDepartment] = useState(student.department);
   const [batch, setBatch] = useState(student.batch);
   const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(student.photoUrl || null);
+  const [photoPreview, setPhotoPreview] = useState(student.profileUrl || null);
   const [fastingType, setFastingType] = useState(
     student.fastingType || "not_fasting",
   );
@@ -71,14 +71,13 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
     setError("");
     setLoading(true);
 
-    // If fields are empty, fallback to previous values
     const updatedStudent = {
       id: student._id,
       name: name || student.name,
       studentId: studentId || student.studentId,
       department: department || student.department,
       batch: batch || student.batch,
-      fastingType: fastingType || "not_fasting", // ✅ Add this
+      fastingType: fastingType || "not_fasting",
       photo: photo || null,
     };
 
@@ -102,9 +101,36 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
         onSubmit={handleSubmit}
         className="bg-white p-6 rounded-lg shadow-lg w-[600px] max-h-[90vh] overflow-y-auto flex flex-col gap-4"
       >
-        <h3 className="text-lg font-bold">Edit Student</h3>
+        <h3 className="text-lg font-bold text-center">Edit Student</h3>
 
-        {error && <p className="text-red-600">{error}</p>}
+        {error && <p className="text-red-600 text-center">{error}</p>}
+
+        {/* Current Photo */}
+        {/* Current Photo */}
+<div className="flex flex-col items-center mb-4">
+  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-indigo-200 shadow-md mb-2">
+    <img
+      src={
+        photoPreview || student.profileUrl || "/placeholder.png"
+      }
+      alt={student.name}
+      className="w-full h-full object-cover"
+    />
+  </div>
+  <p className="text-sm text-gray-600 mb-2">Current Photo</p>
+  <input
+    type="file"
+    accept="image/*"
+    onChange={(e) => {
+      if (e.target.files[0]) {
+        setPhoto(e.target.files[0]);
+        setPhotoPreview(URL.createObjectURL(e.target.files[0]));
+      }
+    }}
+    className="border p-2 rounded w-full text-sm"
+  />
+</div>
+
 
         <input
           type="text"
@@ -145,21 +171,13 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
           <option value="sunday_fasting">Sunday Fasting</option>
         </select>
 
-        {/* Photo */}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="border p-2 rounded"
-        />
-
         {/* Webcam Capture */}
         <div>
           {!capturing ? (
             <button
               type="button"
               onClick={startCamera}
-              className="bg-blue-600 text-white px-4 py-2 rounded"
+              className="bg-blue-600 text-white px-4 py-2 rounded w-full"
             >
               Capture from Camera
             </button>
@@ -174,14 +192,14 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
                 <button
                   type="button"
                   onClick={capturePhoto}
-                  className="bg-green-600 text-white px-4 py-2 rounded"
+                  className="bg-green-600 text-white px-4 py-2 rounded flex-1"
                 >
                   Take Photo
                 </button>
                 <button
                   type="button"
                   onClick={stopCamera}
-                  className="bg-red-600 text-white px-4 py-2 rounded"
+                  className="bg-red-600 text-white px-4 py-2 rounded flex-1"
                 >
                   Stop Camera
                 </button>
@@ -191,17 +209,7 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
           )}
         </div>
 
-        {photoPreview && (
-          <div>
-            <p className="font-medium mb-1">Photo Preview:</p>
-            <img
-              src={photoPreview}
-              alt="Preview"
-              className="w-32 h-32 object-cover rounded border"
-            />
-          </div>
-        )}
-
+        {/* Actions */}
         <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"

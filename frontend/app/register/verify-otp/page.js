@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTempAdmin } from "../../context/TempAdminContext";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function VerifyOTPPage() {
   const router = useRouter();
   const { email } = useTempAdmin(); // read email from context
@@ -40,7 +42,7 @@ export default function VerifyOTPPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/verify-otp", {
+      const res = await fetch(`${url}/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
@@ -70,7 +72,7 @@ export default function VerifyOTPPage() {
     if (!email) return;
     setResending(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/request-otp", {
+      const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -159,7 +161,7 @@ export default function VerifyOTPPage() {
 
           <button
             type="button"
-            onClick={() => router.push("/login")}
+            onClick={() => router.push("/")}
             className="text-sm text-gray-600 hover:underline"
           >
             Back to Login

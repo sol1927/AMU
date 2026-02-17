@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCampus } from "../context/CampusContext";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function CampusNavbar() {
   const router = useRouter();
   const { currentCampus } = useCampus();
@@ -31,7 +33,7 @@ export default function CampusNavbar() {
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
-    await fetch("http://localhost:5000/api/campus/logout", {
+    await fetch(`${url}/campus/logout`, {
       method: "POST",
       credentials: "include",
     });

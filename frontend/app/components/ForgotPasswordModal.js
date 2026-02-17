@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -27,14 +29,11 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        "http://localhost:5000/api/auth/request-password-reset",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        },
-      );
+      const res = await fetch(`${url}/auth/request-password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
       const data = await res.json();
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function EmailChangeModal({
   currentEmail,
   onClose,
@@ -13,8 +15,6 @@ export default function EmailChangeModal({
   const [success, setSuccess] = useState("");
   const [isRequesting, setIsRequesting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-
-  const API_URL = "http://localhost:5000/api/profile";
 
   // Auto-hide success messages after 2 seconds
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function EmailChangeModal({
     setIsRequesting(true);
 
     try {
-      const res = await fetch(`${API_URL}/me/email/request-otp`, {
+      const res = await fetch(`${url}profile/me/email/request-otp`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -70,7 +70,7 @@ export default function EmailChangeModal({
     setIsVerifying(true);
 
     try {
-      const res = await fetch(`${API_URL}/me/email/verify-otp`, {
+      const res = await fetch(`${url}profile/me/email/verify-otp`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

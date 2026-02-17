@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function SetPassword() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -59,7 +61,7 @@ export default function SetPassword() {
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/auth/set-password", {
+      const res = await fetch(`${url}/auth/set-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -70,7 +72,7 @@ export default function SetPassword() {
       setMessage(data.message);
       setTimeout(() => setMessage(""), 2000);
 
-      if (res.ok) setTimeout(() => router.push("/login"), 1500);
+      if (res.ok) setTimeout(() => router.push("/"), 1500);
     } catch {
       setMessage("Connection error. Please try again.");
       setTimeout(() => setMessage(""), 2000);
@@ -190,7 +192,7 @@ export default function SetPassword() {
           Already have an account?{" "}
           <button
             type="button"
-            onClick={() => router.push("/login")}
+            onClick={() => router.push("/")}
             className="text-green-600 font-semibold hover:underline"
           >
             Go to Login

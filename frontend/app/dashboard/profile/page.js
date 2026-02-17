@@ -11,7 +11,7 @@ import AdminPasswordModal from "../../components/AdminPasswordModal";
 import EmailChangeModal from "../../components/EmailChangeModal";
 import ChangePasswordModal from "../../components/ChangePasswordModal";
 
-const API_URL = "http://localhost:5000/api";
+const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -47,7 +47,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await fetch(`${API_URL}/profile/me`, {
+        const res = await fetch(`${url}/profile/me`, {
           credentials: "include",
         });
         if (!res.ok) return router.replace("/");
@@ -92,7 +92,7 @@ export default function ProfilePage() {
         setUploadingPhoto(true);
         const formData = new FormData();
         formData.append("photo", photo);
-        const resPhoto = await fetch(`${API_URL}/profile/me/photo`, {
+        const resPhoto = await fetch(`${url}/profile/me/photo`, {
           method: "PUT",
           credentials: "include",
           body: formData,
@@ -108,7 +108,7 @@ export default function ProfilePage() {
       }
 
       // 2️⃣ Update name only
-      const resProfile = await fetch(`${API_URL}/profile/me`, {
+      const resProfile = await fetch(`${url}/profile/me`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -143,7 +143,7 @@ export default function ProfilePage() {
   // ======================
   const handleAdminPasswordSubmit = async (enteredPassword) => {
     try {
-      const res = await fetch(`${API_URL}/profile/me/verify-admin-password`, {
+      const res = await fetch(`${url}/profile/me/verify-admin-password`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

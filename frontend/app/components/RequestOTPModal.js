@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTempAdmin } from "../context/TempAdminContext";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
   const router = useRouter();
   const { email, setEmail, name, setName } = useTempAdmin();
@@ -24,7 +26,7 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/request-otp", {
+      const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email }),

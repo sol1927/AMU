@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "../context/UserContext";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function AdminNavbar() {
   const router = useRouter();
   const { currentUser } = useUser();
@@ -31,7 +33,7 @@ export default function AdminNavbar() {
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
-    await fetch("http://localhost:5000/api/auth/logout", {
+    await fetch(`${url}/auth/logout`, {
       method: "POST",
       credentials: "include",
     });

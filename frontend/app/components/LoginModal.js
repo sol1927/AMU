@@ -6,6 +6,8 @@ import { useTempAdmin } from "../context/TempAdminContext";
 import { useUser } from "../context/UserContext";
 import { useCampus } from "../context/CampusContext";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function LoginModal({ show, onClose, onLoginSuccess }) {
   const { setCurrentUser } = useUser();
   const [email, setEmail] = useState("");
@@ -50,7 +52,7 @@ export default function LoginModal({ show, onClose, onLoginSuccess }) {
       localStorage.setItem("deviceId", deviceId);
       const deviceName = "My Device";
 
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch(`${url}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

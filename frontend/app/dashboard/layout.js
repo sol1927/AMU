@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import AdminNavbar from "../components/AdminNavbar";
 import { useUser } from "../context/UserContext"; // ✅ import user context
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function DashboardLayout({ children }) {
   const router = useRouter();
   const { currentUser } = useUser(); // ✅ get logged-in user
@@ -15,7 +17,7 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/dashboard", {
+        const res = await fetch(`${url}/dashboard`, {
           credentials: "include",
         });
 

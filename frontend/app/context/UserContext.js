@@ -4,32 +4,33 @@ import { createContext, useContext, useState, useEffect } from "react";
 const UserContext = createContext();
 UserContext.displayName = "UserContext";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export const UserProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
 
   // Optionally fetch /me on app load to restore user after refresh
   useEffect(() => {
-  const fetchUser = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/profile/me", {
-        credentials: "include",
-      });
+    const fetchUser = async () => {
+      try {
+        const res = await fetch(`${url}/profile/me`, {
+          credentials: "include",
+        });
 
-      if (!res.ok) {
+        if (!res.ok) {
+          setCurrentUser(null);
+          return;
+        }
+
+        const data = await res.json();
+        setCurrentUser(data.user);
+      } catch {
         setCurrentUser(null);
-        return;
       }
+    };
 
-      const data = await res.json();
-      setCurrentUser(data.user);
-    } catch {
-      setCurrentUser(null);
-    }
-  };
-
-  fetchUser();
-}, []);
-
+    fetchUser();
+  }, []);
 
   return (
     <UserContext.Provider value={{ currentUser, setCurrentUser }}>

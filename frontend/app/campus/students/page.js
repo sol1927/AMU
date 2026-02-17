@@ -7,6 +7,8 @@ import AddStudentModal from "@/app/components/AddStudentModal";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import EditStudentModal from "@/app/components/EditStudentModal";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function CampusStudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,10 +30,9 @@ export default function CampusStudentsPage() {
   const fetchStudents = async (query = "") => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/campus/students?search=${query}`,
-        { credentials: "include" },
-      );
+      const res = await fetch(`${url}/campus/students?search=${query}`, {
+        credentials: "include",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setStudents(data.students || []);
@@ -74,15 +75,12 @@ export default function CampusStudentsPage() {
   /* ---------------- Handle password verification ---------------- */
   const handlePasswordSubmit = async (enteredPassword) => {
     try {
-      const res = await fetch(
-        "http://localhost:5000/api/campus/verify-campus-password",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ password: enteredPassword }),
-        },
-      );
+      const res = await fetch(`${url}/campus/verify-campus-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password: enteredPassword }),
+      });
 
       const data = await res.json();
 
@@ -112,13 +110,10 @@ export default function CampusStudentsPage() {
   /* ---------------- Actions ---------------- */
   const handleDelete = async (id) => {
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/campus/students/${id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
+      const res = await fetch(`${url}/campus/students/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Delete failed");
 
@@ -300,14 +295,11 @@ export default function CampusStudentsPage() {
               formData.append("fastingType", fastingType); // ✅ ADD THIS
               formData.append("photo", photo);
 
-              const res = await fetch(
-                "http://localhost:5000/api/campus/students",
-                {
-                  method: "POST",
-                  credentials: "include",
-                  body: formData,
-                },
-              );
+              const res = await fetch(`${url}/campus/students`, {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+              });
 
               const data = await res.json();
               if (!res.ok)
@@ -346,21 +338,18 @@ export default function CampusStudentsPage() {
           }) => {
             try {
               // 1️⃣ Update text fields (JSON)
-              const resText = await fetch(
-                `http://localhost:5000/api/campus/students/${id}`,
-                {
-                  method: "PUT",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    name,
-                    studentId,
-                    department,
-                    batch,
-                    fastingType,
-                  }),
-                },
-              );
+              const resText = await fetch(`${url}/campus/students/${id}`, {
+                method: "PUT",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name,
+                  studentId,
+                  department,
+                  batch,
+                  fastingType,
+                }),
+              });
               const dataText = await resText.json();
               if (!resText.ok)
                 throw new Error(dataText.message || "Update failed");
@@ -372,7 +361,7 @@ export default function CampusStudentsPage() {
                 formData.append("photo", photo);
 
                 const resPhoto = await fetch(
-                  `http://localhost:5000/api/campus/students/${id}/photo`,
+                  `${url}/campus/students/${id}/photo`,
                   {
                     method: "PUT",
                     credentials: "include",

@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function ResetPassword() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,7 +31,7 @@ export default function ResetPassword() {
     e.preventDefault();
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/reset-password", {
+      const res = await fetch(`${url}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -51,7 +53,7 @@ export default function ResetPassword() {
       setMessageType("success");
       setMessage(data.message || "Password reset successful");
 
-      setTimeout(() => router.push("/login"), 1500);
+      setTimeout(() => router.push("/"), 1500);
     } catch {
       setMessageType("error");
       setMessage("Connection error. Please try again.");

@@ -7,6 +7,8 @@ import AdminPasswordModal from "../../components/AdminPasswordModal";
 import AddCampusModal from "../../components/AddCampusModal";
 import EditCampusModal from "../../components/EditCampusModal";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function CampusesPage() {
   const router = useRouter();
 
@@ -56,10 +58,9 @@ export default function CampusesPage() {
   useEffect(() => {
     const fetchCampuses = async () => {
       try {
-        const res = await fetch(
-          "http://localhost:5000/api/dashboard/campuses",
-          { credentials: "include" },
-        );
+        const res = await fetch(`${url}/dashboard/campuses`, {
+          credentials: "include",
+        });
         if (!res.ok) {
           router.replace("/");
           return;
@@ -77,15 +78,12 @@ export default function CampusesPage() {
 
   const handleAdminPasswordSubmit = async (enteredPassword) => {
     try {
-      const res = await fetch(
-        "http://localhost:5000/api/profile/me/verify-admin-password",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: enteredPassword }),
-          credentials: "include",
-        },
-      );
+      const res = await fetch(`${url}/profile/me/verify-admin-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: enteredPassword }),
+        credentials: "include",
+      });
 
       const data = await res.json();
 
@@ -123,10 +121,10 @@ export default function CampusesPage() {
 
   // Delete campus
   const handleDelete = async (id) => {
-    const res = await fetch(
-      `http://localhost:5000/api/dashboard/campuses/${id}`,
-      { method: "DELETE", credentials: "include" },
-    );
+    const res = await fetch(`${url}/dashboard/campuses/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
     const data = await res.json();
 
     if (!res.ok) {
@@ -285,15 +283,12 @@ export default function CampusesPage() {
             setShowEditModal(false);
           }}
           onSubmit={async (data) => {
-            const res = await fetch(
-              `http://localhost:5000/api/dashboard/campuses/${data.id}`,
-              {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify(data),
-              },
-            );
+            const res = await fetch(`${url}/dashboard/campuses/${data.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify(data),
+            });
             const result = await res.json();
 
             if (res.ok) {
@@ -321,15 +316,12 @@ export default function CampusesPage() {
                 throw new Error("Password must be at least 6 characters");
 
               // Create campus (backend will validate email format)
-              const res = await fetch(
-                "http://localhost:5000/api/dashboard/campuses",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({ name, location, email, password }),
-                },
-              );
+              const res = await fetch(`${url}/dashboard/campuses`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ name, location, email, password }),
+              });
               const data = await res.json();
 
               if (!res.ok) {

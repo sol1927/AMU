@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function ChangePasswordModal({ onClose }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -72,7 +74,7 @@ export default function ChangePasswordModal({ onClose }) {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/profile/me/password", {
+      const res = await fetch(`${url}/profile/me/password`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

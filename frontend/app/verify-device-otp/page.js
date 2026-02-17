@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTempAdmin } from "../context/TempAdminContext";
 
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function VerifyDeviceOtp() {
   const router = useRouter();
   const { email, setEmail } = useTempAdmin();
@@ -48,15 +50,12 @@ export default function VerifyDeviceOtp() {
 
     setLoading(true);
     try {
-      const res = await fetch(
-        "http://localhost:5000/api/auth/verify-device-otp",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ otp }),
-        },
-      );
+      const res = await fetch(`${url}/auth/verify-device-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ otp }),
+      });
 
       const data = await res.json();
 
@@ -80,13 +79,10 @@ export default function VerifyDeviceOtp() {
   const handleResend = async () => {
     setResending(true);
     try {
-      const res = await fetch(
-        "http://localhost:5000/api/auth/resend-device-otp",
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
+      const res = await fetch(`${url}/auth/resend-device-otp`, {
+        method: "POST",
+        credentials: "include",
+      });
 
       const data = await res.json();
 
@@ -167,7 +163,7 @@ export default function VerifyDeviceOtp() {
 
           <button
             type="button"
-            onClick={() => router.push("/login")}
+            onClick={() => router.push("/")}
             className="text-sm text-gray-600"
           >
             Back to Login

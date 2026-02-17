@@ -5,7 +5,7 @@ backend/dist/
 
 # Front‑end
 frontend/node_modules/
-frontend/.env
+frontend/.env.local
 frontend/.next
 frontend/out
 
