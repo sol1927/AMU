@@ -177,6 +177,7 @@ export default function CampusStudentsPage() {
               <span className="w-[120px]">Student ID</span>
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
+              <span className="w-[140px]">Fasting</span>
               <span className="w-6"></span>
             </div>
           )}
@@ -212,9 +213,13 @@ export default function CampusStudentsPage() {
               <span className="w-[120px] truncate">{student.studentId}</span>
               <span className="w-[120px] truncate">{student.department}</span>
               <span className="w-[80px] truncate">{student.batch}</span>
-
+              <span className="w-[140px] truncate">
+                {student.fastingType === "not_fasting" && "Not Fasting"}
+                {student.fastingType === "fasting" && "Fasting"}
+                {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
+              </span>
               {/* Menu */}
-              <div className="ml-auto relative">
+              <div className="ml-auto relative menu-button">
                 <button
                   className="menu-button"
                   onClick={() =>
@@ -272,7 +277,14 @@ export default function CampusStudentsPage() {
       {showAddModal && (
         <AddStudentModal
           onCancel={() => setShowAddModal(false)}
-          onSubmit={async ({ name, studentId, department, batch, photo }) => {
+          onSubmit={async ({
+            name,
+            studentId,
+            department,
+            batch,
+            fastingType,
+            photo,
+          }) => {
             try {
               if (!name.trim()) throw new Error("Name is required");
               if (!studentId.trim()) throw new Error("Student ID is required");
@@ -285,6 +297,7 @@ export default function CampusStudentsPage() {
               formData.append("studentId", studentId);
               formData.append("department", department);
               formData.append("batch", batch);
+              formData.append("fastingType", fastingType); // ✅ ADD THIS
               formData.append("photo", photo);
 
               const res = await fetch(
@@ -329,6 +342,7 @@ export default function CampusStudentsPage() {
             department,
             batch,
             photo,
+            fastingType,
           }) => {
             try {
               // 1️⃣ Update text fields (JSON)
@@ -338,7 +352,13 @@ export default function CampusStudentsPage() {
                   method: "PUT",
                   credentials: "include",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name, studentId, department, batch }),
+                  body: JSON.stringify({
+                    name,
+                    studentId,
+                    department,
+                    batch,
+                    fastingType,
+                  }),
                 },
               );
               const dataText = await resText.json();

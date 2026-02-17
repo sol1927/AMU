@@ -10,6 +10,9 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
   const [batch, setBatch] = useState(student.batch);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(student.photoUrl || null);
+  const [fastingType, setFastingType] = useState(
+    student.fastingType || "not_fasting",
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -75,7 +78,8 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
       studentId: studentId || student.studentId,
       department: department || student.department,
       batch: batch || student.batch,
-      photo: photo || null, // if no new photo, backend keeps existing
+      fastingType: fastingType || "not_fasting", // ✅ Add this
+      photo: photo || null,
     };
 
     const errMessage = await onSubmit(updatedStudent);
@@ -130,6 +134,16 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
           onChange={(e) => setBatch(e.target.value)}
           className="border p-2 rounded"
         />
+
+        <select
+          value={fastingType}
+          onChange={(e) => setFastingType(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="not_fasting">Not Fasting</option>
+          <option value="fasting">Fasting</option>
+          <option value="sunday_fasting">Sunday Fasting</option>
+        </select>
 
         {/* Photo */}
         <input

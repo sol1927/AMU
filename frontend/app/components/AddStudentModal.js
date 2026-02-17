@@ -12,6 +12,7 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fastingType, setFastingType] = useState("not_fasting");
 
   // ---------- Webcam ----------
   const videoRef = useRef(null);
@@ -79,8 +80,10 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
       studentId,
       department,
       batch,
+      fastingType, // ✅ added
       photo,
     });
+
     if (errMessage) setError(errMessage);
 
     setLoading(false);
@@ -142,6 +145,16 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
           onChange={handleFileChange}
           className="border p-2 rounded"
         />
+
+        <select
+          value={fastingType}
+          onChange={(e) => setFastingType(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="not_fasting">Not Fasting</option>
+          <option value="fasting">Fasting</option>
+          <option value="sunday_fasting">Sunday Fasting</option>
+        </select>
 
         {/* Webcam Capture */}
         <div>

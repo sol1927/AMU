@@ -20,7 +20,7 @@ export const getCampusStudents = async (req, res) => {
       name: { $regex: search, $options: "i" },
     })
       .sort({ name: 1 })
-      .select("name studentId batch department profileUrl");
+      .select("name studentId batch department profileUrl fastingType"); // ✅ added fastingType
 
     if (!students.length) {
       return res.json({ students: [] }); // frontend can show "Student not found"
@@ -36,7 +36,7 @@ export const getCampusStudents = async (req, res) => {
 // Add student with optional photo upload
 export const addStudent = async (req, res) => {
   try {
-    const { name, studentId, batch, department } = req.body;
+    const { name, studentId, batch, department, fastingType } = req.body;
 
     // ✅ Validate required fields
     if (!name || !studentId || !batch || !department) {
@@ -45,13 +45,18 @@ export const addStudent = async (req, res) => {
       });
     }
 
+    // ✅ Validate fastingType (optional but safe)
+    const allowedFastingTypes = ["not_fasting", "fasting", "sunday_fasting"];
+    const finalFastingType = allowedFastingTypes.includes(fastingType)
+      ? fastingType
+      : "not_fasting";
+
     let profileUrl = "";
     let profilePublicId = "";
 
     if (req.file) {
-      // ✅ Upload to Cloudinary: store URL and correct public_id (without extension)
       profileUrl = req.file.path;
-      profilePublicId = req.file.filename.replace(/\.[^.]+$/, ""); // remove file extension
+      profilePublicId = req.file.filename.replace(/\.[^.]+$/, "");
     }
 
     const student = await Student.create({
@@ -59,6 +64,7 @@ export const addStudent = async (req, res) => {
       studentId,
       batch,
       department,
+      fastingType: finalFastingType, // ✅ added
       profileUrl,
       profilePublicId,
       campus: req.campus._id,
@@ -66,7 +72,6 @@ export const addStudent = async (req, res) => {
 
     res.status(201).json({ message: "Student added", student });
   } catch (error) {
-    // Handle duplicate studentId
     if (error.code === 11000) {
       return res.status(400).json({ message: "Student ID must be unique" });
     }
@@ -80,7 +85,7 @@ export const addStudent = async (req, res) => {
 // PATCH /api/campus/students/:id
 export const updateStudent = async (req, res) => {
   try {
-    const { name, studentId, batch, department } = req.body;
+    const { name, studentId, batch, department, fastingType } = req.body;
 
     const student = await Student.findOne({
       _id: req.params.id,
@@ -96,12 +101,18 @@ export const updateStudent = async (req, res) => {
     if (studentId) student.studentId = studentId;
     if (batch) student.batch = batch;
     if (department) student.department = department;
+    if (
+      fastingType &&
+      ["not_fasting", "fasting", "sunday_fasting"].includes(fastingType)
+    ) {
+      student.fastingType = fastingType; // ✅ Update fastingType
+    }
 
     await student.save();
 
     res.json({
       message: "Student updated successfully",
-      student, // <-- make sure this is a plain JSON object
+      student,
     });
   } catch (err) {
     if (err.code === 11000) {

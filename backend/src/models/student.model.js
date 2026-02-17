@@ -31,6 +31,11 @@ const studentSchema = new mongoose.Schema(
       ref: "Campus",
       required: true,
     },
+    fastingType: {
+      type: String,
+      enum: ["not_fasting", "fasting", "sunday_fasting"],
+      default: "not_fasting",
+    },
     mealStatus: {
       breakfast: { type: Boolean, default: false }, // false = not eaten yet
       lunch: { type: Boolean, default: false },
