@@ -6,6 +6,7 @@ import { clearExpiredResetTokens } from "./utils/cleanup.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import adminProfileRoutes from "./routes/adminProfile.routes.js";
 import campusRoutes from "./routes/campus.route.js";
+import stationScanRoutes from "./routes/stationScan.routes.js";
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/profile", adminProfileRoutes);
 app.use("/api/campus", campusRoutes);
+app.use("/api/meal", stationScanRoutes);
 
 // 🔄 Schedule expired reset token cleanup
 setInterval(clearExpiredResetTokens, 3600000); // every hour
