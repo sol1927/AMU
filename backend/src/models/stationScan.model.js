@@ -14,7 +14,7 @@ const stationScanSchema = new mongoose.Schema(
     },
     date: { type: String, required: true }, // YYYY-MM-DD for session
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Prevent duplicate scan for same student in same session

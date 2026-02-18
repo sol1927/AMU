@@ -94,8 +94,8 @@ export default function CampusNavbar() {
         {/* DROPDOWN */}
         <div
           className={`absolute right-0 mt-3 w-48 bg-white text-gray-800 border shadow-lg
-            rounded-xl overflow-hidden transform transition-all duration-300
-            ${openMenu ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
+    rounded-xl overflow-hidden transform transition-all duration-300
+    ${openMenu ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
         >
           <button
             onClick={() => {
@@ -105,6 +105,26 @@ export default function CampusNavbar() {
             className="w-full px-4 py-2 text-left hover:bg-gray-100"
           >
             Dashboard
+          </button>
+
+          <button
+            onClick={() => {
+              setOpenMenu(false);
+              router.push("/campus/students");
+            }}
+            className="w-full px-4 py-2 text-left hover:bg-gray-100"
+          >
+            Student List
+          </button>
+
+          <button
+            onClick={() => {
+              setOpenMenu(false);
+              router.push("/campus/scan");
+            }}
+            className="w-full px-4 py-2 text-left hover:bg-gray-100"
+          >
+            Scan
           </button>
 
           <div className="border-t" />
