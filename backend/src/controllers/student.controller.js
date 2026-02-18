@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import upload from "../middlewares/upload.js";
+import StationScan from "../models/stationScan.model.js";
 
 export const getCampusStudents = async (req, res) => {
   try {
@@ -168,6 +169,7 @@ export const updateStudentPhoto = async (req, res) => {
 // ---------- Delete Student ----------
 export const deleteStudent = async (req, res) => {
   try {
+    // Find the student in this campus
     const student = await Student.findOne({
       _id: req.params.id,
       campus: req.campus._id,
@@ -191,9 +193,18 @@ export const deleteStudent = async (req, res) => {
       }
     }
 
+    // Delete all StationScan records for this student in this campus
+    await StationScan.deleteMany({
+      student: student._id,
+      campus: req.campus._id,
+    });
+
+    // Delete the student
     await student.deleteOne();
 
-    res.json({ message: "Student deleted successfully" });
+    res.json({
+      message: "Student and related station scans deleted successfully",
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to delete student" });

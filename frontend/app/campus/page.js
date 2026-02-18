@@ -10,7 +10,7 @@ export default function CampusDashboardPage() {
   if (loading) {
     return (
       <p className="p-6 text-center mt-24 text-gray-600">
-        Loading campus data...
+        Loading...
       </p>
     );
   }

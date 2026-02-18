@@ -6,6 +6,7 @@ import CampusNavbar from "@/app/components/CampusNavbar";
 import AddStudentModal from "@/app/components/AddStudentModal";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import EditStudentModal from "@/app/components/EditStudentModal";
+import { useCampus } from "@/app/context/CampusContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -25,6 +26,7 @@ export default function CampusStudentsPage() {
   const [campusPassword, setCampusPassword] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentToEditData, setStudentToEditData] = useState(null);
+  const { currentCampus, setStudentsLoading } = useCampus();
 
   /* ---------------- Fetch students ---------------- */
   const fetchStudents = async (query = "") => {
@@ -136,6 +138,11 @@ export default function CampusStudentsPage() {
     () => [...students].sort((a, b) => a.name.localeCompare(b.name)),
     [students],
   );
+
+  if (setStudentsLoading)
+    return <p className="p-6 text-center mt-24">Loading...</p>;
+  if (!currentCampus)
+    return <p className="p-6 text-center mt-24">Loading...</p>;
 
   return (
     <>

@@ -111,7 +111,6 @@ export const getCampuses = async (req, res) => {
         return { ...campus, students: studentsCount };
       }),
     );
-
     res.json({ campuses: campusesWithStudentCount });
   } catch (err) {
     console.error(err);
