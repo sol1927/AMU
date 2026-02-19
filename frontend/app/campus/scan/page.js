@@ -17,6 +17,7 @@ export default function StationScanPage() {
   const [campusPassword, setCampusPassword] = useState("");
   const [shokeKey, setShokeKey] = useState(0); // force container animation restart
   const { currentCampus, setStudentsLoading } = useCampus();
+  const [successMessage, setSuccessMessage] = useState("");
 
   const hiddenInputRef = useRef(null);
   const manualInputRef = useRef(null); // for manual input box
@@ -137,7 +138,8 @@ export default function StationScanPage() {
       setAllowed(null);
 
       hiddenInputRef.current?.focus();
-      alert("Station cleared. Students can eat again.");
+      setSuccessMessage("Station cleared. Students can eat again.");
+      setTimeout(() => setSuccessMessage(""), 3000); // disappear after 3s
     } catch (err) {
       setPasswordError("Something went wrong");
     }
@@ -151,6 +153,11 @@ export default function StationScanPage() {
   return (
     <>
       <CampusNavbar />
+      {successMessage && (
+        <div className="fixed bottom-6 right-6 bg-green-600 text-white font-bold text-center p-3 rounded-lg shadow z-50">
+          {successMessage}
+        </div>
+      )}
 
       <div className="pt-24 w-full min-h-[calc(100vh-96px)] flex flex-col items-center outline-none">
         {student && student.name !== "UNKNOWN STUDENT" && (
@@ -209,21 +216,21 @@ export default function StationScanPage() {
                   </p>
                   <p className="text-lg mb-1">Batch: {student.batch}</p>
                   {/* Fasting type */}
-                  <p className="text-lg mb-1">
+                  <p className="text-2xl mb-1">
                     Fasting:{" "}
                     {student.fastingType === "fasting"
-                      ? "Fasting"
+                      ? "ጾመኛ"
                       : student.fastingType === "sunday_fasting"
-                        ? "Sunday Fasting"
-                        : "Not Fasting"}
+                        ? "የእሁድ ጾመኛ"
+                        : "..."}
                   </p>
                   {/* Allowed / Not allowed */}
                   <p
-                    className={`text-lg font-bold mt-2 ${
+                    className={`text-3xl font-bold mt-2 ${
                       allowed ? "text-green-200" : "text-red-200"
                     }`}
                   >
-                    {allowed ? "Allowed to Eat ✅" : "Not Allowed ❌"}
+                    {allowed ? "ተፈቅዷል ✅" : "አልተፈቀደም ❌"}
                   </p>
                 </>
               )}

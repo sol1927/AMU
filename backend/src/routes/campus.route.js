@@ -10,6 +10,9 @@ import {
   updateStudent,
   updateStudentPhoto,
   deleteStudent,
+  getCampusBatches,
+  getStudentsByBatch,
+  deleteBatch,
 } from "../controllers/student.controller.js";
 import { protectCampus } from "../middlewares/campusAuth.js";
 import upload from "../middlewares/upload.js"; // multer-cloudinary
@@ -36,6 +39,10 @@ router.put("/students/:id", protectCampus, updateStudent);
 
 // ---------- Delete Student ----------
 router.delete("/students/:id", protectCampus, deleteStudent);
+router.get("/students/batches", protectCampus, getCampusBatches);
+router.get("/students/batch/:batch", protectCampus, getStudentsByBatch);
+// ---------- Delete a Batch ----------
+router.delete("/students/batch/:batch", protectCampus, deleteBatch);
 
 // ---------- Update Student Photo ----------
 router.put(

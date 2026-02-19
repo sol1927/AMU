@@ -7,6 +7,7 @@ import AddStudentModal from "@/app/components/AddStudentModal";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import EditStudentModal from "@/app/components/EditStudentModal";
 import { useCampus } from "@/app/context/CampusContext";
+import { useRouter } from "next/navigation";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -16,6 +17,7 @@ export default function CampusStudentsPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [openMenuId, setOpenMenuId] = useState(null);
+  const router = useRouter();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -26,15 +28,21 @@ export default function CampusStudentsPage() {
   const [campusPassword, setCampusPassword] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentToEditData, setStudentToEditData] = useState(null);
-  const { currentCampus, setStudentsLoading } = useCampus();
+  const { currentCampus, refreshCampus, setStudentsLoading } = useCampus();
+  const [fastingFilter, setFastingFilter] = useState(""); // "" | "fasting" | "not_fasting" | "sunday_fasting"
 
   /* ---------------- Fetch students ---------------- */
-  const fetchStudents = async (query = "") => {
+  const fetchStudents = async (query = "", fasting = "") => {
     setLoading(true);
     try {
-      const res = await fetch(`${url}/campus/students?search=${query}`, {
+      const params = new URLSearchParams();
+      if (query) params.append("search", query);
+      if (fasting) params.append("fastingType", fasting);
+
+      const res = await fetch(`${url}/campus/students?${params.toString()}`, {
         credentials: "include",
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setStudents(data.students || []);
@@ -54,14 +62,11 @@ export default function CampusStudentsPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const fetchData = async () => {
-        await fetchStudents(searchQuery);
-      };
-      fetchData();
+      fetchStudents(searchQuery, fastingFilter);
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, fastingFilter]);
 
   /* ---------------- Outside click for menu ---------------- */
   useEffect(() => {
@@ -121,23 +126,26 @@ export default function CampusStudentsPage() {
 
       setStudents((prev) => prev.filter((s) => s._id !== id));
 
-      // Update campus students count
-      setCampuses((prev) =>
-        prev.map((c) =>
-          c._id === data.student.campus
-            ? { ...c, students: (c.students || 1) - 1 }
-            : c,
-        ),
-      );
+      // 🔄 Refresh campus data so counts update
+      await refreshCampus();
     } catch (err) {
       alert(err.message);
     }
   };
 
-  const sortedStudents = useMemo(
-    () => [...students].sort((a, b) => a.name.localeCompare(b.name)),
-    [students],
-  );
+  const filteredAndSortedStudents = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+
+    return students
+      .filter(
+        (s) =>
+          s.name?.toLowerCase().includes(q) ||
+          s.studentId?.toLowerCase().includes(q) ||
+          s.department?.toLowerCase().includes(q) ||
+          s.batch?.toString().toLowerCase().includes(q),
+      )
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [students, searchQuery]);
 
   if (setStudentsLoading)
     return <p className="p-6 text-center mt-24">Loading...</p>;
@@ -149,6 +157,13 @@ export default function CampusStudentsPage() {
       <CampusNavbar />
 
       <div className="pt-24 h-screen max-w-5xl mx-auto px-6 flex flex-col">
+        <button
+          onClick={() => router.push("/campus/students/groups")}
+          className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
+        >
+          Group
+        </button>
+
         {/* Header */}
         <div>
           <div className="flex justify-between items-center mb-4">
@@ -162,17 +177,29 @@ export default function CampusStudentsPage() {
           </div>
 
           {/* Search */}
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search students..."
-            className="w-full p-2 mb-4 border rounded"
-          />
+          <div className="flex gap-2 mb-4">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search students..."
+              className="flex-1 p-2 border rounded"
+            />
+            <select
+              value={fastingFilter}
+              onChange={(e) => setFastingFilter(e.target.value)}
+              className="p-2 border rounded"
+            >
+              <option value="">All Fasting Types</option>
+              <option value="fasting">Fasting</option>
+              <option value="not_fasting">Not Fasting</option>
+              <option value="sunday_fasting">Sunday Fasting</option>
+            </select>
+          </div>
 
           {loading && <p className="text-center mt-12">Loading students...</p>}
 
           {/* Column Header */}
-          {!loading && sortedStudents.length > 0 && (
+          {!loading && filteredAndSortedStudents.length > 0 && (
             <div className="flex items-center gap-4 text-gray-500 text-sm font-medium px-4 py-2 mb-2 bg-gray-100 rounded">
               <span className="w-10">#</span>
               <span className="w-[180px]">Name</span>
@@ -187,7 +214,7 @@ export default function CampusStudentsPage() {
 
         {/* Students list */}
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 relative">
-          {sortedStudents.map((student, index) => (
+          {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
               className="flex items-center gap-4 bg-white px-4 py-3 rounded shadow-sm text-sm relative"
@@ -267,7 +294,7 @@ export default function CampusStudentsPage() {
             </div>
           ))}
 
-          {!loading && sortedStudents.length === 0 && (
+          {!loading && filteredAndSortedStudents.length === 0 && (
             <p className="text-center text-gray-500 mt-12">Student not found</p>
           )}
         </div>
