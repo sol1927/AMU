@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { FiCamera } from "react-icons/fi";
+import CameraModal from "./CameraModal";
 
 export default function AddStudentModal({ onCancel, onSubmit }) {
-  // ---------- Form State ----------
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
   const [department, setDepartment] = useState("");
@@ -13,58 +14,26 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [fastingType, setFastingType] = useState("not_fasting");
+  const fileInputRef = useRef(null);
+  const photoOptionsRef = useRef(null);
 
-  // ---------- Webcam ----------
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [capturing, setCapturing] = useState(false);
-
-  const startCamera = async () => {
-    setCapturing(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) {
-      console.error(err);
-      setError("Cannot access camera");
-      setCapturing(false);
-    }
-  };
-
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (video && canvas) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        setPhoto(blob);
-        setPhotoPreview(URL.createObjectURL(blob));
-      }, "image/jpeg");
-    }
-  };
-
-  const stopCamera = () => {
-    const video = videoRef.current;
-    if (video && video.srcObject) {
-      const tracks = video.srcObject.getTracks();
-      tracks.forEach((track) => track.stop());
-      video.srcObject = null;
-    }
-    setCapturing(false);
-  };
+  const [showCamera, setShowCamera] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
 
   const handleFileChange = (e) => {
-    if (e.target.files[0]) {
-      setPhoto(e.target.files[0]);
-      setPhotoPreview(URL.createObjectURL(e.target.files[0]));
+    const file = e.target.files?.[0];
+    if (file) {
+      console.log("Selected file:", file);
+      const previewUrl = URL.createObjectURL(file);
+      console.log("Preview URL:", previewUrl);
+      setPhoto(file);
+      setPhotoPreview(previewUrl);
     }
   };
 
+  // Submit handler
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError("");
     setLoading(true);
 
@@ -74,28 +43,44 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
       return;
     }
 
-    // Delegate submission to parent
     const errMessage = await onSubmit({
       name,
       studentId,
       department,
       batch,
-      fastingType, // ✅ added
+      fastingType,
       photo,
     });
 
     if (errMessage) setError(errMessage);
-
     setLoading(false);
   };
 
-  // Cleanup preview URL
+  // Cleanup URL
   useEffect(() => {
     return () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
-      stopCamera();
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
     };
-  }, [photoPreview]);
+  }, []); // run only on unmount
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        photoOptionsRef.current &&
+        !photoOptionsRef.current.contains(event.target)
+      ) {
+        setShowPhotoOptions(false);
+      }
+    };
+
+    if (showPhotoOptions)
+      document.addEventListener("mousedown", handleClickOutside);
+    else document.removeEventListener("mousedown", handleClickOutside);
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPhotoOptions]);
 
   return (
     <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-50">
@@ -107,6 +92,7 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
 
         {error && <p className="text-red-600">{error}</p>}
 
+        {/* Form Fields */}
         <input
           type="text"
           placeholder="Name*"
@@ -114,7 +100,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
           onChange={(e) => setName(e.target.value)}
           className="border p-2 rounded"
         />
-
         <input
           type="text"
           placeholder="Student ID*"
@@ -122,7 +107,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
           onChange={(e) => setStudentId(e.target.value)}
           className="border p-2 rounded"
         />
-
         <input
           type="text"
           placeholder="Department*"
@@ -130,19 +114,11 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
           onChange={(e) => setDepartment(e.target.value)}
           className="border p-2 rounded"
         />
-
         <input
           type="text"
           placeholder="Batch*"
           value={batch}
           onChange={(e) => setBatch(e.target.value)}
-          className="border p-2 rounded"
-        />
-
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
           className="border p-2 rounded"
         />
 
@@ -156,59 +132,91 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
           <option value="sunday_fasting">Sunday Fasting</option>
         </select>
 
-        {/* Webcam Capture */}
-        <div>
-          {!capturing ? (
-            <button
-              type="button"
-              onClick={startCamera}
-              className="bg-blue-600 text-white px-4 py-2 rounded"
-            >
-              Capture from Camera
-            </button>
-          ) : (
-            <>
-              <video
-                ref={videoRef}
-                autoPlay
-                className="w-full mb-2 rounded border"
+        {/* Photo Section */}
+        <div className="flex flex-col items-center mb-4 relative">
+          <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-gray-300">
+            {photoPreview ? (
+              <img
+                src={photoPreview}
+                alt="Student"
+                className="object-cover w-full h-full"
               />
-              <div className="flex gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  className="bg-green-600 text-white px-4 py-2 rounded"
-                >
-                  Take Photo
-                </button>
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="bg-red-600 text-white px-4 py-2 rounded"
-                >
-                  Stop Camera
-                </button>
+            ) : (
+              <div className="w-full h-full bg-gray-300 flex items-center justify-center text-white font-bold text-xl">
+                {name?.charAt(0)?.toUpperCase() || "S"}
               </div>
-              <canvas ref={canvasRef} className="hidden" />
-            </>
+            )}
+          </div>
+
+          {/* Open Camera / Upload Menu */}
+          <button
+            type="button"
+            onClick={() => setShowPhotoOptions(true)}
+            className="absolute bottom-0 right-0 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full shadow-lg"
+          >
+            <FiCamera />
+          </button>
+
+          {/* Popup menu */}
+          {showPhotoOptions && (
+            <div
+              ref={photoOptionsRef}
+              className="absolute bottom-12 right-0 border shadow-2xl rounded p-2 flex flex-col gap-2 z-50"
+            >
+              <button
+                type="button"
+                className="px-2 py-1 rounded text-sm hover:bg-gray-100 cursor-pointer"
+                onClick={() => {
+                  setShowCamera(true);
+                  setShowPhotoOptions(false);
+                }}
+              >
+                Use Camera
+              </button>
+              <button
+                type="button"
+                className="bg-gray-600 px-2 py-1 rounded text-sm hover:bg-gray-100 cursor-pointer"
+                onClick={() => {
+                  setShowPhotoOptions(false);
+                  fileInputRef.current?.click();
+                }}
+              >
+                Upload from Device
+              </button>
+            </div>
           )}
         </div>
 
-        {photoPreview && (
-          <div>
-            <p className="font-medium mb-1">Photo Preview:</p>
-            <img
-              src={photoPreview}
-              alt="Preview"
-              className="w-32 h-32 object-cover rounded border"
-            />
-          </div>
+        {/* Hidden input always present */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
+        {/* Camera Modal */}
+        {showCamera && (
+          <CameraModal
+            onCapture={(blob) => {
+              setPhoto(blob);
+              setPhotoPreview(URL.createObjectURL(blob));
+              setShowCamera(false);
+            }}
+            onCancel={() => setShowCamera(false)}
+          />
         )}
 
+        {/* Buttons */}
         <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => {
+              setShowCamera(false);
+              setShowPhotoOptions(false);
+              onCancel();
+            }}
             className="bg-gray-400 text-white px-4 py-2 rounded"
           >
             Cancel

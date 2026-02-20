@@ -5,6 +5,7 @@ import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import upload from "../middlewares/upload.js";
 import StationScan from "../models/stationScan.model.js";
+import { formatFullName } from "../utils/formatName.js";
 
 // Helper to safely parse batch as a number
 const parseBatch = (input) => {
@@ -86,10 +87,10 @@ export const addStudent = async (req, res) => {
     }
 
     const student = await Student.create({
-      name,
+      name: formatFullName(name), // ✅ changed
       studentId,
-      batch: batchNum, // ✅ store batch as number
-      department,
+      batch: batchNum,
+      department: formatFullName(department), // ✅ changed
       fastingType: finalFastingType,
       profileUrl,
       profilePublicId,
@@ -123,7 +124,7 @@ export const updateStudent = async (req, res) => {
     }
 
     // Update fields if provided
-    if (name) student.name = name;
+    if (name) student.name = formatFullName(name);
     if (studentId) student.studentId = studentId;
     if (batch !== undefined) {
       const batchNum = parseBatch(batch);
@@ -133,7 +134,7 @@ export const updateStudent = async (req, res) => {
       student.batch = batchNum;
     }
 
-    if (department) student.department = department;
+    if (department) student.department = formatFullName(department);
     if (
       fastingType &&
       ["not_fasting", "fasting", "sunday_fasting"].includes(fastingType)
