@@ -30,6 +30,8 @@ export default function CampusStudentsPage() {
   const [studentToEditData, setStudentToEditData] = useState(null);
   const { currentCampus, refreshCampus, setStudentsLoading } = useCampus();
   const [fastingFilter, setFastingFilter] = useState(""); // "" | "fasting" | "not_fasting" | "sunday_fasting"
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   /* ---------------- Fetch students ---------------- */
   const fetchStudents = async (query = "", fasting = "") => {
@@ -63,6 +65,10 @@ export default function CampusStudentsPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchStudents(searchQuery, fastingFilter);
+
+      // Clear selection when filter/search changes
+      setSelectedStudents([]);
+      setSelectAll(false);
     }, 300);
 
     return () => clearTimeout(timer);
@@ -78,6 +84,44 @@ export default function CampusStudentsPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  const handleSelectStudent = (id) => {
+    setSelectedStudents((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(filteredAndSortedStudents.map((s) => s._id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(
+        selectedStudents.map((id) =>
+          fetch(`${url}/campus/students/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          }),
+        ),
+      );
+
+      setStudents((prev) =>
+        prev.filter((s) => !selectedStudents.includes(s._id)),
+      );
+
+      setSelectedStudents([]);
+      setSelectAll(false);
+
+      await refreshCampus();
+    } catch (err) {
+      alert("Bulk delete failed");
+    }
+  };
 
   /* ---------------- Handle password verification ---------------- */
   const handlePasswordSubmit = async (enteredPassword) => {
@@ -106,6 +150,8 @@ export default function CampusStudentsPage() {
         setStudentToDelete(null);
       } else if (pendingAction === "edit" && studentToEditData) {
         setShowEditModal(true); // Open edit modal after password is verified
+      } else if (pendingAction === "bulk_delete") {
+        await handleBulkDelete();
       }
 
       setPendingAction(null);
@@ -146,6 +192,16 @@ export default function CampusStudentsPage() {
       )
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   }, [students, searchQuery]);
+  useEffect(() => {
+    if (
+      filteredAndSortedStudents.length > 0 &&
+      selectedStudents.length === filteredAndSortedStudents.length
+    ) {
+      setSelectAll(true);
+    } else {
+      setSelectAll(false);
+    }
+  }, [selectedStudents, filteredAndSortedStudents]);
 
   if (setStudentsLoading)
     return <p className="p-6 text-center mt-24">Loading...</p>;
@@ -166,6 +222,7 @@ export default function CampusStudentsPage() {
 
         {/* Header */}
         <div>
+          {/* Replace the bulk action header and search section with this layout */}
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-3xl font-bold">Students</h1>
             <button
@@ -176,7 +233,7 @@ export default function CampusStudentsPage() {
             </button>
           </div>
 
-          {/* Search */}
+          {/* Search & fasting filter */}
           <div className="flex gap-2 mb-4">
             <input
               value={searchQuery}
@@ -196,8 +253,31 @@ export default function CampusStudentsPage() {
             </select>
           </div>
 
+          {/* Header above table */}
+          <div className="flex justify-between items-center mb-3 px-4">
+            {/* Total students */}
+            <p className="text-gray-700 font-medium">
+              {filteredAndSortedStudents.length}{" "}
+              {filteredAndSortedStudents.length === 1 ? "student" : "students"}
+            </p>
+
+            {/* Bulk delete button */}
+            {selectedStudents.length > 0 && (
+              <button
+                onClick={() => {
+                  setPendingAction("bulk_delete");
+                  setShowPasswordModal(true);
+                }}
+                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+              >
+                Delete Selected ({selectedStudents.length})
+              </button>
+            )}
+          </div>
+
           {loading && <p className="text-center mt-12">Loading students...</p>}
 
+          {/* Column Header */}
           {/* Column Header */}
           {!loading && filteredAndSortedStudents.length > 0 && (
             <div className="flex items-center gap-4 text-gray-500 text-sm font-medium px-4 py-2 mb-2 bg-gray-100 rounded">
@@ -207,7 +287,15 @@ export default function CampusStudentsPage() {
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
-              <span className="w-6"></span>
+
+              {/* Select All checkbox at the right */}
+              <div className="ml-auto w-10 flex justify-end">
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={handleSelectAll}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -219,9 +307,7 @@ export default function CampusStudentsPage() {
               key={student._id}
               className="flex items-center gap-4 bg-white px-4 py-3 rounded shadow-sm text-sm relative"
             >
-              <span className="w-10 font-medium">{index + 1}</span>
-
-              {/* Avatar */}
+              {/* Avatar and info on the left */}
               <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                 {student.profileUrl ? (
                   <img
@@ -247,49 +333,58 @@ export default function CampusStudentsPage() {
                 {student.fastingType === "fasting" && "Fasting"}
                 {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
               </span>
-              {/* Menu */}
-              <div className="ml-auto relative menu-button">
-                <button
-                  className="menu-button"
-                  onClick={() =>
-                    setOpenMenuId(
-                      openMenuId === student._id ? null : student._id,
-                    )
-                  }
-                >
-                  <BsThreeDotsVertical className="h-5 w-5 text-gray-600" />
-                </button>
 
-                {openMenuId === student._id && (
-                  <div className="absolute right-0 top-full mt-1 w-28 bg-white border rounded shadow z-50">
-                    <button
-                      className="block w-full px-3 py-2 text-sm hover:bg-gray-100"
-                      onClick={() => {
-                        const studentData = students.find(
-                          (s) => s._id === student._id,
-                        );
-                        setStudentToEditData(studentData); // Save student for edit modal
-                        setPendingAction("edit"); // Mark pending action as edit
-                        setShowPasswordModal(true); // Open campus password modal first
-                        setOpenMenuId(null); // Close dropdown
-                      }}
-                    >
-                      Edit
-                    </button>
+              {/* Checkboxes and menu on the right */}
+              <div className="ml-auto flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedStudents.includes(student._id)}
+                  onChange={() => handleSelectStudent(student._id)}
+                />
 
-                    <button
-                      className="block w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      onClick={() => {
-                        setStudentToDelete(student._id);
-                        setPendingAction("delete");
-                        setShowPasswordModal(true);
-                        setOpenMenuId(null);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
+                <div className="relative menu-button">
+                  <button
+                    className="menu-button"
+                    onClick={() =>
+                      setOpenMenuId(
+                        openMenuId === student._id ? null : student._id,
+                      )
+                    }
+                  >
+                    <BsThreeDotsVertical className="h-5 w-5 text-gray-600" />
+                  </button>
+
+                  {openMenuId === student._id && (
+                    <div className="absolute right-0 top-full mt-1 w-28 bg-white border rounded shadow z-50">
+                      <button
+                        className="block w-full px-3 py-2 text-sm hover:bg-gray-100"
+                        onClick={() => {
+                          const studentData = students.find(
+                            (s) => s._id === student._id,
+                          );
+                          setStudentToEditData(studentData);
+                          setPendingAction("edit");
+                          setShowPasswordModal(true);
+                          setOpenMenuId(null);
+                        }}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        className="block w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
+                        onClick={() => {
+                          setStudentToDelete(student._id);
+                          setPendingAction("delete");
+                          setShowPasswordModal(true);
+                          setOpenMenuId(null);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}

@@ -13,6 +13,7 @@ import {
   getCampusBatches,
   getStudentsByBatch,
   deleteBatch,
+  bulkDeleteStudents,
 } from "../controllers/student.controller.js";
 import { protectCampus } from "../middlewares/campusAuth.js";
 import upload from "../middlewares/upload.js"; // multer-cloudinary
@@ -43,6 +44,9 @@ router.get("/students/batches", protectCampus, getCampusBatches);
 router.get("/students/batch/:batch", protectCampus, getStudentsByBatch);
 // ---------- Delete a Batch ----------
 router.delete("/students/batch/:batch", protectCampus, deleteBatch);
+
+// ---------- Bulk Delete Selected Students ----------
+router.post("/students/bulk-delete", protectCampus, bulkDeleteStudents);
 
 // ---------- Update Student Photo ----------
 router.put(

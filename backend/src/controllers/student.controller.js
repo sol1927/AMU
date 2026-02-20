@@ -364,3 +364,65 @@ export const deleteBatch = async (req, res) => {
     res.status(500).json({ message: "Failed to delete batch" });
   }
 };
+
+// ---------- Bulk Delete Selected Students ----------
+export const bulkDeleteStudents = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No students selected" });
+    }
+
+    // Find students belonging to this campus
+    const students = await Student.find({
+      _id: { $in: ids },
+      campus: req.campus._id,
+    });
+
+    if (students.length === 0) {
+      return res.status(404).json({ message: "Students not found" });
+    }
+
+    // Delete Cloudinary images
+    for (const student of students) {
+      if (student.profilePublicId) {
+        try {
+          const result = await cloudinary.uploader.destroy(
+            student.profilePublicId,
+          );
+
+          if (result.result !== "ok" && result.result !== "not found") {
+            console.warn(
+              `Cloudinary deletion issue for ${student.name}: ${result.result}`,
+            );
+          }
+        } catch (err) {
+          console.error(`Cloudinary delete error for ${student.name}:`, err);
+        }
+      }
+    }
+
+    const studentIds = students.map((s) => s._id);
+
+    // Delete related StationScans
+    await StationScan.deleteMany({
+      student: { $in: studentIds },
+      campus: req.campus._id,
+    });
+
+    // Delete students
+    await Student.deleteMany({
+      _id: { $in: studentIds },
+      campus: req.campus._id,
+    });
+
+    res.json({
+      message: "Selected students deleted successfully",
+      deletedCount: studentIds.length,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Bulk delete failed" });
+  }
+};
