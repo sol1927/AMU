@@ -32,6 +32,19 @@ export default function CampusStudentsPage() {
   const [fastingFilter, setFastingFilter] = useState(""); // "" | "fasting" | "not_fasting" | "sunday_fasting"
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [bulkFastingType, setBulkFastingType] = useState("");
+  const [savingBulkFasting, setSavingBulkFasting] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [totalStudents, setTotalStudents] = useState(0); // new
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+
+    setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
 
   /* ---------------- Fetch students ---------------- */
   const fetchStudents = async (query = "", fasting = "") => {
@@ -48,10 +61,12 @@ export default function CampusStudentsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setStudents(data.students || []);
+      setTotalStudents(data.totalStudents || 0);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+      setInitialLoadDone(true); // mark that first fetch finished
     }
   };
 
@@ -84,6 +99,12 @@ export default function CampusStudentsPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  useEffect(() => {
+    if (selectedStudents.length === 0) {
+      setBulkFastingType(""); // reset dropdown
+    }
+  }, [selectedStudents]);
+
   const handleSelectStudent = (id) => {
     setSelectedStudents((prev) =>
       prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
@@ -118,8 +139,11 @@ export default function CampusStudentsPage() {
       setSelectAll(false);
 
       await refreshCampus();
+
+      // ✅ SUCCESS TOAST HERE
+      showToast("Selected students deleted successfully", "success");
     } catch (err) {
-      alert("Bulk delete failed");
+      showToast("Bulk delete failed", "error");
     }
   };
 
@@ -153,7 +177,6 @@ export default function CampusStudentsPage() {
       } else if (pendingAction === "bulk_delete") {
         await handleBulkDelete();
       }
-
       setPendingAction(null);
     } catch (err) {
       setPasswordError("Something went wrong");
@@ -171,11 +194,12 @@ export default function CampusStudentsPage() {
       if (!res.ok) throw new Error(data.message || "Delete failed");
 
       setStudents((prev) => prev.filter((s) => s._id !== id));
+      showToast("Student deleted successfully", "success");
 
       // 🔄 Refresh campus data so counts update
       await refreshCampus();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || "Delete failed", "error");
     }
   };
 
@@ -203,8 +227,6 @@ export default function CampusStudentsPage() {
     }
   }, [selectedStudents, filteredAndSortedStudents]);
 
-  if (setStudentsLoading)
-    return <p className="p-6 text-center mt-24">Loading...</p>;
   if (!currentCampus)
     return <p className="p-6 text-center mt-24">Loading...</p>;
 
@@ -213,18 +235,18 @@ export default function CampusStudentsPage() {
       <CampusNavbar />
 
       <div className="pt-24 h-screen max-w-5xl mx-auto px-6 flex flex-col">
-        <button
-          onClick={() => router.push("/campus/students/groups")}
-          className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
-        >
-          Group
-        </button>
-
         {/* Header */}
         <div>
           {/* Replace the bulk action header and search section with this layout */}
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-3xl font-bold">Students</h1>
+            <button
+              onClick={() => router.push("/campus/students/groups")}
+              className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+            >
+              Batch
+            </button>
+
             <button
               onClick={() => setShowAddModal(true)}
               className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
@@ -239,39 +261,136 @@ export default function CampusStudentsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search students..."
-              className="flex-1 p-2 border rounded"
+              className="flex-1 p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <select
               value={fastingFilter}
               onChange={(e) => setFastingFilter(e.target.value)}
-              className="p-2 border rounded"
+              className="p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
             >
-              <option value="">All Fasting Types</option>
-              <option value="fasting">Fasting</option>
-              <option value="not_fasting">Not Fasting</option>
-              <option value="sunday_fasting">Sunday Fasting</option>
+              <option className="bg-gray-900 text-white" value="">
+                All Fasting Types
+              </option>
+              <option className="bg-gray-900 text-white" value="fasting">
+                Fasting
+              </option>
+              <option className="bg-gray-900 text-white" value="not_fasting">
+                Not Fasting
+              </option>
+              <option className="bg-gray-900 text-white" value="sunday_fasting">
+                Sunday Fasting
+              </option>
+              <option className="bg-gray-900 text-white" value="muslim_fasting">
+                Muslim Fasting
+              </option>
             </select>
           </div>
 
           {/* Header above table */}
           <div className="flex justify-between items-center mb-3 px-4">
             {/* Total students */}
-            <p className="text-gray-700 font-medium">
-              {filteredAndSortedStudents.length}{" "}
-              {filteredAndSortedStudents.length === 1 ? "student" : "students"}
+            <p className="text-gray-300 font-medium">
+              {totalStudents} {totalStudents === 1 ? "student" : "students"}
             </p>
 
             {/* Bulk delete button */}
             {selectedStudents.length > 0 && (
-              <button
-                onClick={() => {
-                  setPendingAction("bulk_delete");
-                  setShowPasswordModal(true);
-                }}
-                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-              >
-                Delete Selected ({selectedStudents.length})
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Delete button */}
+                <button
+                  onClick={() => {
+                    setPendingAction("bulk_delete");
+                    setShowPasswordModal(true);
+                  }}
+                  className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                >
+                  Delete ({selectedStudents.length})
+                </button>
+
+                {/* Fasting dropdown */}
+                <select
+                  value={bulkFastingType}
+                  onChange={(e) => setBulkFastingType(e.target.value)}
+                  className="p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                >
+                  <option className="bg-gray-900 text-white" value="">
+                    Select Fasting
+                  </option>
+                  <option className="bg-gray-900 text-white" value="fasting">
+                    Fasting
+                  </option>
+                  <option
+                    className="bg-gray-900 text-white"
+                    value="not_fasting"
+                  >
+                    Not Fasting
+                  </option>
+                  <option
+                    className="bg-gray-900 text-white"
+                    value="sunday_fasting"
+                  >
+                    Sunday Fasting
+                  </option>
+                  <option
+                    className="bg-gray-900 text-white"
+                    value="muslim_fasting"
+                  >
+                    Muslim Fasting
+                  </option>
+                </select>
+                {/* Save button */}
+                {bulkFastingType && (
+                  <button
+                    disabled={savingBulkFasting}
+                    onClick={async () => {
+                      try {
+                        setSavingBulkFasting(true);
+
+                        const res = await fetch(
+                          `${url}/campus/students/bulk-fasting`,
+                          {
+                            method: "PATCH",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              ids: selectedStudents,
+                              fastingType: bulkFastingType,
+                            }),
+                          },
+                        );
+
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.message);
+
+                        // Update state
+                        setStudents((prev) =>
+                          prev.map((s) =>
+                            selectedStudents.includes(s._id)
+                              ? { ...s, fastingType: bulkFastingType }
+                              : s,
+                          ),
+                        );
+
+                        // Reset
+                        setSelectedStudents([]);
+                        setSelectAll(false);
+                        setBulkFastingType("");
+                        showToast(
+                          "Fasting status updated successfully",
+                          "success",
+                        );
+                      } catch (err) {
+                        showToast(err.message || "Update failed", "error");
+                      } finally {
+                        setSavingBulkFasting(false);
+                      }
+                    }}
+                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {savingBulkFasting ? "Saving..." : "Save"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -279,16 +398,16 @@ export default function CampusStudentsPage() {
 
           {/* Column Header */}
           {!loading && filteredAndSortedStudents.length > 0 && (
-            <div className="flex items-center gap-4 text-gray-500 text-sm font-medium px-4 py-2 mb-2 bg-gray-100 rounded">
+            <div className="flex items-center gap-4 text-gray-300 text-sm font-medium px-4 py-2 mb-2 bg-white/10 border border-white/10 backdrop-blur-md rounded-xl">
               <span className="w-10">#</span>
+              <span className="w-9"></span> {/* Space for avatar */}
               <span className="w-[180px]">Name</span>
               <span className="w-[120px]">Student ID</span>
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
-
-              {/* Select All checkbox at the right */}
-              <div className="ml-auto w-10 flex justify-end">
+              <div className="w-20 flex justify-between items-center">
+                {" "}
                 <input
                   type="checkbox"
                   checked={selectAll}
@@ -300,13 +419,17 @@ export default function CampusStudentsPage() {
         </div>
 
         {/* Students list */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1 relative">
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-4 relative">
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex items-center gap-4 bg-white px-4 py-3 rounded shadow-sm text-sm relative"
+              className="flex items-center gap-4 bg-white/5 border border-white/10 px-4 py-3 rounded-xl shadow-lg hover:bg-white/10 transition text-sm relative backdrop-blur-md"
             >
               {/* Avatar and info on the left */}
+              {/* Serial Number */}
+              <span className="w-10 font-medium text-white">{index + 1}</span>
+
+              {/* Avatar */}
               <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                 {student.profileUrl ? (
                   <img
@@ -321,6 +444,7 @@ export default function CampusStudentsPage() {
                 )}
               </div>
 
+              {/* Name */}
               <span className="w-[180px] truncate font-medium">
                 {student.name}
               </span>
@@ -331,19 +455,20 @@ export default function CampusStudentsPage() {
                 {student.fastingType === "not_fasting" && "Not Fasting"}
                 {student.fastingType === "fasting" && "Fasting"}
                 {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
+                {student.fastingType === "muslim_fasting" && "Muslim Fasting"}
               </span>
 
               {/* Checkboxes and menu on the right */}
-              <div className="ml-auto flex items-center gap-2">
+              <div className="w-20 flex justify-between items-center">
+                {" "}
                 <input
                   type="checkbox"
                   checked={selectedStudents.includes(student._id)}
                   onChange={() => handleSelectStudent(student._id)}
                 />
-
                 <div className="relative menu-button">
                   <button
-                    className="menu-button"
+                    className="menu-button hover:bg-white/10 p-1 rounded"
                     onClick={() =>
                       setOpenMenuId(
                         openMenuId === student._id ? null : student._id,
@@ -388,9 +513,13 @@ export default function CampusStudentsPage() {
             </div>
           ))}
 
-          {!loading && filteredAndSortedStudents.length === 0 && (
-            <p className="text-center text-gray-500 mt-12">Student not found</p>
-          )}
+          {!loading &&
+            initialLoadDone &&
+            filteredAndSortedStudents.length === 0 && (
+              <p className="text-center text-gray-500 mt-12">
+                Student not found
+              </p>
+            )}
         </div>
 
         {error && <p className="text-red-600 mt-4">{error}</p>}
@@ -487,7 +616,6 @@ export default function CampusStudentsPage() {
               if (photo) {
                 const formData = new FormData();
                 formData.append("photo", photo);
-
                 const resPhoto = await fetch(
                   `${url}/campus/students/${id}/photo`,
                   {
@@ -531,6 +659,17 @@ export default function CampusStudentsPage() {
           onConfirm={handlePasswordSubmit}
           errorMessage={passwordError}
         />
+      )}
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300
+      ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}
+    `}
+        >
+          students
+          {toast.message}
+        </div>
       )}
     </>
   );

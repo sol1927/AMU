@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -16,34 +16,24 @@ export default function EmailChangeModal({
   const [isRequesting, setIsRequesting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Auto-hide success messages after 2 seconds
+  // Auto-hide messages
   useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(""), 2000);
+    if (success || error) {
+      const timer = setTimeout(() => {
+        setSuccess("");
+        setError("");
+      }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [success]);
+  }, [success, error]);
 
-  // Auto-hide error messages after 2 seconds
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(""), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
-  // Request OTP for new email
   const handleRequestOtp = async () => {
-    if (!newEmail) {
-      setError("Enter a new email first");
-      return;
-    }
+    if (!newEmail) return setError("Enter a new email first");
     setError("");
     setSuccess("");
     setIsRequesting(true);
-
     try {
-      const res = await fetch(`${url}profile/me/email/request-otp`, {
+      const res = await fetch(`${url}/profile/me/email/request-otp`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -59,18 +49,13 @@ export default function EmailChangeModal({
     }
   };
 
-  // Verify OTP and update email
   const handleVerifyOtp = async () => {
-    if (!otp) {
-      setError("Enter the OTP first");
-      return;
-    }
+    if (!otp) return setError("Enter the OTP first");
     setError("");
     setSuccess("");
     setIsVerifying(true);
-
     try {
-      const res = await fetch(`${url}profile/me/email/verify-otp`, {
+      const res = await fetch(`${url}/profile/me/email/verify-otp`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -80,16 +65,11 @@ export default function EmailChangeModal({
       if (!res.ok) throw new Error(data.message || "OTP verification failed");
 
       setSuccess("Email updated successfully!");
-
-      // Update profile email immediately in parent component
       setCurrentUser((prev) => ({ ...prev, email: newEmail }));
-
-      // Clear input fields
       setNewEmail("");
       setOtp("");
 
-      // Close modal after success
-      setTimeout(() => onClose(), 500); // slight delay to show success message
+      setTimeout(() => onClose(), 500);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -98,141 +78,96 @@ export default function EmailChangeModal({
   };
 
   return (
-    <div style={overlayStyle}>
-      <div style={modalStyle}>
-        <h2 style={titleStyle}>Change Email</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
+      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-80 shadow-lg hover:shadow-indigo-900/40 transition-all duration-300 relative animate-fadeIn">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-white/70 hover:text-white transition"
+        >
+          ✕
+        </button>
 
+        <h2 className="text-xl font-bold mb-4 text-center text-white">
+          Change Email
+        </h2>
+
+        {/* Success / Error */}
+        {error && (
+          <p className="mb-4 p-2 rounded-lg text-center text-sm bg-red-500/20 text-red-400 border border-red-500/30">
+            {error}
+          </p>
+        )}
+        {success && (
+          <p className="mb-4 p-2 rounded-lg text-center text-sm bg-green-500/20 text-green-400 border border-green-500/30">
+            {success}
+          </p>
+        )}
+
+        {/* New Email */}
         <input
           type="email"
           placeholder="New email"
           value={newEmail}
           onChange={(e) => setNewEmail(e.target.value)}
-          style={inputStyle}
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
           autoFocus
         />
+
         <button
           onClick={handleRequestOtp}
-          style={{
-            ...submitBtnStyle,
-            backgroundColor: newEmail && !isRequesting ? "#4f46e5" : "#a5b4fc",
-            cursor: newEmail && !isRequesting ? "pointer" : "not-allowed",
-          }}
           disabled={!newEmail || isRequesting}
+          className={`w-full px-4 py-2 rounded-lg font-semibold text-white mb-3 transition ${
+            newEmail && !isRequesting
+              ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-105"
+              : "bg-white/10 cursor-not-allowed opacity-50"
+          }`}
         >
           {isRequesting ? "Requesting..." : "Request OTP"}
         </button>
 
+        {/* OTP */}
         <input
           type="text"
           placeholder="Enter OTP"
           value={otp}
           onChange={(e) => {
             const value = e.target.value;
-            // Only digits, max 6 characters
-            if (/^\d{0,6}$/.test(value)) {
-              setOtp(value);
-            }
+            if (/^\d{0,6}$/.test(value)) setOtp(value);
           }}
-          style={inputStyle}
           maxLength={6}
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
         />
+
         <button
           onClick={handleVerifyOtp}
-          style={{
-            ...submitBtnStyle,
-            backgroundColor: otp && !isVerifying ? "#4f46e5" : "#a5b4fc",
-            cursor: otp && !isVerifying ? "pointer" : "not-allowed",
-          }}
           disabled={!otp || isVerifying}
+          className={`w-full px-4 py-2 rounded-lg font-semibold text-white transition ${
+            otp && !isVerifying
+              ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-105"
+              : "bg-white/10 cursor-not-allowed opacity-50"
+          }`}
         >
           {isVerifying ? "Verifying..." : "Verify OTP"}
         </button>
-
-        {error && <div style={errorStyle}>{error}</div>}
-        {success && <div style={successStyle}>{success}</div>}
-
-        <div style={buttonContainerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle}>
-            Close
-          </button>
-        </div>
       </div>
+
+      {/* Animation */}
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-15px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.25s ease forwards;
+        }
+      `}</style>
     </div>
   );
 }
-
-// Styles
-const overlayStyle = {
-  position: "fixed",
-  inset: 0,
-  backgroundColor: "rgba(0,0,0,0.35)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 9999,
-};
-
-const modalStyle = {
-  backgroundColor: "#fff",
-  padding: "24px",
-  borderRadius: "12px",
-  minWidth: "360px",
-  maxWidth: "90%",
-  display: "flex",
-  flexDirection: "column",
-  gap: "16px",
-  boxShadow: "0 15px 30px rgba(0,0,0,0.3)",
-  animation: "fadeIn 0.2s ease-in-out",
-};
-
-const titleStyle = {
-  margin: 0,
-  textAlign: "center",
-  fontSize: "20px",
-  fontWeight: "600",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "10px",
-  borderRadius: "6px",
-  border: "1px solid #ccc",
-  fontSize: "14px",
-};
-
-const buttonContainerStyle = {
-  display: "flex",
-  justifyContent: "flex-end",
-  marginTop: "12px",
-};
-
-const cancelBtnStyle = {
-  padding: "8px 16px",
-  borderRadius: "6px",
-  border: "1px solid #ccc",
-  backgroundColor: "#f9fafb",
-  cursor: "pointer",
-  transition: "all 0.2s",
-};
-
-const submitBtnStyle = {
-  padding: "10px 16px",
-  borderRadius: "6px",
-  backgroundColor: "#4f46e5",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer",
-  marginTop: "8px",
-  transition: "all 0.15s ease-in-out",
-};
-
-const errorStyle = {
-  color: "#dc2626",
-  fontSize: "13px",
-  textAlign: "center",
-};
-const successStyle = {
-  color: "#16a34a",
-  fontSize: "13px",
-  textAlign: "center",
-};

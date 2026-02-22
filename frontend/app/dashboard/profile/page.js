@@ -170,21 +170,23 @@ export default function ProfilePage() {
     return <p className="p-6 text-gray-500">Checking authentication...</p>;
 
   return (
-    <div className="min-h-screen flex justify-center items-start pt-24">
+    <div className="min-h-screen px-6 md:px-20 py-12 pt-28 text-white flex justify-center items-center relative">
+      {/* Back button stays top-left */}
       <button
         onClick={() => router.push("/dashboard")}
         title="Back to Dashboard"
-        className="fixed left-4 z-10 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg"
+        className="fixed top-24 left-6 z-20 bg-gray-900/80 hover:bg-gray-800 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
       >
         <IoChevronBackSharp className="w-5 h-5" />
       </button>
 
-      <div className="w-full max-w-lg bg-white rounded-lg shadow p-6">
+      {/* Centered profile card */}
+      <div className="w-full max-w-lg bg-white/5 border border-white/10 rounded-2xl shadow-lg p-6 backdrop-blur-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Edit Profile</h1>
-
         {/* PHOTO UPLOAD */}
         <div className="flex flex-col items-center mb-6 relative">
-          <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-gray-300">
+          <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/20 shadow-lg hover:shadow-blue-500/50 transition-shadow duration-300">
+            {" "}
             {photoPreview ? (
               <Image
                 src={photoPreview}
@@ -200,7 +202,8 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer shadow-lg">
+          <label className="absolute bottom-0 right-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-transform">
+            {" "}
             <FiCamera />
             <input
               type="file"
@@ -210,7 +213,6 @@ export default function ProfilePage() {
             />
           </label>
         </div>
-
         {/* FORM */}
         <form onSubmit={handleSaveChanges} className="space-y-4">
           <input
@@ -218,33 +220,35 @@ export default function ProfilePage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Full Name"
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-white/20 bg-white/5 text-white rounded-xl px-4 py-2 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
             required
           />
 
           {/* EMAIL & PASSWORD BUTTONS */}
           <div className="mt-6 flex flex-col gap-2">
             {/* Email */}
-            <div className="w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-2 flex items-center justify-between text-gray-700">
+            <div className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2 flex items-center justify-between text-white/80 hover:bg-white/10 transition">
+              {" "}
               <span className="truncate">
                 {currentUser?.email || "No email"}
               </span>
               <button
                 type="button"
                 onClick={() => setShowAdminPasswordModal(true)}
-                className="ml-2 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-sm transition"
+                className="ml-2 bg-yellow-500 hover:bg-yellow-600  hover:cursor-pointer hover:scale-105 text-white px-3 py-1 rounded-md text-sm transition"
               >
                 Change
               </button>
             </div>
 
             {/* Password */}
-            <div className="w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-2 flex items-center justify-between text-gray-700">
-              <span className="truncate">••••••••</span> {/* masked password */}
+            <div className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2 flex items-center justify-between text-white/80 hover:bg-white/10 transition">
+              {" "}
+              <span className="truncate">••••••••</span>
               <button
                 type="button"
                 onClick={() => setShowChangePasswordModal(true)}
-                className="ml-2 bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition"
+                className="ml-2 bg-green-500 hover:bg-green-600  hover:cursor-pointer hover:scale-105 text-white px-3 py-1 rounded-md text-sm transition"
               >
                 Change
               </button>
@@ -252,19 +256,24 @@ export default function ProfilePage() {
           </div>
 
           {/* MESSAGES */}
-          {message && <p className="text-green-600 text-center">{message}</p>}
-          {error && <p className="text-red-600 text-center">{error}</p>}
+          {message && (
+            <p className="text-green-400 text-center font-medium">{message}</p>
+          )}
+          {error && (
+            <p className="text-red-400 text-center font-medium">{error}</p>
+          )}
 
-          <button
-            type="submit"
-            disabled={savingChanges || uploadingPhoto}
-            className="w-full bg-blue-600 text-white py-2 rounded disabled:opacity-60 mt-2"
-          >
-            {savingChanges || uploadingPhoto ? "Saving..." : "Save Changes"}
-          </button>
+          <div className="flex justify-center mt-6">
+            <button
+              type="submit"
+              disabled={savingChanges || uploadingPhoto}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600  hover:cursor-pointer text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 transition disabled:opacity-60"
+            >
+              {savingChanges || uploadingPhoto ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
         </form>
       </div>
-
       {/* MODALS */}
       {showAdminPasswordModal && (
         <AdminPasswordModal
@@ -276,7 +285,6 @@ export default function ProfilePage() {
           errorMessage={passwordError}
         />
       )}
-
       {showEmailChangeModal && (
         <EmailChangeModal
           currentEmail={currentUser?.email}
@@ -284,7 +292,6 @@ export default function ProfilePage() {
           setCurrentUser={setCurrentUser} // ✅ pass this
         />
       )}
-
       {showChangePasswordModal && (
         <ChangePasswordModal
           onClose={() => setShowChangePasswordModal(false)}

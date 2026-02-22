@@ -138,215 +138,232 @@ export default function CampusesPage() {
   };
 
   if (loading) return <p className="p-6">Loading campuses...</p>;
+  // Capitalize first letter of each word
+  const capitalizeWords = (str) =>
+    str
+      ? str
+          .split(" ")
+          .map(
+            (word) =>
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+          )
+          .join(" ")
+      : "";
 
   return (
-    <div className="min-h-screen p-6 max-w-5xl mx-auto pt-24">
-      {/* Floating Back Arrow */}
-      <button
-        onClick={() => router.push("/dashboard")}
-        title="Back to Dashboard"
-        className="fixed left-4 z-10 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg"
-      >
-        <IoChevronBackSharp className="w-5 h-5" />
-      </button>
-
-      {sortedCampuses.length > 0 ? (
-        <div className="flex items-center gap-4 text-gray-500 text-sm font-medium px-4 py-2 mb-2">
-          <span className="w-8"></span>
-          <span className="w-[140px] truncate">Name</span>
-          <span className="w-[120px] truncate">Location</span>
-          <span className="w-[80px] text-center">Students</span>{" "}
-          {/* ✅ next to Location */}
-          <span className="flex-1 truncate">Email</span>
-          <span className="w-6"></span>
-        </div>
-      ) : (
-        <p className="p-6 text-center text-gray-500">No campuses found</p>
-      )}
-
-      {/* Campus rows */}
-      <div className="space-y-2">
-        {sortedCampuses.map((campus) => (
-          <div
-            key={campus._id}
-            className="flex items-center gap-4 bg-white px-4 py-4 rounded text-sm relative shadow-sm"
-          >
-            {/* Logo from admin */}
-            <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-              {campus.logo?.url ? (
-                <img
-                  src={campus.logo.url}
-                  alt={campus.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-white font-bold">
-                  {campus.name.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-
-            {/* Name */}
-            <span className="font-medium w-[140px] truncate">
-              {campus.name}
-            </span>
-
-            {/* Location */}
-            <span className="text-gray-500 w-[120px] truncate">
-              {campus.location || "—"}
-            </span>
-
-            {/* Students */}
-            <span className="text-gray-500 w-[80px] text-center">
-              {campus.students} {/* real count from backend */}
-            </span>
-
-            {/* Email */}
-            <span className="text-gray-500 flex-1 truncate">
-              {campus.email}
-            </span>
-
-            {/* Three-dot menu */}
-            <div className="ml-auto relative">
-              <button
-                className="menu-button"
-                onClick={() =>
-                  setOpenMenuId(openMenuId === campus._id ? null : campus._id)
-                }
-              >
-                <BsThreeDotsVertical className="h-5 w-5 text-gray-600" />
-              </button>
-
-              {openMenuId === campus._id && !showAdminPasswordPrompt && (
-                <div className="menu-button absolute right-0 top-full mt-1 w-28 bg-white border rounded shadow z-10">
-                  {/* Edit button triggers password modal */}
-                  <button
-                    className="block w-full px-3 py-2 text-sm hover:bg-gray-100"
-                    onClick={() => {
-                      setCampusToEdit(campus._id);
-                      setPendingAction("edit");
-                      setShowAdminPasswordPrompt(true);
-                      setOpenMenuId(null);
-                    }}
-                  >
-                    Edit
-                  </button>
-
-                  {/* Delete button remains same */}
-                  <button
-                    className="block w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    onClick={() => {
-                      setCampusToDelete(campus._id);
-                      setPendingAction("delete");
-                      setShowAdminPasswordPrompt(true);
-                      setOpenMenuId(null);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-6 flex justify-center">
+    <>
+      <div className="pt-24 h-screen text-white max-w-7xl mx-auto px-6 flex flex-col">
+        {/* Back Button */}
         <button
-          onClick={() => {
-            setPendingAction("add"); // remember this is for adding
-            setShowAdminPasswordPrompt(true);
-            setOpenMenuId(null);
-          }}
-          className="bg-indigo-600 text-white px-5 py-2 rounded shadow"
+          onClick={() => router.push("/dashboard")}
+          title="Back to Dashboard"
+          className="fixed top-24 left-6 z-20 bg-gray-900/80 hover:bg-gray-800 hover:cursor-pointer text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
         >
-          + Add Campus
+          <IoChevronBackSharp className="w-5 h-5" />
         </button>
-      </div>
 
-      {/* Admin password modal */}
-      {showAdminPasswordPrompt && (
-        <AdminPasswordModal
-          onCancel={() => {
-            setShowAdminPasswordPrompt(false);
-            setAdminError(""); // clear error when closing
-          }}
-          onSubmit={handleAdminPasswordSubmit}
-          errorMessage={adminError} // pass error to modal
-        />
-      )}
+        {/* Top Section (Like Students Page) */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Campuses</h1>
 
-      {showEditModal && campusToEdit && (
-        <EditCampusModal
-          campus={campuses.find((c) => c._id === campusToEdit)} // pass the full campus object
-          onCancel={() => {
-            setCampusToEdit(null);
-            setShowEditModal(false);
-          }}
-          onSubmit={async (data) => {
-            const res = await fetch(`${url}/dashboard/campuses/${data.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-              body: JSON.stringify(data),
-            });
-            const result = await res.json();
+          <button
+            onClick={() => {
+              setPendingAction("add");
+              setShowAdminPasswordPrompt(true);
+              setOpenMenuId(null);
+            }}
+            className="bg-indigo-600  hover:cursor-pointer text-white px-5 py-2 rounded-2xl hover:bg-indigo-900 transition"
+          >
+            + Add Campus
+          </button>
+        </div>
 
-            if (res.ok) {
-              setCampuses((prev) =>
-                prev.map((c) => (c._id === data.id ? result.campus : c)),
-              );
-              return result.message;
-            } else {
-              return result.message;
-            }
-          }}
-        />
-      )}
+        {/* Header Row (Unscrollable) */}
+        {sortedCampuses.length > 0 && (
+          <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
+            <div className="w-10"></div>
+            <div className="w-[180px]">Name</div>
+            <div className="w-[150px]">Location</div>
+            <div className="w-[100px] text-center">Students</div>
+            <div className="flex-1">Email</div>
+            <div className="w-10"></div>
+          </div>
+        )}
 
-      {showForm && (
-        <AddCampusModal
-          onCancel={() => setShowForm(false)}
-          onSubmit={async ({ name, location, email, password }) => {
-            try {
-              // Validation only for required fields
-              if (!name.trim()) throw new Error("Name is required");
-              if (!email.trim()) throw new Error("Email is required");
-              if (!password.trim()) throw new Error("Password is required");
-              if (password.length < 6)
-                throw new Error("Password must be at least 6 characters");
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
+          {sortedCampuses.length > 0 ? (
+            sortedCampuses.map((campus) => (
+              <div
+                key={campus._id}
+                className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-4 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-950 transition-all duration-300 relative"
+              >
+                {/* Logo */}
+                <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                  {campus.logo?.url ? (
+                    <img
+                      src={campus.logo.url}
+                      alt={campus.name}
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <span className="text-gray-600 font-semibold">
+                      {campus.name?.[0]}
+                    </span>
+                  )}
+                </div>
 
-              // Create campus (backend will validate email format)
-              const res = await fetch(`${url}/dashboard/campuses`, {
-                method: "POST",
+                <div className="w-[180px] truncate font-medium">
+                  {capitalizeWords(campus.name)}
+                </div>
+
+                <div className="w-[150px] truncate text-gray-400">
+                  {campus.location || "—"}
+                </div>
+
+                <div className="w-[100px] text-center text-gray-400">
+                  {campus.students ?? 0}
+                </div>
+
+                <div className="flex-1 truncate text-gray-400">
+                  {campus.email}
+                </div>
+
+                {/* Menu */}
+                <div className="w-10 flex justify-end relative">
+                  <button
+                    className="menu-button hover:bg-white/10 p-1 rounded"
+                    onClick={() =>
+                      setOpenMenuId(
+                        openMenuId === campus._id ? null : campus._id,
+                      )
+                    }
+                  >
+                    <BsThreeDotsVertical className="h-5 w-5  hover:cursor-pointer text-gray-300" />
+                  </button>
+
+                  {openMenuId === campus._id && !showAdminPasswordPrompt && (
+                    <div className="menu-button absolute right-0 top-full mt-1 w-28 bg-slate-800 border border-white/10 rounded shadow z-50">
+                      <button
+                        className="block  hover:cursor-pointer w-full px-3 py-2 text-sm hover:bg-gray-400 hover:text-black hover:rounded"
+                        onClick={() => {
+                          setCampusToEdit(campus._id);
+                          setPendingAction("edit");
+                          setShowAdminPasswordPrompt(true);
+                          setOpenMenuId(null);
+                        }}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        className="block  hover:cursor-pointer w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-400 hover:rounded"
+                        onClick={() => {
+                          setCampusToDelete(campus._id);
+                          setPendingAction("delete");
+                          setShowAdminPasswordPrompt(true);
+                          setOpenMenuId(null);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center mt-20 text-gray-500">
+              <div className="text-xl font-semibold mb-2">No campuses yet</div>
+              <div className="text-sm text-gray-600">
+                Click “Add Campus” to create your first campus.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ===== MODALS (UNCHANGED) ===== */}
+
+        {showAdminPasswordPrompt && (
+          <AdminPasswordModal
+            onCancel={() => {
+              setShowAdminPasswordPrompt(false);
+              setAdminError("");
+            }}
+            onSubmit={handleAdminPasswordSubmit}
+            errorMessage={adminError}
+          />
+        )}
+
+        {showEditModal && campusToEdit && (
+          <EditCampusModal
+            campus={campuses.find((c) => c._id === campusToEdit)}
+            onCancel={() => {
+              setCampusToEdit(null);
+              setShowEditModal(false);
+            }}
+            onSubmit={async (data) => {
+              const res = await fetch(`${url}/dashboard/campuses/${data.id}`, {
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify({ name, location, email, password }),
+                body: JSON.stringify(data),
               });
-              const data = await res.json();
+              const result = await res.json();
 
-              if (!res.ok) {
-                throw new Error(data.message || "Failed to create campus");
+              if (res.ok) {
+                setCampuses((prev) =>
+                  prev.map((c) => (c._id === data.id ? result.campus : c)),
+                );
+                return result.message;
+              } else {
+                return result.message;
               }
+            }}
+          />
+        )}
 
-              setCampuses((prev) => [...prev, data.campus]);
-              setShowForm(false); // close modal
-            } catch (err) {
-              return err.message; // show error in modal
-            }
-          }}
-        />
-      )}
+        {showForm && (
+          <AddCampusModal
+            onCancel={() => setShowForm(false)}
+            onSubmit={async ({ name, location, email, password }) => {
+              try {
+                if (!name.trim()) throw new Error("Name is required");
+                if (!email.trim()) throw new Error("Email is required");
+                if (!password.trim()) throw new Error("Password is required");
+                if (password.length < 6)
+                  throw new Error("Password must be at least 6 characters");
 
-      {/* Toast messages */}
-      {toast && (
-        <div
-          className={`fixed bottom-6 right-6 px-4 py-2 rounded text-white shadow ${
-            toast.type === "error" ? "bg-red-600" : "bg-green-600"
-          }`}
-        >
-          {toast.message}
-        </div>
-      )}
-    </div>
+                const res = await fetch(`${url}/dashboard/campuses`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ name, location, email, password }),
+                });
+
+                const data = await res.json();
+                if (!res.ok)
+                  throw new Error(data.message || "Failed to create campus");
+
+                setCampuses((prev) => [...prev, data.campus]);
+                setShowForm(false);
+              } catch (err) {
+                return err.message;
+              }
+            }}
+          />
+        )}
+
+        {toast && (
+          <div
+            className={`fixed bottom-6 right-6 px-4 py-2 rounded text-white shadow ${
+              toast.type === "error" ? "bg-red-600" : "bg-green-600"
+            }`}
+          >
+            {toast.message}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

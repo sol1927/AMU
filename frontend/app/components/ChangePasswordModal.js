@@ -31,7 +31,6 @@ export default function ChangePasswordModal({ onClose }) {
   );
   const allValid = Object.values(status).every(Boolean);
 
-  // Auto-hide messages after 2s
   useEffect(() => {
     if (success) {
       const t = setTimeout(() => setSuccess(""), 2000);
@@ -46,7 +45,6 @@ export default function ChangePasswordModal({ onClose }) {
     }
   }, [error]);
 
-  // Hide rules when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (rulesRef.current && !rulesRef.current.contains(e.target)) {
@@ -90,7 +88,6 @@ export default function ChangePasswordModal({ onClose }) {
       setConfirmPassword("");
       setShowRules(false);
 
-      // Close modal after 2 sec
       setTimeout(() => onClose(), 2000);
     } catch (err) {
       setError(err.message);
@@ -98,177 +95,137 @@ export default function ChangePasswordModal({ onClose }) {
   };
 
   return (
-    <div style={overlayStyle}>
-      <div style={modalStyle}>
-        <h3 className="text-lg font-semibold text-center">Change Password</h3>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white/20 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-80 max-w-full animate-fadeIn">
+        <h3 className="text-lg font-semibold text-center text-white">
+          Change Password
+        </h3>
 
         {/* Current Password */}
-        <div style={inputWrapperStyle}>
+        <div className="relative">
           <input
             type={showCurrent ? "text" : "password"}
             placeholder="Current password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            style={inputStyle}
+            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           <button
             type="button"
             onClick={() => setShowCurrent(!showCurrent)}
-            style={eyeBtnStyle}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
           >
             {showCurrent ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
         </div>
 
         {/* New Password */}
-        <div style={inputWrapperStyle}>
+        <div className="relative">
           <input
             type={showNew ? "text" : "password"}
             placeholder="New password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             onFocus={() => setShowRules(true)}
-            style={inputStyle}
+            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           <button
             type="button"
             onClick={() => setShowNew(!showNew)}
-            style={eyeBtnStyle}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
           >
             {showNew ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
         </div>
 
         {/* Confirm Password */}
-        <div style={inputWrapperStyle}>
+        <div className="relative">
           <input
             type={showConfirm ? "text" : "password"}
             placeholder="Confirm new password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            style={inputStyle}
+            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           <button
             type="button"
             onClick={() => setShowConfirm(!showConfirm)}
-            style={eyeBtnStyle}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
           >
             {showConfirm ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
         </div>
 
-        {/* Password Rules */}
+        {/* Rules */}
         {showRules && !allValid && (
-          <div ref={rulesRef} style={rulesStyle}>
+          <div
+            ref={rulesRef}
+            className="bg-white/10 border border-white/20 rounded-lg p-3 text-white text-sm"
+          >
             <p className="font-semibold mb-1">Password must include:</p>
-            <ul className="text-sm space-y-1">
-              <li style={{ color: status.length ? "green" : "red" }}>
+            <ul className="space-y-1">
+              <li className={status.length ? "text-green-400" : "text-red-500"}>
                 {status.length ? "✅" : "❌"} At least 8 characters
               </li>
-              <li style={{ color: status.uppercase ? "green" : "red" }}>
-                {status.uppercase ? "✅" : "❌"} One uppercase letter (A-Z)
+              <li
+                className={status.uppercase ? "text-green-400" : "text-red-500"}
+              >
+                {status.uppercase ? "✅" : "❌"} One uppercase letter
               </li>
-              <li style={{ color: status.lowercase ? "green" : "red" }}>
-                {status.lowercase ? "✅" : "❌"} One lowercase letter (a-z)
+              <li
+                className={status.lowercase ? "text-green-400" : "text-red-500"}
+              >
+                {status.lowercase ? "✅" : "❌"} One lowercase letter
               </li>
-              <li style={{ color: status.number ? "green" : "red" }}>
-                {status.number ? "✅" : "❌"} One number (0-9)
+              <li className={status.number ? "text-green-400" : "text-red-500"}>
+                {status.number ? "✅" : "❌"} One number
               </li>
-              <li style={{ color: status.special ? "green" : "red" }}>
+              <li
+                className={status.special ? "text-green-400" : "text-red-500"}
+              >
                 {status.special ? "✅" : "❌"} One special character (@$!%*?&)
               </li>
             </ul>
           </div>
         )}
 
-        {/* Messages */}
-        {error && <div style={errorStyle}>{error}</div>}
-        {success && <div style={successStyle}>{success}</div>}
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        {success && (
+          <p className="text-green-400 text-sm text-center">{success}</p>
+        )}
 
-        <div style={buttonContainerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle}>
+        <div className="flex justify-end gap-2 mt-4">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
+          >
             Cancel
           </button>
-          <button onClick={handleSubmit} style={submitBtnStyle}>
+          <button
+            onClick={handleSubmit}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
+          >
             Submit
           </button>
         </div>
       </div>
+
+      {/* Animation */}
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-15px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.25s ease forwards;
+        }
+      `}</style>
     </div>
   );
 }
-
-// Styles
-const overlayStyle = {
-  position: "fixed",
-  inset: 0,
-  backgroundColor: "rgba(0,0,0,0.35)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 9999,
-};
-const modalStyle = {
-  backgroundColor: "#fff",
-  padding: "24px",
-  borderRadius: "12px",
-  minWidth: "360px",
-  maxWidth: "90%",
-  display: "flex",
-  flexDirection: "column",
-  gap: "12px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.25)",
-};
-const inputWrapperStyle = {
-  position: "relative",
-};
-const inputStyle = {
-  width: "100%",
-  padding: "10px 36px 10px 10px",
-  borderRadius: "6px",
-  border: "1px solid #ccc",
-  fontSize: "14px",
-};
-const eyeBtnStyle = {
-  position: "absolute",
-  top: "50%",
-  right: "8px",
-  transform: "translateY(-50%)",
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  fontSize: "18px",
-  color: "#555",
-};
-const rulesStyle = {
-  backgroundColor: "#f9fafb",
-  border: "1px solid #ddd",
-  padding: "10px",
-  borderRadius: "6px",
-};
-const buttonContainerStyle = {
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: "10px",
-};
-const cancelBtnStyle = {
-  padding: "8px 14px",
-  borderRadius: "6px",
-  border: "1px solid #ccc",
-  backgroundColor: "#f9fafb",
-  cursor: "pointer",
-};
-const submitBtnStyle = {
-  padding: "8px 16px",
-  borderRadius: "6px",
-  backgroundColor: "#4f46e5",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer",
-};
-const errorStyle = { color: "#dc2626", fontSize: "13px", textAlign: "center" };
-const successStyle = {
-  color: "#16a34a",
-  fontSize: "13px",
-  textAlign: "center",
-};

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function ConfirmModal({
   open,
@@ -30,49 +31,63 @@ export default function ConfirmModal({
 
   if (!open) return null;
 
-  const style = {
-    position: "absolute",
-    top: position?.top || 0,
-    left: position?.left || "auto",
-    right: position?.right || 0,
-    zIndex: 50,
-  };
-
-  return (
+  return createPortal(
     <>
-      {/* Soft semi-transparent background */}
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" />
+      {/* Soft semi-transparent background covering the whole page */}
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-40" />
 
-      {/* Modal content */}
+      {/* Modal content at top-right */}
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[60]" />
       <div
-        style={style}
         ref={modalRef}
-        className={`bg-white rounded-2xl p-5 shadow-2xl z-50 w-72 transform transition-all duration-300
-          ${shake ? "animate-shake" : "scale-100 opacity-100"} hover:shadow-3xl`}
+        className={`fixed top-20 right-6 w-80 p-5 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl z-[70] transform transition-all duration-300
+      ${shake ? "animate-shake" : "scale-100 opacity-100"} hover:shadow-3xl`}
       >
-        {/* Optional arrow pointing to dropdown */}
-        <div className="absolute -top-2 right-4 w-4 h-4 bg-white rotate-45 shadow-md"></div>
-
-        <h2 className="text-base font-semibold mb-2 text-gray-800">
+        <h2 className="text-base font-semibold mb-2 text-white">
           {title || "Are you sure?"}
         </h2>
-        {message && <p className="text-gray-600 mb-4">{message}</p>}
+        {message && <p className="text-white/80 mb-4">{message}</p>}
 
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-medium hover:bg-gray-300 transition"
+            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 text-white font-medium hover:scale-105 transition"
           >
             Logout
           </button>
         </div>
       </div>
-    </>
+
+      {/* Shake animation */}
+      <style jsx global>{`
+        @keyframes shake {
+          0% {
+            transform: translateX(0);
+          }
+          25% {
+            transform: translateX(-5px);
+          }
+          50% {
+            transform: translateX(5px);
+          }
+          75% {
+            transform: translateX(-5px);
+          }
+          100% {
+            transform: translateX(0);
+          }
+        }
+        .animate-shake {
+          animation: shake 0.5s ease;
+        }
+      `}</style>
+    </>,
+    document.body,
   );
 }

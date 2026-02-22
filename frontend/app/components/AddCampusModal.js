@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { AiFillEye, AiFillEyeInvisible } from "react-icons/ai"; // icons
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai"; // icons
 
 export default function AddCampusModal({ onCancel, onSubmit }) {
   const [name, setName] = useState("");
@@ -25,10 +25,10 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-lg shadow-lg w-[400px] flex flex-col gap-4"
+        className="bg-white/10 border hover:shadow-purple-900/40 border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-80 animate-fadeIn"
       >
         <h3 className="text-lg font-bold">Add Campus</h3>
 
@@ -36,19 +36,19 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
         {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
 
         <input
-          className="border p-2 rounded"
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <input
-          className="border p-2 rounded"
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Location (optional)"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
         />
         <input
-          className="border p-2 rounded"
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -58,7 +58,7 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
-            className="border p-2 rounded w-full pr-10"
+            className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -66,9 +66,9 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
           <button
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
           >
-            {showPassword ? <AiFillEyeInvisible /> : <AiFillEye />}
+            {showPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
         </div>
 
@@ -76,13 +76,14 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-400 text-white px-4 py-2 rounded"
+            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
           >
             Cancel
           </button>
+
           <button
             type="submit"
-            className="bg-indigo-600 text-white px-4 py-2 rounded"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
           >
             Save
           </button>

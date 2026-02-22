@@ -40,7 +40,9 @@ export const getCampusStudents = async (req, res) => {
     // 🍽 Filter by fastingType (exact match)
     if (
       fastingType &&
-      ["not_fasting", "fasting", "sunday_fasting"].includes(fastingType)
+      ["not_fasting", "fasting", "sunday_fasting", "muslim_fasting"].includes(
+        fastingType,
+      )
     ) {
       query.fastingType = fastingType;
     }
@@ -49,7 +51,13 @@ export const getCampusStudents = async (req, res) => {
       .sort({ name: 1 })
       .select("name studentId batch department profileUrl fastingType");
 
-    res.json({ students });
+    // Count total students in this campus (ignore search/filter)
+    const totalStudents = await Student.countDocuments({ campus: campus._id });
+
+    res.json({
+      students,
+      totalStudents, // <-- this is new
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to fetch students" });
@@ -73,7 +81,12 @@ export const addStudent = async (req, res) => {
     }
 
     // Validate fastingType (optional but safe)
-    const allowedFastingTypes = ["not_fasting", "fasting", "sunday_fasting"];
+    const allowedFastingTypes = [
+      "not_fasting",
+      "fasting",
+      "sunday_fasting",
+      "muslim_fasting",
+    ];
     const finalFastingType = allowedFastingTypes.includes(fastingType)
       ? fastingType
       : "not_fasting";
@@ -137,9 +150,11 @@ export const updateStudent = async (req, res) => {
     if (department) student.department = formatFullName(department);
     if (
       fastingType &&
-      ["not_fasting", "fasting", "sunday_fasting"].includes(fastingType)
+      ["not_fasting", "fasting", "sunday_fasting", "muslim_fasting"].includes(
+        fastingType,
+      )
     ) {
-      student.fastingType = fastingType; // ✅ Update fastingType
+      student.fastingType = fastingType;
     }
 
     await student.save();
@@ -425,5 +440,41 @@ export const bulkDeleteStudents = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Bulk delete failed" });
+  }
+};
+
+// PATCH /api/campus/students/bulk-fasting
+export const bulkUpdateFasting = async (req, res) => {
+  try {
+    const { ids, fastingType } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No students selected" });
+    }
+
+    const allowedFastingTypes = [
+      "not_fasting",
+      "fasting",
+      "sunday_fasting",
+      "muslim_fasting",
+    ];
+
+    if (!fastingType || !allowedFastingTypes.includes(fastingType)) {
+      return res.status(400).json({ message: "Invalid fasting type" });
+    }
+
+    // Update all selected students belonging to this campus
+    const result = await Student.updateMany(
+      { _id: { $in: ids }, campus: req.campus._id },
+      { $set: { fastingType } },
+    );
+
+    res.json({
+      message: `Updated fasting status for ${result.modifiedCount} students`,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Bulk update failed" });
   }
 };

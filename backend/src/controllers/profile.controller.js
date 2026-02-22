@@ -151,7 +151,6 @@ export const changePassword = async (req, res) => {
 };
 
 // ✅ New function to verify admin password
-// ✅ Verify admin password (anti brute-force)
 export const verifyAdminPassword = async (req, res) => {
   try {
     const { password } = req.body;
@@ -164,20 +163,24 @@ export const verifyAdminPassword = async (req, res) => {
 
     // 2️⃣ Check lock status
     const record = adminAttempts.get(ip);
+    const now = Date.now();
+
     if (record && record.count >= MAX_ATTEMPTS) {
-      const remaining = record.resetTime - Date.now();
-      if (remaining > 0) {
+      if (record.resetTime > now) {
+        // Lock is still active
+        const remaining = record.resetTime - now;
         return res.status(429).json({
           message: `Too many attempts. Try again after ${formatMinutes(
             remaining,
           )}.`,
         });
+      } else {
+        // Lock expired → reset attempts
+        adminAttempts.delete(ip);
       }
-      // Reset if window expired
-      adminAttempts.delete(ip);
     }
 
-    // 3️⃣ Get logged-in admin (JWT required)
+    // 3️⃣ Get admin
     const admin = await User.findById(req.userId).select("+password");
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
@@ -191,29 +194,30 @@ export const verifyAdminPassword = async (req, res) => {
       if (!record) {
         adminAttempts.set(ip, {
           count: 1,
-          resetTime: Date.now() + WINDOW_MS,
+          resetTime: now + WINDOW_MS,
         });
       } else {
         record.count += 1;
+        // Reset the timer if hitting max
+        if (record.count >= MAX_ATTEMPTS) {
+          record.resetTime = now + WINDOW_MS;
+        }
         adminAttempts.set(ip, record);
       }
 
+      const attemptsLeft = MAX_ATTEMPTS - (record?.count || 1);
       return res.status(401).json({
-        message: `Wrong password. ${
-          MAX_ATTEMPTS - (record?.count || 1)
-        } attempt(s) left.`,
+        message:
+          attemptsLeft > 0
+            ? `Wrong password. ${attemptsLeft} attempt(s) left.`
+            : `Too many attempts. Try again after ${formatMinutes(
+                (record?.resetTime || now + WINDOW_MS) - now,
+              )}.`,
       });
     }
 
-    // 5️⃣ ✅ SUCCESS → decrement attempt or reset
-    if (record) {
-      // Option 1: Remove entirely after success
-      adminAttempts.delete(ip);
-
-      // Option 2: Or decrement count gradually (optional)
-      // record.count = Math.max(0, record.count - 1);
-      // adminAttempts.set(ip, record);
-    }
+    // 5️⃣ ✅ SUCCESS → reset attempt
+    if (record) adminAttempts.delete(ip);
 
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {

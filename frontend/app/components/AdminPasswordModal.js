@@ -31,40 +31,13 @@ export default function AdminPasswordModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-      }}
-    >
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form
         ref={modalRef}
-        onSubmit={handleSubmit}
-        style={{
-          backgroundColor: "#fff",
-          padding: "20px",
-          borderRadius: "8px",
-          minWidth: "320px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px",
-          boxShadow: "0 10px 25px rgba(0,0,0,0.25)",
-          animation: "modalFadeIn 0.25s ease forwards",
-        }}
+        onSubmit={handleSubmit} // KEEP THIS
+        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-80 animate-fadeIn"
       >
-        <h3
-          style={{
-            margin: 0,
-            fontSize: "18px",
-            fontWeight: "600",
-            textAlign: "center",
-          }}
-        >
+        <h3 className="text-lg font-semibold text-center text-white">
           Enter Admin Password
         </h3>
 
@@ -75,24 +48,12 @@ export default function AdminPasswordModal({
             name="password"
             placeholder="Admin password"
             autoFocus
-            style={{
-              width: "100%",
-              padding: "8px 36px 8px 10px",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-              fontSize: "14px",
-            }}
+            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
 
           <span
             onClick={() => setShowPassword((p) => !p)}
-            style={{
-              position: "absolute",
-              right: "8px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              cursor: "pointer",
-            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-white/70 hover:text-white transition"
           >
             {showPassword ? (
               <AiOutlineEyeInvisible size={20} />
@@ -104,47 +65,22 @@ export default function AdminPasswordModal({
 
         {/* Error message INSIDE modal */}
         {errorMessage && (
-          <div
-            style={{
-              color: "#dc2626",
-              fontSize: "13px",
-              textAlign: "center",
-            }}
-          >
-            {errorMessage}
-          </div>
+          <p className="text-red-500 text-sm text-center">{errorMessage}</p>
         )}
 
         {/* Buttons */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "10px",
-          }}
-        >
+        <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"
             onClick={onCancel}
-            style={{
-              padding: "6px 12px",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-              backgroundColor: "#f9fafb",
-            }}
+            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
           >
             Cancel
           </button>
 
           <button
             type="submit"
-            style={{
-              padding: "6px 14px",
-              borderRadius: "4px",
-              backgroundColor: "#4f46e5",
-              color: "#fff",
-              border: "none",
-            }}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
           >
             Submit
           </button>
@@ -153,7 +89,7 @@ export default function AdminPasswordModal({
 
       {/* animation */}
       <style jsx global>{`
-        @keyframes modalFadeIn {
+        @keyframes fadeIn {
           from {
             opacity: 0;
             transform: translateY(-15px);
@@ -162,6 +98,9 @@ export default function AdminPasswordModal({
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.25s ease forwards;
         }
       `}</style>
     </div>
