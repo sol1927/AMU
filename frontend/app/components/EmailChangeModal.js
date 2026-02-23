@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -28,7 +28,18 @@ export default function EmailChangeModal({
   }, [success, error]);
 
   const handleRequestOtp = async () => {
-    if (!newEmail) return setError("Enter a new email first");
+    if (!navigator.onLine) {
+      setError("No internet connection. Please check your network.");
+      setTimeout(() => setError(""), 2000);
+      return;
+    }
+
+    if (!newEmail) {
+      setError("Enter a new email first");
+      setTimeout(() => setError(""), 2000);
+      return;
+    }
+
     setError("");
     setSuccess("");
     setIsRequesting(true);
@@ -43,14 +54,25 @@ export default function EmailChangeModal({
       if (!res.ok) throw new Error(data.message || "Failed to send OTP");
       setSuccess("OTP sent to your new email!");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Something went wrong");
     } finally {
       setIsRequesting(false);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp) return setError("Enter the OTP first");
+    if (!navigator.onLine) {
+      setError("No internet connection. Please check your network.");
+      setTimeout(() => setError(""), 2000);
+      return;
+    }
+
+    if (!otp) {
+      setError("Enter the OTP first");
+      setTimeout(() => setError(""), 2000);
+      return;
+    }
+
     setError("");
     setSuccess("");
     setIsVerifying(true);
@@ -69,9 +91,10 @@ export default function EmailChangeModal({
       setNewEmail("");
       setOtp("");
 
+      // close modal after 0.5s
       setTimeout(() => onClose(), 500);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Something went wrong");
     } finally {
       setIsVerifying(false);
     }

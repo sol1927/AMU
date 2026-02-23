@@ -4,12 +4,16 @@ import { useRouter } from "next/navigation";
 import LoginModal from "./components/LoginModal";
 import RequestOTPModal from "./components/RequestOTPModal";
 import ForgotPasswordModal from "./components/ForgotPasswordModal"; // ✅ new import
+import VerifyOTPModal from "./components/VerifyOTPModal"; // ✅ new import
+import SetPasswordModal from "./components/SetPasswordModal"; // ✅ new import
 
 export default function LandingPage() {
   const router = useRouter();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false); // ✅ new state
+  const [showVerifyOTPModal, setShowVerifyOTPModal] = useState(false);
+  const [showSetPassword, setShowSetPassword] = useState(false);
 
   useEffect(() => {
     const signupHandler = () => setShowSignupModal(true);
@@ -22,6 +26,22 @@ export default function LandingPage() {
       window.removeEventListener("openSignupModal", signupHandler);
       window.removeEventListener("openForgotPasswordModal", forgotHandler);
     };
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setShowSetPassword(true); // open SetPasswordModal
+    window.addEventListener("openSetPasswordModal", handler);
+
+    return () => window.removeEventListener("openSetPasswordModal", handler);
+  }, []);
+
+  useEffect(() => {
+    const otpHandler = () => {
+      setShowSignupModal(false);
+      setShowVerifyOTPModal(true);
+    };
+    window.addEventListener("otpSent", otpHandler);
+    return () => window.removeEventListener("otpSent", otpHandler);
   }, []);
 
   const handleLoginSuccess = (user) => {
@@ -145,6 +165,18 @@ export default function LandingPage() {
         show={showForgotPasswordModal} // ✅ new modal
         onClose={() => setShowForgotPasswordModal(false)}
         onOpenLogin={() => setShowLoginModal(true)}
+      />
+
+      <VerifyOTPModal
+        show={showVerifyOTPModal}
+        onClose={() => setShowVerifyOTPModal(false)}
+        onOpenLogin={() => setShowLoginModal(true)} // ✅ add this
+      />
+
+      <SetPasswordModal
+        show={showSetPassword}
+        onClose={() => setShowSetPassword(false)}
+        onOpenLogin={() => setShowLoginModal(true)} // ✅ correct
       />
     </div>
   );

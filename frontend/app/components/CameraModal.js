@@ -67,36 +67,54 @@ export default function CameraModal({ onCapture, onCancel }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white p-4 rounded-lg flex flex-col items-center gap-3 shadow-lg">
-        <div className="w-40 h-40 bg-black rounded overflow-hidden border-2 border-gray-300">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
-        </div>
+    <>
+      {/* Blur Overlay */}
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[80]" />
 
-        <canvas ref={canvasRef} className="hidden" />
+      {/* Modal */}
+      <div className="fixed inset-0 flex items-center justify-center z-[90]">
+        <div
+          className="p-6 rounded-2xl border border-white/20 
+        bg-white/10 backdrop-blur-xl shadow-2xl 
+        flex flex-col items-center gap-4 text-white
+        transform transition-all duration-300 scale-100"
+        >
+          {/* Camera Preview */}
+          <div className="w-56 h-56 bg-black rounded-xl overflow-hidden border-2 border-white/20">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          </div>
 
-        <div className="flex gap-2">
-          <button
-            type="button" // ✅ important
-            onClick={handleCapture}
-            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
-          >
-            Capture
-          </button>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-          >
-            Cancel
-          </button>
+          <canvas ref={canvasRef} className="hidden" />
+
+          {/* Buttons */}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleCapture}
+              className="px-4 py-2 rounded-lg 
+              bg-gradient-to-r from-green-600 to-green-500 
+              hover:scale-105 transition font-medium"
+            >
+              Capture
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-4 py-2 rounded-lg 
+              border border-white/20 bg-white/5 
+              hover:bg-white/10 transition"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

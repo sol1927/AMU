@@ -57,6 +57,12 @@ export default function CampusesPage() {
   // Fetch campuses from backend
   useEffect(() => {
     const fetchCampuses = async () => {
+      if (!navigator.onLine) {
+        showToast("No internet connection", "error");
+        setLoading(false);
+        return;
+      }
+
       try {
         const res = await fetch(`${url}/dashboard/campuses`, {
           credentials: "include",
@@ -121,6 +127,12 @@ export default function CampusesPage() {
 
   // Delete campus
   const handleDelete = async (id) => {
+    // ✅ OFFLINE CHECK
+    if (!navigator.onLine) {
+      showToast("No internet connection", "error");
+      return;
+    }
+
     const res = await fetch(`${url}/dashboard/campuses/${id}`, {
       method: "DELETE",
       credentials: "include",
@@ -133,7 +145,6 @@ export default function CampusesPage() {
     }
 
     setCampuses((prev) => prev.filter((c) => c._id !== id));
-
     showToast("Campus deleted");
   };
 
@@ -213,14 +224,37 @@ export default function CampusesPage() {
                   )}
                 </div>
 
-                <div className="w-[180px] truncate font-medium">
-                  {capitalizeWords(campus.name)}
+                {/* Campus Name with hover tooltip */}
+                <div className="relative group w-[180px]">
+                  <span className="truncate font-medium block cursor-pointer">
+                    {capitalizeWords(campus.name)}
+                  </span>
+
+                  <div
+                    className="absolute left-0 -top-8 md:top-auto bottom-2 mb-2 hidden group-hover:block 
+      bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50
+      min-w-max"
+                  >
+                    {capitalizeWords(campus.name)}
+                  </div>
                 </div>
 
-                <div className="w-[150px] truncate text-gray-400">
-                  {campus.location || "—"}
-                </div>
+                {/* Campus Location with hover tooltip */}
+                <div className="relative group w-[150px]">
+                  <span className="truncate text-gray-400 block cursor-pointer">
+                    {campus.location || "—"}
+                  </span>
 
+                  {campus.location && (
+                    <div
+                      className="absolute left-0 -top-8 md:top-auto bottom-2 mb-2 hidden group-hover:block 
+        bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50
+        min-w-max"
+                    >
+                      {campus.location}
+                    </div>
+                  )}
+                </div>
                 <div className="w-[100px] text-center text-gray-400">
                   {campus.students ?? 0}
                 </div>

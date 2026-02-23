@@ -9,6 +9,7 @@ export default function AdminPasswordModal({
   errorMessage,
 }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [offlineError, setOfflineError] = useState(""); // for offline messages
   const modalRef = useRef(null);
 
   // close when clicking outside
@@ -23,8 +24,22 @@ export default function AdminPasswordModal({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [onCancel]);
 
+  // automatically clear offlineError after 2 seconds
+  useEffect(() => {
+    if (!offlineError) return;
+    const timer = setTimeout(() => setOfflineError(""), 2000);
+    return () => clearTimeout(timer);
+  }, [offlineError]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // ✅ Offline check
+    if (!navigator.onLine) {
+      setOfflineError("No internet connection. Please check your network.");
+      return;
+    }
+
     const enteredPassword = e.target.password.value.trim();
     if (!enteredPassword) return;
     onSubmit(enteredPassword);
@@ -34,7 +49,7 @@ export default function AdminPasswordModal({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form
         ref={modalRef}
-        onSubmit={handleSubmit} // KEEP THIS
+        onSubmit={handleSubmit}
         className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-80 animate-fadeIn"
       >
         <h3 className="text-lg font-semibold text-center text-white">
@@ -63,9 +78,12 @@ export default function AdminPasswordModal({
           </span>
         </div>
 
-        {/* Error message INSIDE modal */}
+        {/* Error messages */}
         {errorMessage && (
           <p className="text-red-500 text-sm text-center">{errorMessage}</p>
+        )}
+        {offlineError && (
+          <p className="text-red-400 text-sm text-center">{offlineError}</p>
         )}
 
         {/* Buttons */}

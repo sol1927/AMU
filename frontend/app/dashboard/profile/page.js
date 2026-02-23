@@ -84,6 +84,16 @@ export default function ProfilePage() {
     setMessage("");
     setError("");
 
+    // ✅ OFFLINE CHECK
+    if (!navigator.onLine) {
+      setError("No internet connection. Please check your network.");
+      setSavingChanges(false);
+
+      // disappear after 2 seconds
+      setTimeout(() => setError(""), 2000);
+      return;
+    }
+
     try {
       let photoUrl = photoPreview;
 
@@ -92,11 +102,13 @@ export default function ProfilePage() {
         setUploadingPhoto(true);
         const formData = new FormData();
         formData.append("photo", photo);
+
         const resPhoto = await fetch(`${url}/profile/me/photo`, {
           method: "PUT",
           credentials: "include",
           body: formData,
         });
+
         const dataPhoto = await resPhoto.json();
         if (!resPhoto.ok)
           throw new Error(dataPhoto.message || "Photo upload failed");
@@ -122,14 +134,14 @@ export default function ProfilePage() {
       setCurrentUser((prev) => ({ ...prev, name }));
       setPhotoPreview(photoUrl);
 
-      // ✅ Show message from backend
+      // ✅ Show success message
       setMessage(dataProfile.message || "Changes saved successfully");
 
-      // ✅ disappear after 2 seconds
       setTimeout(() => setMessage(""), 2000);
     } catch (err) {
       console.error(err);
       setError(err.message || "Something went wrong");
+
       // disappear after 2 seconds
       setTimeout(() => setError(""), 2000);
     } finally {

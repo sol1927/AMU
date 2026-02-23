@@ -30,16 +30,17 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!navigator.onLine) {
+      setMessageType("error");
+      setMessage("No internet connection. Please check your network.");
+      return;
+    }
+
     try {
       const res = await fetch(`${url}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          token,
-          newPassword,
-          confirmPassword,
-        }),
+        body: JSON.stringify({ email, token, newPassword, confirmPassword }),
       });
 
       const data = await res.json();
@@ -52,11 +53,11 @@ export default function ResetPassword() {
 
       setMessageType("success");
       setMessage(data.message || "Password reset successful");
-
       setTimeout(() => router.push("/"), 1500);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setMessageType("error");
-      setMessage("Connection error. Please try again.");
+      setMessage("Connection error. Please check your internet and try again.");
     }
   };
 

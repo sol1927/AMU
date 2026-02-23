@@ -24,6 +24,13 @@ export default function StationScanPage() {
   const bufferRef = useRef("");
   const lastTimeRef = useRef(0);
   const timeoutRef = useRef(null);
+  const [toast, setToast] = useState(null);
+
+  // Toast helper (2 seconds)
+  const showToast = (message, type = "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2000);
+  };
 
   useEffect(() => {
     lastTimeRef.current = Date.now();
@@ -34,6 +41,15 @@ export default function StationScanPage() {
   }, []);
 
   const processScan = async (studentId) => {
+    if (!navigator.onLine) {
+      showToast("No internet connection");
+      setShokeKey((prev) => prev + 1);
+      setStudent({ name: "OFFLINE ❌", studentId });
+      setAllowed(false);
+      setMessage("");
+      return;
+    }
+
     try {
       const res = await fetch(`${url}/meal/students/station-scan`, {
         method: "POST",
@@ -49,26 +65,27 @@ export default function StationScanPage() {
         setMessage(data.message);
       } else {
         // Unknown student
-        setShokeKey((prev) => prev + 1); // restart animation
-        setStudent({
-          name: "UNKNOWN STUDENT",
-          studentId: studentId,
-        });
+        setShokeKey((prev) => prev + 1);
+        setStudent({ name: "UNKNOWN STUDENT", studentId });
         setAllowed(false);
         setMessage("");
       }
 
       hiddenInputRef.current?.focus();
     } catch (err) {
+      showToast("Failed to scan student");
       setShokeKey((prev) => prev + 1);
-      setStudent({
-        name: "UNKNOWN STUDENT",
-        studentId: "",
-      });
+      setStudent({ name: "UNKNOWN STUDENT", studentId });
       setAllowed(false);
       setMessage("");
     }
   };
+
+  useEffect(() => {
+    const handleOffline = () => showToast("You are offline");
+    window.addEventListener("offline", handleOffline);
+    return () => window.removeEventListener("offline", handleOffline);
+  }, []);
 
   useEffect(() => {
     const handleScannerInput = (e) => {
@@ -109,6 +126,12 @@ export default function StationScanPage() {
   };
 
   const handleClearConfirm = async (enteredPassword) => {
+    // Add this at the top
+    if (!navigator.onLine) {
+      setPasswordError("No internet connection");
+      return;
+    }
+
     try {
       const res = await fetch(`${url}/campus/verify-campus-password`, {
         method: "POST",
@@ -168,73 +191,80 @@ export default function StationScanPage() {
 
         <div className="w-full max-w-4xl flex-1 flex flex-col items-center justify-center transition-all duration-300 relative">
           {student ? (
-            <div
-              key={shokeKey}
-              className={`w-full h-full p-8 rounded-lg flex flex-col justify-center items-center text-center transition-all duration-300 ${
-                student.name === "UNKNOWN STUDENT"
-                  ? "bg-red-600 text-white animate-shake"
-                  : allowed
-                    ? "bg-green-600 text-white"
-                    : "bg-yellow-500 text-black"
-              }`}
-            >
-              {/* Profile Photo on top */}
-              {student.name !== "UNKNOWN STUDENT" && (
-                <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-gray-300 mb-6 flex-shrink-0">
-                  <img
-                    src={student.profileUrl || "/default-avatar.png"}
-                    alt={student.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-
-              <h3
-                className={`mb-3 font-bold text-center ${
+            student.name === "OFFLINE ❌" ? (
+              <div
+                key={shokeKey}
+                className="w-full h-full p-8 rounded-lg flex flex-col justify-center items-center text-center bg-gray-700 text-white"
+              >
+                <h3 className="text-4xl font-bold">OFFLINE ❌</h3>
+              </div>
+            ) : (
+              <div
+                key={shokeKey}
+                className={`w-full h-full p-8 rounded-lg flex flex-col justify-center items-center text-center transition-all duration-300 ${
                   student.name === "UNKNOWN STUDENT"
-                    ? "text-white text-4xl"
-                    : "text-4xl"
+                    ? "bg-red-600 text-white animate-shake"
+                    : allowed
+                      ? "bg-green-600 text-white"
+                      : "bg-yellow-500 text-black"
                 }`}
               >
-                {student.name}
-              </h3>
+                {/* Profile Photo on top */}
+                {student.name !== "UNKNOWN STUDENT" && (
+                  <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-gray-300 mb-6 flex-shrink-0">
+                    <img
+                      src={student.profileUrl || "/default-avatar.png"}
+                      alt={student.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
 
-              <p
-                className={`text-lg ${
-                  student.name === "UNKNOWN STUDENT"
-                    ? "text-white"
-                    : "text-gray-700"
-                }`}
-              >
-                ID: {student.studentId || ""}
-              </p>
+                <h3
+                  className={`mb-3 font-bold text-center ${
+                    student.name === "UNKNOWN STUDENT"
+                      ? "text-white text-4xl"
+                      : "text-4xl"
+                  }`}
+                >
+                  {student.name}
+                </h3>
 
-              {student.name !== "UNKNOWN STUDENT" && (
-                <>
-                  <p className="text-lg mb-1">
-                    Department: {student.department}
-                  </p>
-                  <p className="text-lg mb-1">Batch: {student.batch}</p>
-                  {/* Fasting type */}
-                  <p className="text-2xl mb-1">
-                    Fasting:{" "}
-                    {student.fastingType === "fasting"
-                      ? "ጾመኛ"
-                      : student.fastingType === "sunday_fasting"
-                        ? "የእሁድ ጾመኛ"
-                        : "..."}
-                  </p>
-                  {/* Allowed / Not allowed */}
-                  <p
-                    className={`text-3xl font-bold mt-2 ${
-                      allowed ? "text-green-200" : "text-red-200"
-                    }`}
-                  >
-                    {allowed ? "ተፈቅዷል ✅" : "አልተፈቀደም ❌"}
-                  </p>
-                </>
-              )}
-            </div>
+                <p
+                  className={`text-lg ${
+                    student.name === "UNKNOWN STUDENT"
+                      ? "text-white"
+                      : "text-gray-700"
+                  }`}
+                >
+                  ID: {student.studentId || ""}
+                </p>
+
+                {student.name !== "UNKNOWN STUDENT" && (
+                  <>
+                    <p className="text-lg mb-1">
+                      Department: {student.department}
+                    </p>
+                    <p className="text-lg mb-1">Batch: {student.batch}</p>
+                    <p className="text-2xl mb-1">
+                      Fasting:{" "}
+                      {student.fastingType === "fasting"
+                        ? "ጾመኛ"
+                        : student.fastingType === "sunday_fasting"
+                          ? "የእሁድ ጾመኛ"
+                          : "..."}
+                    </p>
+                    <p
+                      className={`text-3xl font-bold mt-2 ${
+                        allowed ? "text-green-200" : "text-red-200"
+                      }`}
+                    >
+                      {allowed ? "ተፈቅዷል ✅" : "አልተፈቀደም ❌"}
+                    </p>
+                  </>
+                )}
+              </div>
+            )
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 font-bold text-xl">
               <div className="w-28 h-28 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -291,6 +321,15 @@ export default function StationScanPage() {
           className="absolute w-0 h-0 opacity-0 pointer-events-none"
         />
       </div>
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition ${
+            toast.type === "error" ? "bg-red-600" : "bg-green-600"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
 
       {/* Shoke animation CSS */}
       <style jsx global>{`

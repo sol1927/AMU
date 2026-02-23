@@ -8,6 +8,7 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success"); // "success" or "error"
   const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
 
   // Automatically hide message after 2 seconds
   useEffect(() => {
@@ -16,6 +17,7 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
     return () => clearTimeout(timer);
   }, [message]);
 
+  // Reset fields when modal opens
   useEffect(() => {
     if (show) {
       setEmail("");
@@ -23,10 +25,24 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
     }
   }, [show]);
 
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
     setLoading(true);
+
+    // ✅ Check connection
+    if (!navigator.onLine) {
+      setMessageType("error");
+      setMessage("No internet connection. Please check your network.");
+      triggerShake();
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch(`${url}/auth/request-password-reset`, {
@@ -40,14 +56,21 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       if (!res.ok) {
         setMessageType("error");
         setMessage(data.message || "Request failed");
+        triggerShake();
       } else {
         setMessageType("success");
         setMessage(data.message || "Reset link sent successfully");
-        setEmail(""); // ✅ clear the email field on success
+        setEmail(""); // clear the email field on success
       }
-    } catch {
+    } catch (error) {
+      console.error(error);
       setMessageType("error");
-      setMessage("Something went wrong");
+      if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Something went wrong. Please try again.");
+      }
+      triggerShake();
     } finally {
       setLoading(false);
     }
@@ -61,7 +84,9 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       onClick={onClose} // close when clicking outside
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-8 mt-20 mr-6"
+        className={`relative w-full max-w-md bg-white rounded-2xl shadow-xl p-8 mt-20 mr-6 transform transition-all ${
+          shake ? "animate-shake" : "animate-fade-in"
+        }`}
         onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside
       >
         <h2 className="text-3xl font-extrabold mb-6 text-center text-gray-800">
@@ -83,23 +108,23 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input
             type="email"
             placeholder="Enter your email"
             value={email}
             required
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 mb-6 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-800 placeholder-gray-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-800 placeholder-gray-500"
           />
 
           <button
             type="submit"
             disabled={loading}
-            className={`w-full p-2 rounded text-white ${
+            className={`w-full p-3 rounded-lg text-white font-semibold ${
               loading
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-green-500 hover:bg-green-600"
+                : "bg-green-600 hover:bg-green-700 transition"
             }`}
           >
             {loading ? "Sending..." : "Send Reset Link"}

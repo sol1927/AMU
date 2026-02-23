@@ -28,6 +28,12 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   const handleUpdate = async () => {
     setMessage("");
 
+    // ✅ OFFLINE CHECK
+    if (!navigator.onLine) {
+      setMessage("No internet connection. Please check your network.");
+      return;
+    }
+
     if ((password || confirmPassword) && !currentPassword) {
       setMessage("Enter current password to update");
       return;
@@ -41,7 +47,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       return;
     }
 
-    const payload = { id: campus._id, name, location, email }; // <-- include location
+    const payload = { id: campus._id, name, location, email };
     if (password) {
       payload.password = password;
       payload.currentPassword = currentPassword;

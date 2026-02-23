@@ -47,6 +47,14 @@ export default function LoginModal({ show, onClose, onLoginSuccess }) {
     setMessage("");
     setLoading(true);
 
+    if (!navigator.onLine) {
+      setMessageType("error");
+      setMessage("No internet connection. Please check your network.");
+      triggerShake();
+      setLoading(false);
+      return;
+    }
+
     try {
       const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
       localStorage.setItem("deviceId", deviceId);
@@ -75,32 +83,26 @@ export default function LoginModal({ show, onClose, onLoginSuccess }) {
         return;
       }
 
-      // ✅ Set current user
-      // ✅ Set current user
       setCurrentUser({ ...data.user, role: data.role });
 
-      // ✅ Handle campus context properly
       if (data.role === "campus") {
         setCurrentCampus(data.user);
       } else {
-        setCurrentCampus(null); // prevent stale campus data
+        setCurrentCampus(null);
       }
 
       setMessageType("success");
       setMessage("Login successful");
 
-      // ✅ Redirect based on role
       setTimeout(() => {
         onLoginSuccess?.(data.user);
-        if (data.role === "admin") {
-          router.push("/dashboard"); // Admin dashboard
-        } else if (data.role === "campus") {
-          router.push("/campus"); // Campus dashboard
-        }
+        if (data.role === "admin") router.push("/dashboard");
+        else if (data.role === "campus") router.push("/campus");
       }, 800);
     } catch (err) {
+      console.error(err);
       setMessageType("error");
-      setMessage("Something went wrong");
+      setMessage("Failed to connect. Please check your internet.");
       triggerShake();
     } finally {
       setLoading(false);

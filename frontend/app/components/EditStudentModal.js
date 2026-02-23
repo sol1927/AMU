@@ -1,227 +1,247 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { FiCamera } from "react-icons/fi";
+import CameraModal from "./CameraModal";
 
 export default function EditStudentModal({ student, onCancel, onSubmit }) {
-  // ---------- Form State ----------
   const [name, setName] = useState(student.name);
   const [studentId, setStudentId] = useState(student.studentId);
   const [department, setDepartment] = useState(student.department);
   const [batch, setBatch] = useState(student.batch);
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(student.profileUrl || null);
   const [fastingType, setFastingType] = useState(
     student.fastingType || "not_fasting",
   );
+  const [photo, setPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(student.profileUrl || null);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ---------- Webcam ----------
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [capturing, setCapturing] = useState(false);
+  const fileInputRef = useRef(null);
+  const photoOptionsRef = useRef(null);
 
-  const startCamera = async () => {
-    setCapturing(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) {
-      console.error(err);
-      setError("Cannot access camera");
-      setCapturing(false);
-    }
-  };
+  const [showCamera, setShowCamera] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
 
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (video && canvas) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        setPhoto(blob);
-        setPhotoPreview(URL.createObjectURL(blob));
-      }, "image/jpeg");
-    }
-  };
+  // Clear messages after 2 seconds
+  useEffect(() => {
+    if (!error && !success) return;
+    const timer = setTimeout(() => {
+      setError("");
+      setSuccess("");
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [error, success]);
 
-  const stopCamera = () => {
-    const video = videoRef.current;
-    if (video && video.srcObject) {
-      const tracks = video.srcObject.getTracks();
-      tracks.forEach((track) => track.stop());
-      video.srcObject = null;
-    }
-    setCapturing(false);
-  };
+  // Close photo options if clicked outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        photoOptionsRef.current &&
+        !photoOptionsRef.current.contains(e.target)
+      ) {
+        setShowPhotoOptions(false);
+      }
+    };
 
+    if (showPhotoOptions)
+      document.addEventListener("mousedown", handleClickOutside);
+    else document.removeEventListener("mousedown", handleClickOutside);
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPhotoOptions]);
+
+  // Handle photo selection
   const handleFileChange = (e) => {
-    if (e.target.files[0]) {
-      setPhoto(e.target.files[0]);
-      setPhotoPreview(URL.createObjectURL(e.target.files[0]));
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhoto(file);
+      setPhotoPreview(URL.createObjectURL(file));
     }
   };
 
-  // ---------- Submit ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+
+    // Offline check
+    if (!navigator.onLine) {
+      setError("No internet connection. Please try again.");
+      return;
+    }
+
+    if (!name || !studentId || !department || !batch) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
     setLoading(true);
-
-    const updatedStudent = {
+    const errMessage = await onSubmit({
       id: student._id,
-      name: name || student.name,
-      studentId: studentId || student.studentId,
-      department: department || student.department,
-      batch: batch || student.batch,
-      fastingType: fastingType || "not_fasting",
-      photo: photo || null,
-    };
-
-    const errMessage = await onSubmit(updatedStudent);
-    if (errMessage) setError(errMessage);
-
+      name,
+      studentId,
+      department,
+      batch,
+      fastingType,
+      photo,
+    });
     setLoading(false);
+
+    if (errMessage) {
+      setError(errMessage);
+      return;
+    }
+
+    setSuccess("Student updated successfully!");
+
+    // Auto-close after 2 seconds
+    setTimeout(() => onCancel(), 2000);
   };
 
-  // ---------- Cleanup ----------
-  useEffect(() => {
-    return () => {
-      if (photoPreview && photo) URL.revokeObjectURL(photoPreview);
-      stopCamera();
-    };
-  }, [photoPreview, photo]);
-
   return (
-    <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-lg shadow-lg w-[600px] max-h-[90vh] overflow-y-auto flex flex-col gap-4"
+        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-96 max-h-[90vh] overflow-y-auto animate-fadeIn text-white"
       >
         <h3 className="text-lg font-bold text-center">Edit Student</h3>
 
-        {error && <p className="text-red-600 text-center">{error}</p>}
+        {error && <div className="text-red-600 text-sm">{error}</div>}
+        {success && <div className="text-green-500 text-sm">{success}</div>}
 
-        {/* Current Photo */}
-        {/* Current Photo */}
-<div className="flex flex-col items-center mb-4">
-  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-indigo-200 shadow-md mb-2">
-    <img
-      src={
-        photoPreview || student.profileUrl || "/placeholder.png"
-      }
-      alt={student.name}
-      className="w-full h-full object-cover"
-    />
-  </div>
-  <p className="text-sm text-gray-600 mb-2">Current Photo</p>
-  <input
-    type="file"
-    accept="image/*"
-    onChange={(e) => {
-      if (e.target.files[0]) {
-        setPhoto(e.target.files[0]);
-        setPhotoPreview(URL.createObjectURL(e.target.files[0]));
-      }
-    }}
-    className="border p-2 rounded w-full text-sm"
-  />
-</div>
-
-
+        {/* Inputs */}
         <input
-          type="text"
           placeholder="Name*"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="border p-2 rounded"
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
-          type="text"
           placeholder="Student ID*"
           value={studentId}
           onChange={(e) => setStudentId(e.target.value)}
-          className="border p-2 rounded"
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
-          type="text"
           placeholder="Department*"
           value={department}
           onChange={(e) => setDepartment(e.target.value)}
-          className="border p-2 rounded"
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
-          type="text"
           placeholder="Batch*"
           value={batch}
           onChange={(e) => setBatch(e.target.value)}
-          className="border p-2 rounded"
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
 
+        {/* Fasting type */}
         <select
           value={fastingType}
           onChange={(e) => setFastingType(e.target.value)}
-          className="border p-2 rounded"
+          className="p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
         >
-          <option value="not_fasting">Not Fasting</option>
-          <option value="fasting">Fasting</option>
-          <option value="sunday_fasting">Sunday Fasting</option>
+          <option className="bg-gray-900 text-white" value="not_fasting">
+            Not Fasting
+          </option>
+          <option className="bg-gray-900 text-white" value="fasting">
+            Fasting
+          </option>
+          <option className="bg-gray-900 text-white" value="sunday_fasting">
+            Sunday Fasting
+          </option>
+          <option className="bg-gray-900 text-white" value="muslim_fasting">
+            Muslim Fasting
+          </option>
         </select>
 
-        {/* Webcam Capture */}
-        <div>
-          {!capturing ? (
-            <button
-              type="button"
-              onClick={startCamera}
-              className="bg-blue-600 text-white px-4 py-2 rounded w-full"
-            >
-              Capture from Camera
-            </button>
-          ) : (
-            <>
-              <video
-                ref={videoRef}
-                autoPlay
-                className="w-full mb-2 rounded border"
+        {/* Photo */}
+        <div className="flex flex-col items-center relative mb-4">
+          <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/30">
+            {photoPreview ? (
+              <img
+                src={photoPreview}
+                alt="Student"
+                className="object-cover w-full h-full"
               />
-              <div className="flex gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  className="bg-green-600 text-white px-4 py-2 rounded flex-1"
-                >
-                  Take Photo
-                </button>
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="bg-red-600 text-white px-4 py-2 rounded flex-1"
-                >
-                  Stop Camera
-                </button>
+            ) : (
+              <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xl">
+                {name?.charAt(0)?.toUpperCase() || "S"}
               </div>
-              <canvas ref={canvasRef} className="hidden" />
-            </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowPhotoOptions(true)}
+            className="absolute bottom-0 right-0 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full shadow-lg"
+          >
+            <FiCamera />
+          </button>
+
+          {showPhotoOptions && (
+            <div
+              ref={photoOptionsRef}
+              className="absolute bottom-12 right-0 bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl rounded-xl p-2 flex flex-col gap-2"
+            >
+              <button
+                type="button"
+                className="px-3 py-1 rounded text-sm hover:bg-white/20"
+                onClick={() => {
+                  setShowCamera(true);
+                  setShowPhotoOptions(false);
+                }}
+              >
+                Use Camera
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1 rounded text-sm hover:bg-white/20"
+                onClick={() => {
+                  setShowPhotoOptions(false);
+                  fileInputRef.current?.click();
+                }}
+              >
+                Upload from Device
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Actions */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
+        {showCamera && (
+          <CameraModal
+            onCapture={(blob) => {
+              setPhoto(blob);
+              setPhotoPreview(URL.createObjectURL(blob));
+              setShowCamera(false);
+            }}
+            onCancel={() => setShowCamera(false)}
+          />
+        )}
+
+        {/* Buttons */}
         <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-400 text-white px-4 py-2 rounded"
+            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="bg-indigo-600 text-white px-6 py-2 rounded"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
           >
             {loading ? "Updating..." : "Update Student"}
           </button>

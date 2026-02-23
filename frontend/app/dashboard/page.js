@@ -13,6 +13,14 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (!navigator.onLine) {
+        console.warn("No internet connection");
+        setLoading(false);
+        setTotalCampuses(0);
+        setTotalStudents(0);
+        return;
+      }
+
       try {
         setLoading(true);
         const res = await fetch(`${API_URL}/dashboard/campuses`, {

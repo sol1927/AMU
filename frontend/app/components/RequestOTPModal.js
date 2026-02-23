@@ -9,9 +9,11 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
   const router = useRouter();
   const { email, setEmail, name, setName } = useTempAdmin();
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("error"); // "success" or "error"
   const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
 
-  // ✅ Reset fields when modal opens
+  // Reset fields when modal opens
   useEffect(() => {
     if (show) {
       setName("");
@@ -20,10 +22,31 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
     }
   }, [show, setName, setEmail]);
 
+  // Auto-clear message after 2 seconds
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), 2000);
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
     setLoading(true);
+
+    // Check connection
+    if (!navigator.onLine) {
+      setMessageType("error");
+      setMessage("No internet connection. Please check your network.");
+      triggerShake();
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch(`${url}/auth/request-otp`, {
@@ -34,18 +57,32 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
       });
 
       const data = await res.json();
-      setMessage(data.message);
-      setTimeout(() => setMessage(""), 2000);
 
       if (res.ok) {
+        setMessageType("success");
+        setMessage(data.message || "OTP sent successfully");
+        setTimeout(() => setMessage(""), 2000);
+
+        // Trigger VerifyOTPModal instead of redirect
         setTimeout(() => {
-          router.push("/register/verify-otp");
-        }, 1000);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("otpSent"));
+          }
+        }, 500);
+      } else {
+        setMessageType("error");
+        setMessage(data.message || "Failed to send OTP");
+        triggerShake();
       }
     } catch (error) {
       console.error(error);
-      setMessage("Something went wrong. Please try again.");
-      setTimeout(() => setMessage(""), 2000);
+      setMessageType("error");
+      if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Something went wrong. Please try again.");
+      }
+      triggerShake();
     } finally {
       setLoading(false);
     }
@@ -59,7 +96,9 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-8 mt-20 mr-6"
+        className={`relative w-full max-w-md bg-white rounded-2xl shadow-xl p-8 mt-20 mr-6 transform transition-all ${
+          shake ? "animate-shake" : "animate-fade-in"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-3xl font-extrabold mb-6 text-center text-gray-800">
@@ -72,7 +111,7 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
         {message && (
           <p
             className={`mb-4 text-center p-2 rounded ${
-              message.includes("OTP sent")
+              messageType === "success"
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-700"
             }`}
@@ -81,14 +120,14 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your Name"
             required
-            className="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-800 placeholder-gray-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-800 placeholder-gray-500"
           />
 
           <input
@@ -97,7 +136,7 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin }) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Your Email"
             required
-            className="w-full p-3 mb-6 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-800 placeholder-gray-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-800 placeholder-gray-500"
           />
 
           <button

@@ -20,10 +20,16 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(""); // clear previous error
+
+    // Check internet connection
+    if (!navigator.onLine) {
+      setError("No internet connection. Please try again.");
+      return;
+    }
+
     const errMessage = await onSubmit({ name, location, email, password });
     if (errMessage) setError(errMessage); // show error inside modal
   };
-
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form

@@ -31,20 +31,18 @@ export default function ChangePasswordModal({ onClose }) {
   );
   const allValid = Object.values(status).every(Boolean);
 
+  // Auto-hide success/error messages
   useEffect(() => {
-    if (success) {
-      const t = setTimeout(() => setSuccess(""), 2000);
-      return () => clearTimeout(t);
+    if (success || error) {
+      const timer = setTimeout(() => {
+        setSuccess("");
+        setError("");
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [success]);
+  }, [success, error]);
 
-  useEffect(() => {
-    if (error) {
-      const t = setTimeout(() => setError(""), 2000);
-      return () => clearTimeout(t);
-    }
-  }, [error]);
-
+  // Click outside to hide password rules
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (rulesRef.current && !rulesRef.current.contains(e.target)) {
@@ -58,6 +56,12 @@ export default function ChangePasswordModal({ onClose }) {
   const handleSubmit = async () => {
     setError("");
     setSuccess("");
+
+    // ✅ OFFLINE CHECK
+    if (!navigator.onLine) {
+      setError("No internet connection. Please check your network.");
+      return;
+    }
 
     if (!allValid) {
       setError("Password does not meet all requirements");
@@ -88,9 +92,10 @@ export default function ChangePasswordModal({ onClose }) {
       setConfirmPassword("");
       setShowRules(false);
 
+      // Close modal after 2s
       setTimeout(() => onClose(), 2000);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Something went wrong");
     }
   };
 
@@ -189,6 +194,7 @@ export default function ChangePasswordModal({ onClose }) {
           </div>
         )}
 
+        {/* Messages */}
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         {success && (
           <p className="text-green-400 text-sm text-center">{success}</p>

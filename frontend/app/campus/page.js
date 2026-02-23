@@ -18,13 +18,29 @@ export default function CampusDashboardPage() {
     recentScans: [],
   });
 
-  // Fetch dashboard stats
+  const [toast, setToast] = useState(null);
+
+  // ✅ Toast helper (2 seconds)
+  const showToast = (message, type = "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  // ✅ Fetch dashboard stats with offline handling
   const fetchDashboardStats = useCallback(async () => {
     if (!currentCampus) return;
+
+    // 🔥 OFFLINE CHECK
+    if (!navigator.onLine) {
+      showToast("No internet connection");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_URL}/meal/dashboard`, {
         credentials: "include",
       });
+
       if (!res.ok) throw new Error("Failed to fetch dashboard stats");
 
       const data = await res.json();
@@ -39,12 +55,23 @@ export default function CampusDashboardPage() {
       });
     } catch (err) {
       console.error("Failed to fetch dashboard stats:", err);
+      showToast("Failed to load dashboard");
     }
   }, [currentCampus]);
 
   useEffect(() => {
     fetchDashboardStats();
   }, [fetchDashboardStats]);
+
+  // ✅ Detect internet disconnect automatically
+  useEffect(() => {
+    const handleOffline = () => {
+      showToast("You are offline");
+    };
+
+    window.addEventListener("offline", handleOffline);
+    return () => window.removeEventListener("offline", handleOffline);
+  }, []);
 
   if (loading) {
     return <p className="p-6 text-center mt-24 text-gray-600">Loading...</p>;
@@ -86,6 +113,7 @@ export default function CampusDashboardPage() {
               {stats.totalStudents}
             </p>
           </div>
+
           <div className="bg-gradient-to-tr from-green-600/40 to-green-500/20 border border-white/10 rounded-2xl p-8 shadow-lg hover:scale-105 transition-transform">
             <h3 className="text-lg font-semibold text-green-300 mb-2">
               Served Today
@@ -94,6 +122,7 @@ export default function CampusDashboardPage() {
               {stats.servedStudents}
             </p>
           </div>
+
           <div className="bg-gradient-to-tr from-yellow-500/40 to-blue-500/20 border border-white/10 rounded-2xl p-8 shadow-lg hover:scale-105 transition-transform">
             <h3 className="text-lg font-semibold text-red-300 mb-2">Pending</h3>
             <p className="text-4xl md:text-5xl font-bold">
@@ -101,6 +130,7 @@ export default function CampusDashboardPage() {
             </p>
           </div>
         </section>
+
         <div className="max-w-4xl mx-auto mb-4">
           <div className="flex justify-end">
             <button
@@ -111,6 +141,7 @@ export default function CampusDashboardPage() {
             </button>
           </div>
         </div>
+
         {/* Recent Scans */}
         <section className="max-w-4xl mx-auto mb-10">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-xl">
@@ -137,6 +168,17 @@ export default function CampusDashboardPage() {
           </div>
         </section>
       </div>
+
+      {/* ✅ Toast Message */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition ${
+            toast.type === "error" ? "bg-red-600" : "bg-green-600"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </>
   );
 }

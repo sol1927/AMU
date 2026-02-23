@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import { passwordRegex } from "../utils/validation.js";
 import crypto from "crypto";
 import User from "../models/user.model.js";
+import Campus from "../models/campus.model.js";
 import TempAdmin from "../models/TempAdmin.model.js";
 import { createTransporter } from "../utils/mailer.js";
 import bcrypt from "bcryptjs";
@@ -9,11 +10,13 @@ import bcrypt from "bcryptjs";
 export const requestOTP = async (req, res) => {
   try {
     const { name, email } = req.body;
+
     if (!email)
       return res
         .status(400)
         .json({ message: "Please enter your email to receive an OTP." });
 
+    // Check if email already exists in admins
     const adminExists = await User.findOne({ email });
     if (adminExists)
       return res.status(403).json({
@@ -21,39 +24,50 @@ export const requestOTP = async (req, res) => {
           "An admin with this email already exists. Please login instead.",
       });
 
+    // Check if email already exists in regular users
+    const userExists = await Campus.findOne({ email });
+    if (userExists)
+      return res.status(403).json({
+        message:
+          "This email is already registered as a user. You cannot use it for admin registration.",
+      });
+
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
+    // Store in TempAdmin
     await TempAdmin.findOneAndUpdate(
       { email },
       { name, email, otp: hashedOtp, otpExpires, verified: false },
       { upsert: true, new: true },
     );
 
+    // Send email
     await createTransporter().sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Your OTP for Admin Registration",
       html: `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; text-align: center;">
-      <img src="https://example.com/logo.png" alt="Your Company Logo" style="width: 120px; margin-bottom: 20px;" />
-      <h2 style="color: #333;">Hello ${name || "Admin"},</h2>
-      <p style="font-size: 16px; color: #555;">
-        Your One-Time Password (OTP) for admin registration is:
-      </p>
-      <p style="font-size: 24px; font-weight: bold; color: #1a73e8;">${otp}</p>
-      <p style="font-size: 14px; color: #999;">
-        This OTP will expire in 10 minutes.
-      </p>
-      <p style="margin-top: 30px; font-size: 12px; color: #bbb;">
-        If you did not request this, please ignore this email.
-      </p>
-    </div>
-  `,
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; text-align: center;">
+        <img src="https://example.com/logo.png" alt="Your Company Logo" style="width: 120px; margin-bottom: 20px;" />
+        <h2 style="color: #333;">Hello ${name || "Admin"},</h2>
+        <p style="font-size: 16px; color: #555;">
+          Your One-Time Password (OTP) for admin registration is:
+        </p>
+        <p style="font-size: 24px; font-weight: bold; color: #1a73e8;">${otp}</p>
+        <p style="font-size: 14px; color: #999;">
+          This OTP will expire in 10 minutes.
+        </p>
+        <p style="margin-top: 30px; font-size: 12px; color: #bbb;">
+          If you did not request this, please ignore this email.
+        </p>
+      </div>
+    `,
     });
 
+    // Sign OTP token
     const otpToken = jwt.sign({ email }, process.env.JWT_SECRET, {
       expiresIn: "10m",
     });
@@ -65,9 +79,7 @@ export const requestOTP = async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         maxAge: 10 * 60 * 1000,
       })
-      .json({
-        message: "OTP sent to your email. Please check your inbox.",
-      });
+      .json({ message: "OTP sent to your email. Please check your inbox." });
   } catch (err) {
     console.error(err);
     res
