@@ -253,6 +253,15 @@ export default function BatchStudentsPage() {
   if (!currentCampus)
     return <p className="p-6 text-center mt-24">Loading...</p>;
 
+  // Capitalize first letter of each word
+  const capitalizeName = (name) => {
+    if (!name) return "";
+    return name
+      .split(" ")
+      .map((word) => word[0]?.toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   return (
     <>
       <CampusNavbar />
@@ -413,15 +422,15 @@ export default function BatchStudentsPage() {
               </div>
               <div className="relative group w-[180px]">
                 <span className="truncate font-medium block cursor-pointer">
-                  {student.name}
+                  {capitalizeName(student.name)}
                 </span>
 
                 <div
                   className="absolute left-0 -top-8 md:top-auto bottom-2 mb-2 hidden group-hover:block 
-      bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50
-      min-w-max"
+  bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50
+  min-w-max"
                 >
-                  {student.name}
+                  {capitalizeName(student.name)}
                 </div>
               </div>
               <span className="w-[120px] truncate">{student.studentId}</span>
@@ -506,7 +515,10 @@ export default function BatchStudentsPage() {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify(updated),
+                body: JSON.stringify({
+                  ...updated,
+                  name: capitalizeName(updated.name), // capitalize before sending
+                }),
               });
               const data = await res.json();
               if (!res.ok) throw new Error(data.message || "Update failed");

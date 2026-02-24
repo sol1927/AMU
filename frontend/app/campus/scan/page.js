@@ -253,7 +253,7 @@ export default function StationScanPage() {
                         : student.fastingType === "sunday_fasting"
                           ? "የእሁድ ጾመኛ"
                           : student.fastingType === "muslim_fasting"
-                            ? "ሙስሊም ጾመኛ" // ← Added for Muslim fasting
+                            ? "የሙስሊም ጾመኛ"
                             : "..."}
                     </p>
                     <p

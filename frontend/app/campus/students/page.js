@@ -268,6 +268,15 @@ export default function CampusStudentsPage() {
   if (!currentCampus)
     return <p className="p-6 text-center mt-24">Loading...</p>;
 
+  // Capitalize first letter of each word
+  const capitalizeName = (name) => {
+    if (!name) return "";
+    return name
+      .split(" ")
+      .map((word) => word[0]?.toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   return (
     <>
       <CampusNavbar />
@@ -492,8 +501,8 @@ export default function CampusStudentsPage() {
               {/* Name */}
               <div className="relative group w-[180px]">
                 <span className="truncate font-medium block cursor-pointer">
-                  {student.name}
-                </span>
+  {capitalizeName(student.name)}
+</span>
 
                 <div
                   className="absolute left-0 -top-8 md:top-auto bottom-2 mb-2 hidden group-hover:block 
@@ -606,7 +615,7 @@ export default function CampusStudentsPage() {
               if (!photo) throw new Error("Photo is required");
 
               const formData = new FormData();
-              formData.append("name", name);
+              formData.append("name", capitalizeName(name)); // <-- capitalize here
               formData.append("studentId", studentId);
               formData.append("department", department);
               formData.append("batch", batch);
@@ -658,7 +667,7 @@ export default function CampusStudentsPage() {
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  name,
+                  name: capitalizeName(name), // <-- capitalize here
                   studentId,
                   department,
                   batch,

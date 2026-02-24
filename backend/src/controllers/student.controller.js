@@ -478,3 +478,4 @@ export const bulkUpdateFasting = async (req, res) => {
     res.status(500).json({ message: "Bulk update failed" });
   }
 };
+
