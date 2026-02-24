@@ -57,7 +57,7 @@ export default function AdminNavbar() {
           priority
         />
         <span className="text-xl font-bold text-white tracking-wide">
-          Uni<span className="text-blue-500">Cafeteria</span>
+          Gibi<span className="text-blue-500">Gebeta</span>
         </span>
       </div>
 

@@ -1,4 +1,3 @@
-// app/layout.js
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { TempAdminProvider } from "./context/TempAdminContext";
@@ -19,7 +18,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.className} bg-gradient-to-br from-slate-900 via-red-950 to-black text-white min-h-screen overflow-x-hidden antialiased`}
+        className={`${inter.className} bg-gradient-to-br from-black via-gray-900 to-black text-white min-h-screen overflow-x-hidden antialiased`}
       >
         <UserProvider>
           <TempAdminProvider>

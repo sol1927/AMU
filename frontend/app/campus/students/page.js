@@ -548,8 +548,7 @@ export default function CampusStudentsPage() {
                             (s) => s._id === student._id,
                           );
                           setStudentToEditData(studentData);
-                          setPendingAction("edit");
-                          setShowPasswordModal(true);
+                          setShowEditModal(true); // ✅ directly open edit modal
                           setOpenMenuId(null);
                         }}
                       >

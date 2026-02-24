@@ -120,8 +120,14 @@ export default function CampusStudentGroupsPage() {
   return (
     <>
       <CampusNavbar />
-
       <div className="min-h-screen text-white pt-28 px-6 md:px-20 pb-12">
+        <button
+          onClick={() => router.push("/campus/students")}
+          title="Back to Students"
+          className="fixed top-24 left-6 z-20 bg-gray-900/80 hover:bg-gray-800 hover:cursor-pointer text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
+        >
+          <IoChevronBackSharp className="w-5 h-5" />
+        </button>
         {/* Hero Section */}
         <section className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
@@ -154,7 +160,6 @@ export default function CampusStudentGroupsPage() {
               No batches found
             </p>
           )}
-
           {!loading &&
             batches.map((batch) => (
               <div
@@ -184,10 +189,8 @@ export default function CampusStudentGroupsPage() {
               </div>
             ))}
         </section>
-
         {error && <p className="text-red-600 mt-4">{error}</p>}
       </div>
-
       {/* Password confirmation modal */}
       {showPasswordModal && batchToDelete && (
         <ConfirmCampusPasswordModal
@@ -200,7 +203,6 @@ export default function CampusStudentGroupsPage() {
           errorMessage={passwordError}
         />
       )}
-
       {/* Toast Message */}
       {toast && (
         <div

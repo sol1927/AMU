@@ -252,7 +252,9 @@ export default function StationScanPage() {
                         ? "ጾመኛ"
                         : student.fastingType === "sunday_fasting"
                           ? "የእሁድ ጾመኛ"
-                          : "..."}
+                          : student.fastingType === "muslim_fasting"
+                            ? "ሙስሊም ጾመኛ" // ← Added for Muslim fasting
+                            : "..."}
                     </p>
                     <p
                       className={`text-3xl font-bold mt-2 ${
@@ -273,8 +275,7 @@ export default function StationScanPage() {
           )}
         </div>
 
-        {/* Manual Scan */}
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md flex gap-2 items-center bg-white p-4 rounded-lg shadow-lg">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md flex gap-2 items-center bg-black/70 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/20">
           <input
             ref={manualInputRef}
             type="text"
@@ -284,11 +285,11 @@ export default function StationScanPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleManualScan();
             }}
-            className="flex-1 border p-2 rounded"
+            className="flex-1 px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
           <button
             onClick={handleManualScan}
-            className="bg-indigo-600 text-white px-4 py-2 rounded font-bold"
+            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg font-bold hover:scale-105 transition"
           >
             Scan
           </button>

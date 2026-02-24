@@ -186,7 +186,7 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
           {showPhotoOptions && (
             <div
               ref={photoOptionsRef}
-              className="absolute bottom-12 right-0 bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl rounded-xl p-2 flex flex-col gap-2"
+              className="absolute bottom-12 right-0 bg-black/50 backdrop-blur-md border border-white/20 shadow-2xl rounded-xl p-2 flex flex-col gap-2"
             >
               <button
                 type="button"

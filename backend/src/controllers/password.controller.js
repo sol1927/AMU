@@ -75,7 +75,7 @@ export const resetPassword = async (req, res) => {
       email,
       resetToken: hashedToken,
       resetTokenExpires: { $gt: new Date() },
-    });
+    }).select("+password"); // 🔑 include password
 
     if (!user) {
       return res
@@ -105,7 +105,10 @@ export const resetPassword = async (req, res) => {
     }
 
     // Prevent reusing old password
-    const isSame = await bcrypt.compare(newPassword, user.password);
+    const isSame = user.password
+      ? await bcrypt.compare(newPassword, user.password)
+      : false;
+
     if (isSame) {
       return res.status(400).json({
         message: "New password cannot be the same as the old password",
