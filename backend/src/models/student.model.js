@@ -31,6 +31,7 @@ const studentSchema = new mongoose.Schema(
       ref: "Campus",
       required: true,
     },
+    isInternship: { type: Boolean, default: false },
     fastingType: {
       type: String,
       enum: ["not_fasting", "fasting", "sunday_fasting", "muslim_fasting"],

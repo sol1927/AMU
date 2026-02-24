@@ -458,12 +458,14 @@ export default function CampusStudentsPage() {
           {!loading && filteredAndSortedStudents.length > 0 && (
             <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
               <span className="w-10">#</span>
-              <span className="w-9"></span> {/* Space for avatar */}
+              <span className="w-9"></span> {/* Avatar */}
               <span className="w-[180px]">Name</span>
               <span className="w-[120px]">Student ID</span>
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
+              <span className="w-[100px]">Internship</span>{" "}
+              {/* <-- NEW COLUMN */}
               <div className="flex items-center gap-2 ml-auto">
                 <input
                   type="checkbox"
@@ -501,8 +503,8 @@ export default function CampusStudentsPage() {
               {/* Name */}
               <div className="relative group w-[180px]">
                 <span className="truncate font-medium block cursor-pointer">
-  {capitalizeName(student.name)}
-</span>
+                  {capitalizeName(student.name)}
+                </span>
 
                 <div
                   className="absolute left-0 -top-8 md:top-auto bottom-2 mb-2 hidden group-hover:block 
@@ -523,11 +525,22 @@ export default function CampusStudentsPage() {
                 </div>
               </div>{" "}
               <span className="w-[80px] truncate">{student.batch}</span>
+              {/* Fasting */}
               <span className="w-[140px] truncate">
                 {student.fastingType === "not_fasting" && "Not Fasting"}
                 {student.fastingType === "fasting" && "Fasting"}
                 {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
                 {student.fastingType === "muslim_fasting" && "Muslim Fasting"}
+              </span>
+              {/* Frozen / Internship */}
+              <span className="w-[120px]">
+                {student.isInternship ? (
+                  <span className="text-yellow-400 font-semibold">
+                    Internship
+                  </span>
+                ) : (
+                  <span className="text-gray-500">—</span>
+                )}
               </span>
               {/* Actions: checkbox + menu */}
               <div className="flex items-center gap-2 ml-auto">

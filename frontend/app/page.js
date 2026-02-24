@@ -56,7 +56,7 @@ export default function LandingPage() {
     <div className="min-h-screen text-white overflow-x-hidden">
       {/* ---------------- NAVBAR ---------------- */}
       <header className="fixed top-0 left-0 w-full z-50 bg-black/60 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
+        <div className="max-w-8xl mx-auto px-6 py-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 relative rounded-full overflow-hidden border border-blue-500 shadow-md">
               <Image src="/logo.png" alt="Logo" fill className="object-cover" />

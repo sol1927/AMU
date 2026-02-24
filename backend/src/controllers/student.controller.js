@@ -49,7 +49,7 @@ export const getCampusStudents = async (req, res) => {
 
     const students = await Student.find(query)
       .sort({ name: 1 })
-      .select("name studentId batch department profileUrl fastingType");
+      .select("name studentId batch department profileUrl fastingType isInternship");
 
     // Count total students in this campus (ignore search/filter)
     const totalStudents = await Student.countDocuments({ campus: campus._id });
@@ -272,7 +272,7 @@ export const getStudentsByBatch = async (req, res) => {
 
     const students = await Student.find(query)
       .sort({ name: 1 })
-      .select("name studentId batch department profileUrl fastingType");
+      .select("name studentId batch department profileUrl fastingType isInternship");
 
     res.json({ students });
   } catch (error) {
@@ -479,3 +479,58 @@ export const bulkUpdateFasting = async (req, res) => {
   }
 };
 
+
+export const toggleInternshipStudent = async (req, res) => {
+  try {
+    const { isInternship } = req.body; // true = internship, false = not internship
+    if (typeof isInternship !== "boolean") {
+      return res.status(400).json({ message: "isInternship must be boolean" });
+    }
+
+    const student = await Student.findOne({
+      _id: req.params.id,
+      campus: req.campus._id,
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    student.isInternship = isInternship;
+    await student.save();
+
+    res.json({
+      message: `Student ${isInternship ? "marked as internship" : "marked as not internship"} successfully`,
+      student,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to update internship status" });
+  }
+};
+
+export const bulkToggleInternshipStudents = async (req, res) => {
+  try {
+    const { ids, isInternship } = req.body; // ids = array of student IDs
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No students selected" });
+    }
+    if (typeof isInternship !== "boolean") {
+      return res.status(400).json({ message: "isInternship must be boolean" });
+    }
+
+    const result = await Student.updateMany(
+      { _id: { $in: ids }, campus: req.campus._id },
+      { $set: { isInternship } },
+    );
+
+    res.json({
+      message: `${isInternship ? "Marked as internship" : "Marked as not internship"} ${result.modifiedCount} students`,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Bulk internship status update failed" });
+  }
+};

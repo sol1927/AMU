@@ -15,6 +15,8 @@ import {
   deleteBatch,
   bulkDeleteStudents,
   bulkUpdateFasting,
+  toggleInternshipStudent,
+  bulkToggleInternshipStudents,
 } from "../controllers/student.controller.js";
 import { protectCampus } from "../middlewares/campusAuth.js";
 import upload from "../middlewares/upload.js"; // multer-cloudinary
@@ -49,6 +51,20 @@ router.delete("/students/batch/:batch", protectCampus, deleteBatch);
 // ---------- Bulk Delete Selected Students ----------
 router.post("/students/bulk-delete", protectCampus, bulkDeleteStudents);
 router.patch("/students/bulk-fasting", protectCampus, bulkUpdateFasting);
+
+// ---------- Freeze/Unfreeze Single Student ----------
+router.patch(
+  "/students/:id/internship",
+  protectCampus,
+  toggleInternshipStudent, // new controller
+);
+
+// ---------- Bulk Freeze/Unfreeze Selected Students ----------
+router.patch(
+  "/students/bulk-internship",
+  protectCampus,
+  bulkToggleInternshipStudents, // new controller
+);
 
 // ---------- Update Student Photo ----------
 router.put(

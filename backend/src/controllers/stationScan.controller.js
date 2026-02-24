@@ -10,10 +10,21 @@ export const scanStudentStation = async (req, res) => {
     const student = await Student.findOne({
       studentId,
       campus: req.campus._id,
-    }).select("name studentId department batch fastingType profileUrl");
+    }).select(
+      "name studentId department batch fastingType profileUrl isInternship",
+    );
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
+    }
+
+    // ❌ Block internship students
+    if (student.isInternship) {
+      return res.json({
+        allowed: false,
+        message: "Internship students are not allowed to scan",
+        student,
+      });
     }
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD

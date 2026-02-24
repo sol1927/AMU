@@ -36,6 +36,9 @@ export default function BatchStudentsPage() {
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
+  const [bulkInternshipAction, setBulkInternshipAction] = useState("");
+  const [savingBulkInternship, setSavingBulkInternship] = useState(false);
+
   const { currentCampus, refreshCampus } = useCampus();
 
   const showToast = (message, type = "error") => {
@@ -126,8 +129,6 @@ export default function BatchStudentsPage() {
       if (pendingAction === "delete" && studentToDelete) {
         await handleDelete(studentToDelete);
         setStudentToDelete(null);
-      } else if (pendingAction === "edit" && studentToEditData) {
-        setShowEditModal(true);
       } else if (pendingAction === "bulk_delete") {
         await handleBulkDelete();
       }
@@ -314,6 +315,82 @@ export default function BatchStudentsPage() {
             {sortedStudents.length}{" "}
             {sortedStudents.length === 1 ? "student" : "students"}
           </p>
+
+          {selectedStudents.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select
+                onChange={(e) => setBulkInternshipAction(e.target.value)}
+                className="py-0.5 px-2 bg-white/5 border border-white/10 rounded-xl text-white text-center backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+              >
+                <option className="bg-gray-900 text-white" value="">
+                  Internship Status
+                </option>
+                <option className="bg-gray-900 text-white" value="start">
+                  Send to Internship
+                </option>
+                <option className="bg-gray-900 text-white" value="return">
+                  Return from Internship
+                </option>
+              </select>
+              {bulkInternshipAction && (
+                <button
+                  disabled={savingBulkInternship}
+                  onClick={async () => {
+                    if (!navigator.onLine) {
+                      showToast("No internet connection");
+                      return;
+                    }
+
+                    setSavingBulkInternship(true);
+                    try {
+                      const res = await fetch(
+                        `${url}/campus/students/bulk-internship`,
+                        {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({
+                            ids: selectedStudents,
+                            isInternship: bulkInternshipAction === "start",
+                          }),
+                        },
+                      );
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.message);
+
+                      setStudents((prev) =>
+                        prev.map((s) =>
+                          selectedStudents.includes(s._id)
+                            ? {
+                                ...s,
+                                isInternship: bulkInternshipAction === "start",
+                              }
+                            : s,
+                        ),
+                      );
+                      setBulkInternshipAction("");
+                      setSelectedStudents([]);
+                      setSelectAll(false);
+                      showToast(
+                        `Students ${bulkInternshipAction === "start" ? "marked as internship" : "marked as not internship"} successfully`,
+                        "success",
+                      );
+                    } catch (err) {
+                      showToast(
+                        err.message || "Bulk internship status update failed",
+                        "error",
+                      );
+                    } finally {
+                      setSavingBulkInternship(false);
+                    }
+                  }}
+                  className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 disabled:opacity-50"
+                >
+                  {savingBulkInternship ? "Saving..." : "Apply"}
+                </button>
+              )}
+            </div>
+          )}
           {selectedStudents.length > 0 && (
             <div className="flex items-center gap-2">
               <button
@@ -321,14 +398,14 @@ export default function BatchStudentsPage() {
                   setPendingAction("bulk_delete");
                   setShowPasswordModal(true);
                 }}
-                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                className="bg-red-600 text-white px-3 py-0.5 rounded text-sm hover:bg-red-700"
               >
                 Delete ({selectedStudents.length})
               </button>
               <select
                 value={bulkFastingType}
                 onChange={(e) => setBulkFastingType(e.target.value)}
-                className="p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                className="py-0.5 px-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
               >
                 <option className="bg-gray-900 text-white" value="">
                   Select Fasting
@@ -384,6 +461,7 @@ export default function BatchStudentsPage() {
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
+              <span className="w-[120px]">Internship</span>
               <div className="flex items-center gap-2 ml-auto">
                 <input
                   type="checkbox"
@@ -445,11 +523,20 @@ export default function BatchStudentsPage() {
               </div>{" "}
               <span className="w-[80px] truncate">{batch}</span>{" "}
               {/* Batch column */}
-              <span className="w-[140px] truncate">
+              <span className="w-[140px] truncate flex items-center gap-1">
                 {student.fastingType === "not_fasting" && "Not Fasting"}
                 {student.fastingType === "fasting" && "Fasting"}
                 {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
                 {student.fastingType === "muslim_fasting" && "Muslim Fasting"}
+              </span>
+              <span className="w-[120px]">
+                {student.isInternship ? (
+                  <span className="text-yellow-400 font-semibold">
+                    Internship
+                  </span>
+                ) : (
+                  <span className="text-gray-500">—</span>
+                )}
               </span>
               <div className="ml-auto flex items-center gap-2 relative">
                 <input
@@ -474,8 +561,7 @@ export default function BatchStudentsPage() {
                         className="block w-full px-3 py-2 text-sm hover:bg-gray-400 hover:text-black hover:rounded"
                         onClick={() => {
                           setStudentToEditData(student);
-                          setPendingAction("edit");
-                          setShowPasswordModal(true);
+                          setShowEditModal(true); // directly open edit modal
                           setOpenMenuId(null);
                         }}
                       >
