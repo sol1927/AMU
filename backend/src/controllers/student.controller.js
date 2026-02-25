@@ -7,7 +7,6 @@ import upload from "../middlewares/upload.js";
 import StationScan from "../models/stationScan.model.js";
 import { formatFullName } from "../utils/formatName.js";
 
-// Helper to safely parse batch as a number
 const parseBatch = (input) => {
   const batch = Number(input);
   if (Number.isNaN(batch)) return null;
@@ -18,7 +17,7 @@ export const getCampusStudents = async (req, res) => {
   try {
     const campus = req.campus;
     const search = req.query.search || "";
-    const fastingType = req.query.fastingType; // ✅ new
+    const fastingType = req.query.fastingType;
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
@@ -28,7 +27,6 @@ export const getCampusStudents = async (req, res) => {
       campus: campus._id,
     };
 
-    // 🔎 Search by name, ID, department
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -37,7 +35,6 @@ export const getCampusStudents = async (req, res) => {
       ];
     }
 
-    // 🍽 Filter by fastingType (exact match)
     if (
       fastingType &&
       ["not_fasting", "fasting", "sunday_fasting", "muslim_fasting"].includes(
@@ -49,17 +46,17 @@ export const getCampusStudents = async (req, res) => {
 
     const students = await Student.find(query)
       .sort({ name: 1 })
-      .select("name studentId batch department profileUrl fastingType isInternship");
+      .select(
+        "name studentId batch department profileUrl fastingType isInternship",
+      );
 
-    // Count total students in this campus (ignore search/filter)
     const totalStudents = await Student.countDocuments({ campus: campus._id });
 
     res.json({
       students,
-      totalStudents, // <-- this is new
+      totalStudents,
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Failed to fetch students" });
   }
 };
@@ -68,7 +65,6 @@ export const addStudent = async (req, res) => {
   try {
     const { name, studentId, batch, department, fastingType } = req.body;
 
-    // Validate required fields
     if (!name || !studentId || batch === undefined || !department) {
       return res.status(400).json({
         message: "Name, studentId, batch, and department are required",
@@ -80,7 +76,6 @@ export const addStudent = async (req, res) => {
       return res.status(400).json({ message: "Batch must be a number" });
     }
 
-    // Validate fastingType (optional but safe)
     const allowedFastingTypes = [
       "not_fasting",
       "fasting",
@@ -100,10 +95,10 @@ export const addStudent = async (req, res) => {
     }
 
     const student = await Student.create({
-      name: formatFullName(name), // ✅ changed
+      name: formatFullName(name),
       studentId,
       batch: batchNum,
-      department: formatFullName(department), // ✅ changed
+      department: formatFullName(department),
       fastingType: finalFastingType,
       profileUrl,
       profilePublicId,
@@ -116,13 +111,10 @@ export const addStudent = async (req, res) => {
       return res.status(400).json({ message: "Student ID must be unique" });
     }
 
-    console.error("Add student error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// ---------- Update Student ----------
-// PATCH /api/campus/students/:id
 export const updateStudent = async (req, res) => {
   try {
     const { name, studentId, batch, department, fastingType } = req.body;
@@ -136,7 +128,6 @@ export const updateStudent = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Update fields if provided
     if (name) student.name = formatFullName(name);
     if (studentId) student.studentId = studentId;
     if (batch !== undefined) {
@@ -167,12 +158,10 @@ export const updateStudent = async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: "Student ID must be unique" });
     }
-    console.error(err);
     res.status(500).json({ message: "Failed to update student" });
   }
 };
 
-// ---------- Update Student Photo ----------
 export const updateStudentPhoto = async (req, res) => {
   try {
     if (!req.file)
@@ -184,21 +173,16 @@ export const updateStudentPhoto = async (req, res) => {
     });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    // Delete old photo
     if (student.profilePublicId) {
       try {
         const result = await cloudinary.uploader.destroy(
           student.profilePublicId,
         );
         if (result.result !== "ok" && result.result !== "not found") {
-          console.warn(`Cloudinary deletion issue: ${result.result}`);
         }
-      } catch (err) {
-        console.error("Cloudinary delete error:", err);
-      }
+      } catch (err) {}
     }
 
-    // Save new photo
     student.profileUrl = req.file.path;
     student.profilePublicId = req.file.filename.replace(/\.[^.]+$/, "");
 
@@ -209,7 +193,6 @@ export const updateStudentPhoto = async (req, res) => {
       profileUrl: student.profileUrl,
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to update photo" });
   }
 };
@@ -225,12 +208,10 @@ export const getCampusBatches = async (req, res) => {
       campus: campus._id,
     });
 
-    // Sort ascending
     const sortedBatches = batches.sort((a, b) => a - b);
 
     res.json({ batches: sortedBatches });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Failed to fetch batches" });
   }
 };
@@ -252,7 +233,7 @@ export const getStudentsByBatch = async (req, res) => {
 
     const query = {
       campus: campus._id,
-      batch: batchNum, // ✅ always use number
+      batch: batchNum,
     };
 
     if (search) {
@@ -272,19 +253,18 @@ export const getStudentsByBatch = async (req, res) => {
 
     const students = await Student.find(query)
       .sort({ name: 1 })
-      .select("name studentId batch department profileUrl fastingType isInternship");
+      .select(
+        "name studentId batch department profileUrl fastingType isInternship",
+      );
 
     res.json({ students });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Failed to fetch students" });
   }
 };
 
-// ---------- Delete Student ----------
 export const deleteStudent = async (req, res) => {
   try {
-    // Find the student in this campus
     const student = await Student.findOne({
       _id: req.params.id,
       campus: req.campus._id,
@@ -294,44 +274,34 @@ export const deleteStudent = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Delete photo from Cloudinary if exists
     if (student.profilePublicId) {
       try {
         const result = await cloudinary.uploader.destroy(
           student.profilePublicId,
         );
         if (result.result !== "ok" && result.result !== "not found") {
-          console.warn(`Cloudinary deletion issue: ${result.result}`);
         }
-      } catch (err) {
-        console.error("Cloudinary delete error:", err);
-      }
+      } catch (err) {}
     }
-
-    // Delete all StationScan records for this student in this campus
     await StationScan.deleteMany({
       student: student._id,
       campus: req.campus._id,
     });
 
-    // Delete the student
     await student.deleteOne();
 
     res.json({
       message: "Student and related station scans deleted successfully",
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to delete student" });
   }
 };
 
-// ---------- Delete All Students in a Batch ----------
 export const deleteBatch = async (req, res) => {
   const { batch } = req.params;
 
   try {
-    // Find all students in this batch for this campus
     const students = await Student.find({ batch, campus: req.campus._id });
 
     if (students.length === 0) {
@@ -340,32 +310,33 @@ export const deleteBatch = async (req, res) => {
         .json({ message: "No students found in this batch" });
     }
 
-    // Delete photos from Cloudinary for each student
     for (const student of students) {
       if (student.profilePublicId) {
         try {
           const result = await cloudinary.uploader.destroy(
             student.profilePublicId,
           );
+
+          // Optional: check for unexpected result, but do NOT log sensitive info
           if (result.result !== "ok" && result.result !== "not found") {
-            console.warn(
-              `Cloudinary deletion issue for ${student.name}: ${result.result}`,
-            );
+            // Use internal logger if available; only track ID, not name/email
+            // logger.warn("Cloudinary deletion returned unexpected result", { studentId: student._id, result });
           }
         } catch (err) {
-          console.error(`Cloudinary delete error for ${student.name}:`, err);
+          // Use logger for internal tracking instead of console.error
+          // logger.error("Cloudinary deletion failed", { studentId: student._id, error: err });
+          // If you don't have a logger yet, safely ignore or keep minimal info:
+          // console.error("Cloudinary deletion failed for a student"); // no sensitive info
         }
       }
     }
 
-    // Delete all StationScan records for these students in this campus
     const studentIds = students.map((s) => s._id);
     await StationScan.deleteMany({
       student: { $in: studentIds },
       campus: req.campus._id,
     });
 
-    // Delete all students
     const result = await Student.deleteMany({
       _id: { $in: studentIds },
       campus: req.campus._id,
@@ -376,12 +347,10 @@ export const deleteBatch = async (req, res) => {
       deletedCount: result.deletedCount,
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to delete batch" });
   }
 };
 
-// ---------- Bulk Delete Selected Students ----------
 export const bulkDeleteStudents = async (req, res) => {
   try {
     const { ids } = req.body;
@@ -390,7 +359,6 @@ export const bulkDeleteStudents = async (req, res) => {
       return res.status(400).json({ message: "No students selected" });
     }
 
-    // Find students belonging to this campus
     const students = await Student.find({
       _id: { $in: ids },
       campus: req.campus._id,
@@ -400,7 +368,6 @@ export const bulkDeleteStudents = async (req, res) => {
       return res.status(404).json({ message: "Students not found" });
     }
 
-    // Delete Cloudinary images
     for (const student of students) {
       if (student.profilePublicId) {
         try {
@@ -408,26 +375,29 @@ export const bulkDeleteStudents = async (req, res) => {
             student.profilePublicId,
           );
 
+          // Optional: check for unexpected result
           if (result.result !== "ok" && result.result !== "not found") {
-            console.warn(
-              `Cloudinary deletion issue for ${student.name}: ${result.result}`,
-            );
+            // Use a logger for internal tracking (student ID only, no name/email)
+            // logger.warn("Cloudinary deletion returned unexpected result", { studentId: student._id, result });
+            // If no logger yet, leave empty to avoid leaking info
+            // Do nothing
           }
         } catch (err) {
-          console.error(`Cloudinary delete error for ${student.name}:`, err);
+          // Production-safe: do not print raw error or student info
+          // logger.error("Cloudinary deletion failed", { studentId: student._id, error: err });
+          // Or safely ignore if you don't want logging
+          // Do nothing
         }
       }
     }
 
     const studentIds = students.map((s) => s._id);
 
-    // Delete related StationScans
     await StationScan.deleteMany({
       student: { $in: studentIds },
       campus: req.campus._id,
     });
 
-    // Delete students
     await Student.deleteMany({
       _id: { $in: studentIds },
       campus: req.campus._id,
@@ -438,12 +408,10 @@ export const bulkDeleteStudents = async (req, res) => {
       deletedCount: studentIds.length,
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Bulk delete failed" });
   }
 };
 
-// PATCH /api/campus/students/bulk-fasting
 export const bulkUpdateFasting = async (req, res) => {
   try {
     const { ids, fastingType } = req.body;
@@ -463,7 +431,6 @@ export const bulkUpdateFasting = async (req, res) => {
       return res.status(400).json({ message: "Invalid fasting type" });
     }
 
-    // Update all selected students belonging to this campus
     const result = await Student.updateMany(
       { _id: { $in: ids }, campus: req.campus._id },
       { $set: { fastingType } },
@@ -474,15 +441,13 @@ export const bulkUpdateFasting = async (req, res) => {
       modifiedCount: result.modifiedCount,
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Bulk update failed" });
   }
 };
 
-
 export const toggleInternshipStudent = async (req, res) => {
   try {
-    const { isInternship } = req.body; // true = internship, false = not internship
+    const { isInternship } = req.body;
     if (typeof isInternship !== "boolean") {
       return res.status(400).json({ message: "isInternship must be boolean" });
     }
@@ -504,14 +469,13 @@ export const toggleInternshipStudent = async (req, res) => {
       student,
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to update internship status" });
   }
 };
 
 export const bulkToggleInternshipStudents = async (req, res) => {
   try {
-    const { ids, isInternship } = req.body; // ids = array of student IDs
+    const { ids, isInternship } = req.body;
 
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ message: "No students selected" });
@@ -530,7 +494,6 @@ export const bulkToggleInternshipStudents = async (req, res) => {
       modifiedCount: result.modifiedCount,
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Bulk internship status update failed" });
   }
 };

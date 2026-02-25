@@ -11,13 +11,9 @@ import {
 
 const router = express.Router();
 
-// Admin dashboard
 router.get("/", verifyToken, getAdminDashboard);
-
-// Campuses
 router.post("/campuses", verifyToken, createCampus);
 router.get("/campuses", verifyToken, getCampuses);
-// router.get("/campuses/:id", verifyToken, getCampus);
 router.patch("/campuses/:id", verifyToken, updateCampus);
 router.delete("/campuses/:id", verifyToken, deleteCampus);
 

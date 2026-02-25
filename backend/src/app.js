@@ -12,11 +12,9 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-// Parse JSON & cookies
 app.use(express.json());
 app.use(cookieParser());
 
-// Enable CORS for frontend
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -24,21 +22,18 @@ app.use(
   }),
 );
 
-// 🔒 Prevent browser caching for all routes
 app.use((req, res, next) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
   next();
 });
 
-// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/profile", adminProfileRoutes);
 app.use("/api/campus", campusRoutes);
 app.use("/api/meal", stationScanRoutes);
 
-// 🔄 Schedule expired reset token cleanup
-setInterval(clearExpiredResetTokens, 3600000); // every hour
-clearExpiredResetTokens(); // run once immediately
+setInterval(clearExpiredResetTokens, 3600000);
+clearExpiredResetTokens();
 
 export default app;

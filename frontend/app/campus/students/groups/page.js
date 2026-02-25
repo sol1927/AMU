@@ -7,7 +7,7 @@ import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
 import { IoChevronBackSharp } from "react-icons/io5";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CampusStudentGroupsPage() {
   const { currentCampus, refreshCampus } = useCampus();
@@ -21,13 +21,11 @@ export default function CampusStudentGroupsPage() {
   const [passwordError, setPasswordError] = useState("");
   const [toast, setToast] = useState(null);
 
-  // ✅ Toast helper
   const showToast = (message, type = "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   };
 
-  // ✅ Fetch batches
   const fetchBatches = useCallback(async () => {
     if (!currentCampus) return;
 
@@ -38,7 +36,7 @@ export default function CampusStudentGroupsPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/campus/students/batches`, {
+      const res = await fetch(`${url}/campus/students/batches`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -55,8 +53,6 @@ export default function CampusStudentGroupsPage() {
   useEffect(() => {
     fetchBatches();
   }, [fetchBatches]);
-
-  // ✅ Delete batch with password confirmation
   const handlePasswordSubmit = async (enteredPassword) => {
     if (!batchToDelete) return;
     if (!navigator.onLine) {
@@ -65,30 +61,22 @@ export default function CampusStudentGroupsPage() {
     }
 
     try {
-      // Verify password
-      const verifyRes = await fetch(
-        `${API_URL}/campus/verify-campus-password`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ password: enteredPassword }),
-        },
-      );
+      const verifyRes = await fetch(`${url}/campus/verify-campus-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password: enteredPassword }),
+      });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) {
         setPasswordError(verifyData.message || "Wrong password");
         return;
       }
 
-      // Delete batch
-      const res = await fetch(
-        `${API_URL}/campus/students/batch/${batchToDelete}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
+      const res = await fetch(`${url}/campus/students/batch/${batchToDelete}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to delete batch");
 
@@ -103,8 +91,6 @@ export default function CampusStudentGroupsPage() {
       showToast(err.message || "Failed to delete batch");
     }
   };
-
-  // ✅ Detect offline automatically
   useEffect(() => {
     const handleOffline = () => showToast("You are offline");
     window.addEventListener("offline", handleOffline);
@@ -128,7 +114,6 @@ export default function CampusStudentGroupsPage() {
         >
           <IoChevronBackSharp className="w-5 h-5" />
         </button>
-        {/* Hero Section */}
         <section className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
             Student Groups at{" "}
@@ -138,8 +123,6 @@ export default function CampusStudentGroupsPage() {
             Manage batches and student groups easily 👥
           </p>
         </section>
-
-        {/* Refresh Button */}
         <div className="max-w-4xl mx-auto mb-8 flex justify-end">
           <button
             onClick={fetchBatches}
@@ -148,8 +131,6 @@ export default function CampusStudentGroupsPage() {
             Refresh Batches
           </button>
         </div>
-
-        {/* Batches Grid */}
         <section className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {loading && (
             <p className="text-center col-span-full">Loading batches...</p>
@@ -191,7 +172,6 @@ export default function CampusStudentGroupsPage() {
         </section>
         {error && <p className="text-red-600 mt-4">{error}</p>}
       </div>
-      {/* Password confirmation modal */}
       {showPasswordModal && batchToDelete && (
         <ConfirmCampusPasswordModal
           onCancel={() => {
@@ -203,7 +183,6 @@ export default function CampusStudentGroupsPage() {
           errorMessage={passwordError}
         />
       )}
-      {/* Toast Message */}
       {toast && (
         <div
           className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition ${

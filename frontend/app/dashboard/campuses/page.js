@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react"; // added useRef
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { IoChevronBackSharp } from "react-icons/io5";
@@ -20,7 +20,7 @@ export default function CampusesPage() {
   const [adminError, setAdminError] = useState("");
   const [campusToDelete, setCampusToDelete] = useState(null);
   const [campusToEdit, setCampusToEdit] = useState(null);
-  const [pendingAction, setPendingAction] = useState(null); // "add" | "edit" | "delete"
+  const [pendingAction, setPendingAction] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -31,13 +31,10 @@ export default function CampusesPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Only close menu if no modal is open
       if (showAdminPasswordPrompt || showForm) return;
 
-      // Click outside a menu button closes the menu
       if (!event.target.closest(".menu-button")) {
         setOpenMenuId(null);
       }
@@ -47,14 +44,12 @@ export default function CampusesPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showAdminPasswordPrompt, showForm]);
 
-  // Clear admin modal error after 3 seconds
   useEffect(() => {
-    if (!adminError) return; // do nothing if no error
-    const timer = setTimeout(() => setAdminError(""), 2000); // 3 sec
-    return () => clearTimeout(timer); // cleanup if unmounted or error changes
+    if (!adminError) return;
+    const timer = setTimeout(() => setAdminError(""), 2000);
+    return () => clearTimeout(timer);
   }, [adminError]);
 
-  // Fetch campuses from backend
   useEffect(() => {
     const fetchCampuses = async () => {
       if (!navigator.onLine) {
@@ -102,20 +97,17 @@ export default function CampusesPage() {
       setShowAdminPasswordPrompt(false);
       setAdminError("");
 
-      // Perform action based on pendingAction
       if (pendingAction === "edit" && campusToEdit) {
-        // Instead of router.push, show modal
-        setShowEditModal(true); // <-- new state for modal visibility
+        setShowEditModal(true);
       } else if (pendingAction === "delete" && campusToDelete) {
         await handleDelete(campusToDelete);
         setCampusToDelete(null);
       } else if (pendingAction === "add") {
-        setShowForm(true); // show AddCampusModal
+        setShowForm(true);
       }
 
-      setPendingAction(null); // reset
+      setPendingAction(null);
     } catch (err) {
-      console.error(err);
       setAdminError("Something went wrong");
     }
   };
@@ -125,9 +117,7 @@ export default function CampusesPage() {
     [campuses],
   );
 
-  // Delete campus
   const handleDelete = async (id) => {
-    // ✅ OFFLINE CHECK
     if (!navigator.onLine) {
       showToast("No internet connection", "error");
       return;
@@ -149,7 +139,6 @@ export default function CampusesPage() {
   };
 
   if (loading) return <p className="p-6">Loading campuses...</p>;
-  // Capitalize first letter of each word
   const capitalizeWords = (str) =>
     str
       ? str
@@ -164,7 +153,6 @@ export default function CampusesPage() {
   return (
     <>
       <div className="pt-24 h-screen text-white max-w-7xl mx-auto px-6 flex flex-col">
-        {/* Back Button */}
         <button
           onClick={() => router.push("/dashboard")}
           title="Back to Dashboard"
@@ -172,11 +160,8 @@ export default function CampusesPage() {
         >
           <IoChevronBackSharp className="w-5 h-5" />
         </button>
-
-        {/* Top Section (Like Students Page) */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Campuses</h1>
-
           <button
             onClick={() => {
               setPendingAction("add");
@@ -189,7 +174,6 @@ export default function CampusesPage() {
           </button>
         </div>
 
-        {/* Header Row (Unscrollable) */}
         {sortedCampuses.length > 0 && (
           <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
             <div className="w-10"></div>
@@ -201,7 +185,6 @@ export default function CampusesPage() {
           </div>
         )}
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
           {sortedCampuses.length > 0 ? (
             sortedCampuses.map((campus) => (
@@ -209,7 +192,6 @@ export default function CampusesPage() {
                 key={campus._id}
                 className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-4 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-950 transition-all duration-300 relative"
               >
-                {/* Logo */}
                 <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                   {campus.logo?.url ? (
                     <img
@@ -223,8 +205,6 @@ export default function CampusesPage() {
                     </span>
                   )}
                 </div>
-
-                {/* Campus Name with hover tooltip */}
                 <div className="relative group w-[180px]">
                   <span className="truncate font-medium block cursor-pointer">
                     {capitalizeWords(campus.name)}
@@ -238,8 +218,6 @@ export default function CampusesPage() {
                     {capitalizeWords(campus.name)}
                   </div>
                 </div>
-
-                {/* Campus Location with hover tooltip */}
                 <div className="relative group w-[150px]">
                   <span className="truncate text-gray-400 block cursor-pointer">
                     {campus.location || "—"}
@@ -262,8 +240,6 @@ export default function CampusesPage() {
                 <div className="flex-1 truncate text-gray-400">
                   {campus.email}
                 </div>
-
-                {/* Menu */}
                 <div className="w-10 flex justify-end relative">
                   <button
                     className="menu-button hover:bg-white/10 p-1 rounded"
@@ -315,8 +291,6 @@ export default function CampusesPage() {
             </div>
           )}
         </div>
-
-        {/* ===== MODALS (UNCHANGED) ===== */}
 
         {showAdminPasswordPrompt && (
           <AdminPasswordModal

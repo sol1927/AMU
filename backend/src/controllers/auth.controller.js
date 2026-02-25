@@ -13,26 +13,21 @@ export const login = async (req, res) => {
         message: "Please enter both your email and password.",
       });
 
-    // 1️⃣ Try to find an admin first
     let user = await User.findOne({ email }).select("+password");
     let role = "admin";
 
-    // 2️⃣ If no admin, try campus
     if (!user) {
       user = await Campus.findOne({ email }).select("+password");
       role = "campus";
     }
 
-    // 3️⃣ If neither found
     if (!user)
       return res.status(401).json({ message: "Invalid email or password." });
 
-    // 4️⃣ Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password." });
 
-    // 5️⃣ Admin-specific: device OTP
     if (role === "admin") {
       user.trustedDevices = user.trustedDevices || [];
       if (user.trustedDevices.length) {
@@ -65,12 +60,9 @@ export const login = async (req, res) => {
       }
     }
 
-    // 6️⃣ Generate JWT
-    const token = jwt.sign(
-      { id: user._id, role }, // role is either 'admin' or 'campus'
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" },
-    );
+    const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
     const cookieName = role === "admin" ? "accessToken" : "campusToken";
     res.cookie(cookieName, token, {
@@ -88,7 +80,6 @@ export const login = async (req, res) => {
       role,
     });
   } catch (err) {
-    console.error(err);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again." });

@@ -18,7 +18,7 @@ const campusSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      select: false, // never return password by default
+      select: false,
     },
     location: {
       type: String,
@@ -27,7 +27,7 @@ const campusSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true, // admin who created this campus
+      required: true,
     },
     logo: {
       url: String,
@@ -35,7 +35,7 @@ const campusSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["campus", "admin"], // enforce valid roles
+      enum: ["campus", "admin"],
       default: "campus",
       required: true,
     },
@@ -43,15 +43,12 @@ const campusSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Ensure each admin cannot create campuses with duplicate names
 campusSchema.index({ name: 1, createdBy: 1 }, { unique: true });
 
-// Method to compare password
 campusSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Optional: Hide password when converting to JSON
 campusSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;

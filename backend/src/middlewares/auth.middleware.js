@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 
 export const verifyToken = (req, res, next) => {
-  const token = req.cookies.accessToken; // ✅ read from cookie
+  const token = req.cookies.accessToken;
   if (!token)
     return res
       .status(401)
@@ -9,8 +9,8 @@ export const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id; // attach userId to request
-    req.userRole = decoded.role; // optional: attach role
+    req.userId = decoded.id;
+    req.userRole = decoded.role;
     next();
   } catch (err) {
     return res

@@ -10,7 +10,7 @@ export const protectCampus = async (req, res, next) => {
     const campus = await Campus.findById(decoded.id).select("-password");
     if (!campus) return res.status(401).json({ message: "Unauthorized" });
 
-    req.campus = campus; // attach campus info
+    req.campus = campus;
     next();
   } catch (err) {
     return res.status(401).json({ message: "Session expired" });

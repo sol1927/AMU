@@ -24,7 +24,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
   const [showCamera, setShowCamera] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
 
-  // Clear messages after 2 seconds
   useEffect(() => {
     if (!error && !success) return;
     const timer = setTimeout(() => {
@@ -34,7 +33,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
     return () => clearTimeout(timer);
   }, [error, success]);
 
-  // Close photo options if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -52,7 +50,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showPhotoOptions]);
 
-  // Handle photo selection
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -66,7 +63,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
     setError("");
     setSuccess("");
 
-    // Offline check
     if (!navigator.onLine) {
       setError("No internet connection. Please try again.");
       return;
@@ -95,8 +91,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
     }
 
     setSuccess("Student updated successfully!");
-
-    // Auto-close after 2 seconds
     setTimeout(() => onCancel(), 2000);
   };
 
@@ -111,7 +105,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
         {error && <div className="text-red-600 text-sm">{error}</div>}
         {success && <div className="text-green-500 text-sm">{success}</div>}
 
-        {/* Inputs */}
         <input
           placeholder="Name*"
           value={name}
@@ -136,8 +129,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
           onChange={(e) => setBatch(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
-
-        {/* Fasting type */}
         <select
           value={fastingType}
           onChange={(e) => setFastingType(e.target.value)}
@@ -157,7 +148,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
           </option>
         </select>
 
-        {/* Photo */}
         <div className="flex flex-col items-center relative mb-4">
           <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/30">
             {photoPreview ? (
@@ -172,7 +162,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
               </div>
             )}
           </div>
-
           <button
             type="button"
             onClick={() => setShowPhotoOptions(true)}
@@ -180,7 +169,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
           >
             <FiCamera />
           </button>
-
           {showPhotoOptions && (
             <div
               ref={photoOptionsRef}
@@ -228,8 +216,6 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
             onCancel={() => setShowCamera(false)}
           />
         )}
-
-        {/* Buttons */}
         <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"

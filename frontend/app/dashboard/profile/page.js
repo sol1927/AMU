@@ -25,7 +25,6 @@ export default function ProfilePage() {
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
 
-  // MODAL STATES
   const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
   const [showEmailChangeModal, setShowEmailChangeModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -34,16 +33,12 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Clear admin password error after 2 seconds
   useEffect(() => {
-    if (!passwordError) return; // do nothing if no error
+    if (!passwordError) return;
     const timer = setTimeout(() => setPasswordError(""), 2000);
-    return () => clearTimeout(timer); // cleanup
+    return () => clearTimeout(timer);
   }, [passwordError]);
 
-  // ======================
-  // LOAD PROFILE
-  // ======================
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -65,9 +60,6 @@ export default function ProfilePage() {
     fetchProfile();
   }, [router, setCurrentUser]);
 
-  // ======================
-  // PHOTO SELECT
-  // ======================
   const handlePhotoSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -75,21 +67,15 @@ export default function ProfilePage() {
     setPhotoPreview(URL.createObjectURL(file));
   };
 
-  // ======================
-  // SAVE NAME & PHOTO
-  // ======================
   const handleSaveChanges = async (e) => {
     e.preventDefault();
     setSavingChanges(true);
     setMessage("");
     setError("");
 
-    // ✅ OFFLINE CHECK
     if (!navigator.onLine) {
       setError("No internet connection. Please check your network.");
       setSavingChanges(false);
-
-      // disappear after 2 seconds
       setTimeout(() => setError(""), 2000);
       return;
     }
@@ -97,7 +83,6 @@ export default function ProfilePage() {
     try {
       let photoUrl = photoPreview;
 
-      // 1️⃣ Upload photo if selected
       if (photo) {
         setUploadingPhoto(true);
         const formData = new FormData();
@@ -119,7 +104,6 @@ export default function ProfilePage() {
         setUploadingPhoto(false);
       }
 
-      // 2️⃣ Update name only
       const resProfile = await fetch(`${url}/profile/me`, {
         method: "PUT",
         credentials: "include",
@@ -134,15 +118,12 @@ export default function ProfilePage() {
       setCurrentUser((prev) => ({ ...prev, name }));
       setPhotoPreview(photoUrl);
 
-      // ✅ Show success message
       setMessage(dataProfile.message || "Changes saved successfully");
 
       setTimeout(() => setMessage(""), 2000);
     } catch (err) {
-      console.error(err);
       setError(err.message || "Something went wrong");
 
-      // disappear after 2 seconds
       setTimeout(() => setError(""), 2000);
     } finally {
       setSavingChanges(false);
@@ -150,9 +131,6 @@ export default function ProfilePage() {
     }
   };
 
-  // ======================
-  // HANDLE ADMIN PASSWORD SUBMIT
-  // ======================
   const handleAdminPasswordSubmit = async (enteredPassword) => {
     try {
       const res = await fetch(`${url}/profile/me/verify-admin-password`, {
@@ -168,12 +146,10 @@ export default function ProfilePage() {
         return;
       }
 
-      // password correct → open EmailChangeModal
       setShowAdminPasswordModal(false);
       setPasswordError("");
       setShowEmailChangeModal(true);
     } catch (err) {
-      console.error(err);
       setPasswordError("Something went wrong");
     }
   };
@@ -183,7 +159,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen px-6 md:px-20 py-12 pt-28 text-white flex justify-center items-center relative">
-      {/* Back button stays top-left */}
       <button
         onClick={() => router.push("/dashboard")}
         title="Back to Dashboard"
@@ -192,10 +167,8 @@ export default function ProfilePage() {
         <IoChevronBackSharp className="w-5 h-5" />
       </button>
 
-      {/* Centered profile card */}
       <div className="w-full max-w-lg bg-white/5 border border-white/10 rounded-2xl shadow-lg p-6 backdrop-blur-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Edit Profile</h1>
-        {/* PHOTO UPLOAD */}
         <div className="flex flex-col items-center mb-6 relative">
           <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/20 shadow-lg hover:shadow-blue-500/50 transition-shadow duration-300">
             {" "}
@@ -225,7 +198,6 @@ export default function ProfilePage() {
             />
           </label>
         </div>
-        {/* FORM */}
         <form onSubmit={handleSaveChanges} className="space-y-4">
           <input
             type="text"
@@ -235,10 +207,7 @@ export default function ProfilePage() {
             className="w-full border border-white/20 bg-white/5 text-white rounded-xl px-4 py-2 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
             required
           />
-
-          {/* EMAIL & PASSWORD BUTTONS */}
           <div className="mt-6 flex flex-col gap-2">
-            {/* Email */}
             <div className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2 flex items-center justify-between text-white/80 hover:bg-white/10 transition">
               {" "}
               <span className="truncate">
@@ -253,7 +222,6 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            {/* Password */}
             <div className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2 flex items-center justify-between text-white/80 hover:bg-white/10 transition">
               {" "}
               <span className="truncate">••••••••</span>
@@ -267,7 +235,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* MESSAGES */}
           {message && (
             <p className="text-green-400 text-center font-medium">{message}</p>
           )}
@@ -286,7 +253,6 @@ export default function ProfilePage() {
           </div>
         </form>
       </div>
-      {/* MODALS */}
       {showAdminPasswordModal && (
         <AdminPasswordModal
           onCancel={() => {
@@ -301,7 +267,7 @@ export default function ProfilePage() {
         <EmailChangeModal
           currentEmail={currentUser?.email}
           onClose={() => setShowEmailChangeModal(false)}
-          setCurrentUser={setCurrentUser} // ✅ pass this
+          setCurrentUser={setCurrentUser}
         />
       )}
       {showChangePasswordModal && (

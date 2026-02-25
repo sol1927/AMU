@@ -15,7 +15,6 @@ export default function CampusNavbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const menuRef = useRef(null);
 
-  // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -37,12 +36,11 @@ export default function CampusNavbar() {
       method: "POST",
       credentials: "include",
     });
-    router.replace("/"); // redirect to landing page
+    router.replace("/");
   };
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/10 px-6 py-4 flex justify-between items-center shadow-lg">
-      {/* LEFT: Static Website Name */}
       <div
         className="flex items-center gap-3 cursor-pointer group"
         onClick={() => router.push("/campus")}
@@ -59,8 +57,6 @@ export default function CampusNavbar() {
           Gibi<span className="text-blue-500">Gebeta</span>
         </span>
       </div>
-
-      {/* RIGHT: Campus Menu */}
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setOpenMenu(!openMenu)}
@@ -96,7 +92,6 @@ export default function CampusNavbar() {
           </span>
         </button>
 
-        {/* DROPDOWN */}
         <div
           className={`absolute right-0 mt-4 w-52 bg-slate-900/95 backdrop-blur-xl border border-white/10 text-white rounded-2xl shadow-2xl transform transition-all duration-300 ${
             openMenu
@@ -143,8 +138,6 @@ export default function CampusNavbar() {
             Logout
           </button>
         </div>
-
-        {/* LOGOUT CONFIRM MODAL */}
         <ConfirmModal
           open={showLogoutModal}
           position={{ top: "3rem", right: 0 }}

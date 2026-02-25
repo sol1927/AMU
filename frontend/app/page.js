@@ -23,7 +23,6 @@ export default function LandingPage() {
   const featureRef = useRef(null);
   const [showFeatures, setShowFeatures] = useState(false);
 
-  /* ---------------- SCROLL ANIMATION ---------------- */
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -54,7 +53,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen text-white overflow-x-hidden">
-      {/* ---------------- NAVBAR ---------------- */}
       <header className="fixed top-0 left-0 w-full z-50 bg-black/60 backdrop-blur-md border-b border-white/10">
         <div className="max-w-8xl mx-auto px-6 py-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -76,10 +74,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ---------------- HERO ---------------- */}
-      {/* ---------------- HERO ---------------- */}
       <section className="pt-28 pb-24 px-6 md:px-20 grid md:grid-cols-2 items-center gap-12">
-        {/* LEFT TEXT */}
         <div>
           <h2 className="text-4xl md:text-5xl font-extrabold leading-tight mb-6">
             Smart University <br />
@@ -109,7 +104,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* RIGHT VISUAL CARD */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8 shadow-2xl backdrop-blur-md">
           <h4 className="text-xl font-semibold mb-4 text-blue-400">
             How It Works
@@ -138,7 +132,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---------------- STATS ---------------- */}
       <section className="px-6 md:px-20 py-16 border-t border-white/10 border-b border-white/10">
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10 text-center">
           <div>
@@ -156,7 +149,6 @@ export default function LandingPage() {
               Breakfast • Lunch • Dinner
             </p>
           </div>
-
           <div>
             <h3 className="text-3xl md:text-4xl font-bold text-yellow-400">
               Real-Time
@@ -173,7 +165,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---------------- FEATURES ---------------- */}
       <section
         ref={featureRef}
         className={`px-6 md:px-20 py-22 transition-all duration-1000 ${
@@ -218,7 +209,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---------------- HOW IT WORKS ---------------- */}
       <section className="px-6 md:px-20 py-20 bg-white/5">
         <h3 className="text-3xl font-bold text-center mb-14">How It Works</h3>
 
@@ -252,7 +242,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---------------- CTA ---------------- */}
       <section className="px-6 md:px-20 py-20 text-center">
         <h3 className="text-3xl font-bold mb-6">
           Ready to Upgrade Your Cafeteria?
@@ -266,12 +255,10 @@ export default function LandingPage() {
         </button>
       </section>
 
-      {/* ---------------- FOOTER ---------------- */}
       <footer className="border-t border-white/10 py-6 text-center text-gray-400 text-sm">
         © {new Date().getFullYear()} GibiGebeta. All rights reserved.
       </footer>
 
-      {/* ---------------- MODALS ---------------- */}
       <LoginModal
         show={showLoginModal}
         onClose={() => setShowLoginModal(false)}
@@ -287,8 +274,7 @@ export default function LandingPage() {
         show={showSignupModal}
         onClose={() => setShowSignupModal(false)}
         onSuccess={(email) => {
-          setShowVerifyOTPModal(true); // open Verify OTP modal
-          // optionally, pass the email to VerifyOTPModal via props
+          setShowVerifyOTPModal(true);
         }}
         onOpenLogin={() => setShowLoginModal(true)}
       />
@@ -302,7 +288,7 @@ export default function LandingPage() {
         onClose={() => setShowVerifyOTPModal(false)}
         onOpenLogin={() => setShowLoginModal(true)}
         onSuccess={() => {
-          setShowSetPassword(true); // open Set Password modal after successful OTP verification
+          setShowSetPassword(true);
         }}
       />
       <SetPasswordModal
@@ -313,7 +299,7 @@ export default function LandingPage() {
       <VerifyDeviceOtpModal
         show={showDeviceOtpModal}
         onClose={() => setShowDeviceOtpModal(false)}
-        onOpenLogin={() => setShowLoginModal(true)} // ✅ ADD THIS
+        onOpenLogin={() => setShowLoginModal(true)}
         onSuccess={() => {
           setShowDeviceOtpModal(false);
           setShowLoginModal(true);

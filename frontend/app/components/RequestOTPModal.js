@@ -6,15 +6,19 @@ import { useTempAdmin } from "../context/TempAdminContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-export default function RequestOTPModal({ show, onClose, onOpenLogin, onSuccess }) {
+export default function RequestOTPModal({
+  show,
+  onClose,
+  onOpenLogin,
+  onSuccess,
+}) {
   const router = useRouter();
   const { email, setEmail, name, setName } = useTempAdmin();
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("error"); // "success" or "error"
+  const [messageType, setMessageType] = useState("error");
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
-  // Reset fields when modal opens
   useEffect(() => {
     if (show) {
       setName("");
@@ -23,7 +27,6 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin, onSuccess 
     }
   }, [show, setName, setEmail]);
 
-  // Auto-clear message after 3 seconds
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 3000);
@@ -40,7 +43,6 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin, onSuccess 
     setMessage("");
     setLoading(true);
 
-    // Check connection
     if (!navigator.onLine) {
       setMessageType("error");
       setMessage("No internet connection. Please check your network.");
@@ -62,11 +64,9 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin, onSuccess 
       if (res.ok) {
         setMessageType("success");
         setMessage(data.message || "OTP sent successfully");
-
-        // Trigger onSuccess callback instead of router.push
         setTimeout(() => {
-          onClose(); // close the modal
-          if (onSuccess) onSuccess(email); // pass email if needed
+          onClose();
+          if (onSuccess) onSuccess(email);
         }, 1000);
       } else {
         setMessageType("error");
@@ -74,7 +74,6 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin, onSuccess 
         triggerShake();
       }
     } catch (error) {
-      console.error(error);
       setMessageType("error");
       setMessage(
         !navigator.onLine || error instanceof TypeError
@@ -115,7 +114,7 @@ export default function RequestOTPModal({ show, onClose, onOpenLogin, onSuccess 
                 : "bg-red-500/20 text-red-400 border border-red-500/30"
             } ${message ? "opacity-100" : "opacity-0 pointer-events-none"}`}
           >
-            {message || "\u00A0" /* preserve height when empty */}
+            {message || "\u00A0"}
           </p>
         )}
 

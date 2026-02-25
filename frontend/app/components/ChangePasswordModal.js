@@ -18,7 +18,6 @@ export default function ChangePasswordModal({ onClose }) {
 
   const rulesRef = useRef(null);
 
-  // Password rules
   const rules = {
     length: (pw) => pw.length >= 8,
     uppercase: (pw) => /[A-Z]/.test(pw),
@@ -31,7 +30,6 @@ export default function ChangePasswordModal({ onClose }) {
   );
   const allValid = Object.values(status).every(Boolean);
 
-  // Auto-hide success/error messages
   useEffect(() => {
     if (success || error) {
       const timer = setTimeout(() => {
@@ -42,7 +40,6 @@ export default function ChangePasswordModal({ onClose }) {
     }
   }, [success, error]);
 
-  // Click outside to hide password rules
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (rulesRef.current && !rulesRef.current.contains(e.target)) {
@@ -57,7 +54,6 @@ export default function ChangePasswordModal({ onClose }) {
     setError("");
     setSuccess("");
 
-    // ✅ OFFLINE CHECK
     if (!navigator.onLine) {
       setError("No internet connection. Please check your network.");
       return;
@@ -91,8 +87,6 @@ export default function ChangePasswordModal({ onClose }) {
       setNewPassword("");
       setConfirmPassword("");
       setShowRules(false);
-
-      // Close modal after 2s
       setTimeout(() => onClose(), 2000);
     } catch (err) {
       setError(err.message || "Something went wrong");
@@ -105,8 +99,6 @@ export default function ChangePasswordModal({ onClose }) {
         <h3 className="text-lg font-semibold text-center text-white">
           Change Password
         </h3>
-
-        {/* Current Password */}
         <div className="relative">
           <input
             type={showCurrent ? "text" : "password"}
@@ -123,8 +115,6 @@ export default function ChangePasswordModal({ onClose }) {
             {showCurrent ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
         </div>
-
-        {/* New Password */}
         <div className="relative">
           <input
             type={showNew ? "text" : "password"}
@@ -142,8 +132,6 @@ export default function ChangePasswordModal({ onClose }) {
             {showNew ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
         </div>
-
-        {/* Confirm Password */}
         <div className="relative">
           <input
             type={showConfirm ? "text" : "password"}
@@ -161,7 +149,6 @@ export default function ChangePasswordModal({ onClose }) {
           </button>
         </div>
 
-        {/* Rules */}
         {showRules && !allValid && (
           <div
             ref={rulesRef}
@@ -194,7 +181,6 @@ export default function ChangePasswordModal({ onClose }) {
           </div>
         )}
 
-        {/* Messages */}
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         {success && (
           <p className="text-green-400 text-sm text-center">{success}</p>
@@ -216,7 +202,6 @@ export default function ChangePasswordModal({ onClose }) {
         </div>
       </div>
 
-      {/* Animation */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {

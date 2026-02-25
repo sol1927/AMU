@@ -54,7 +54,6 @@ export const requestPasswordReset = async (req, res) => {
       res.json({ message: "If the email exists, a reset link has been sent" });
     }, wait);
   } catch (err) {
-    console.error(err);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
@@ -75,7 +74,7 @@ export const resetPassword = async (req, res) => {
       email,
       resetToken: hashedToken,
       resetTokenExpires: { $gt: new Date() },
-    }).select("+password"); // 🔑 include password
+    }).select("+password");
 
     if (!user) {
       return res
@@ -83,7 +82,6 @@ export const resetPassword = async (req, res) => {
         .json({ message: "Link expired. Check your latest email." });
     }
 
-    // 2️⃣ Password rules
     const rules = [
       { test: (pw) => pw.length >= 8, message: "At least 8 characters" },
       { test: (pw) => /[A-Z]/.test(pw), message: "One uppercase letter (A-Z)" },
@@ -104,7 +102,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Prevent reusing old password
     const isSame = user.password
       ? await bcrypt.compare(newPassword, user.password)
       : false;
@@ -115,7 +112,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Hash and save
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
 
@@ -126,7 +122,6 @@ export const resetPassword = async (req, res) => {
 
     res.json({ message: "Password has been reset successfully" });
   } catch (err) {
-    console.error(err);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });

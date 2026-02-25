@@ -1,16 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
-import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai"; // icons
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 export default function AddCampusModal({ onCancel, onSubmit }) {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(""); // modal error state
-  const [showPassword, setShowPassword] = useState(false); // toggle state
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Clear error after 2 seconds
   useEffect(() => {
     if (!error) return;
     const timer = setTimeout(() => setError(""), 2000);
@@ -19,16 +18,14 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(""); // clear previous error
-
-    // Check internet connection
+    setError("");
     if (!navigator.onLine) {
       setError("No internet connection. Please try again.");
       return;
     }
 
     const errMessage = await onSubmit({ name, location, email, password });
-    if (errMessage) setError(errMessage); // show error inside modal
+    if (errMessage) setError(errMessage);
   };
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
@@ -38,7 +35,6 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
       >
         <h3 className="text-lg font-bold">Add Campus</h3>
 
-        {/* Error message inside modal */}
         {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
 
         <input
@@ -59,8 +55,6 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-
-        {/* Password input with show/hide */}
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}

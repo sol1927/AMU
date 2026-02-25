@@ -14,7 +14,6 @@ export default function ConfirmModal({
   const modalRef = useRef(null);
   const [shake, setShake] = useState(false);
 
-  // Detect clicks outside to shake
   useEffect(() => {
     if (!open) return;
 
@@ -33,10 +32,7 @@ export default function ConfirmModal({
 
   return createPortal(
     <>
-      {/* Soft semi-transparent background covering the whole page */}
       <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-40" />
-
-      {/* Modal content at top-right */}
       <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[60]" />
       <div
         ref={modalRef}
@@ -63,8 +59,6 @@ export default function ConfirmModal({
           </button>
         </div>
       </div>
-
-      {/* Shake animation */}
       <style jsx global>{`
         @keyframes shake {
           0% {

@@ -13,7 +13,7 @@ const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function BatchStudentsPage() {
   const pathname = usePathname();
-  const batch = pathname.split("/").pop(); // get batch from URL
+  const batch = pathname.split("/").pop();
   const router = useRouter();
 
   const [students, setStudents] = useState([]);
@@ -28,7 +28,7 @@ export default function BatchStudentsPage() {
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // "edit" | "delete" | "bulk_delete"
+  const [pendingAction, setPendingAction] = useState(null);
   const [studentToEditData, setStudentToEditData] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [passwordError, setPasswordError] = useState("");
@@ -46,7 +46,6 @@ export default function BatchStudentsPage() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  /* ---------------- Fetch students ---------------- */
   const fetchStudentsByBatch = async (batch, query = "", fasting = "") => {
     if (!navigator.onLine) {
       showToast("No internet connection");
@@ -86,14 +85,12 @@ export default function BatchStudentsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, fastingFilter]);
 
-  // Detect offline automatically
   useEffect(() => {
     const handleOffline = () => showToast("You are offline");
     window.addEventListener("offline", handleOffline);
     return () => window.removeEventListener("offline", handleOffline);
   }, []);
 
-  /* ---------------- Outside click for menu ---------------- */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest(".menu-button")) setOpenMenuId(null);
@@ -102,7 +99,6 @@ export default function BatchStudentsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ---------------- Password & delete/edit handlers ---------------- */
   const handlePasswordSubmit = async (enteredPassword) => {
     if (!navigator.onLine) {
       showToast("No internet connection");
@@ -230,7 +226,6 @@ export default function BatchStudentsPage() {
     }
   };
 
-  /* ---------------- Selection helpers ---------------- */
   const handleSelectStudent = (id) => {
     setSelectedStudents((prev) =>
       prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
@@ -254,7 +249,6 @@ export default function BatchStudentsPage() {
   if (!currentCampus)
     return <p className="p-6 text-center mt-24">Loading...</p>;
 
-  // Capitalize first letter of each word
   const capitalizeName = (name) => {
     if (!name) return "";
     return name
@@ -278,7 +272,6 @@ export default function BatchStudentsPage() {
           <h1 className="text-3xl font-bold">Batch {batch}</h1>
         </div>
 
-        {/* Search & fasting filter */}
         <div className="flex gap-2 mb-4">
           <input
             value={searchQuery}
@@ -308,8 +301,6 @@ export default function BatchStudentsPage() {
             </option>
           </select>
         </div>
-
-        {/* Header above table */}
         <div className="flex justify-between items-center mb-3 px-4">
           <p className="text-gray-300 font-medium">
             {sortedStudents.length}{" "}
@@ -441,8 +432,6 @@ export default function BatchStudentsPage() {
             </div>
           )}
         </div>
-
-        {/* Students list */}
         <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
           {loading && <p className="text-center mt-12">Loading students...</p>}
           {!loading && sortedStudents.length === 0 && initialLoadDone && (
@@ -451,11 +440,10 @@ export default function BatchStudentsPage() {
             </p>
           )}
 
-          {/* Column Header */}
           {!loading && sortedStudents.length > 0 && (
             <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
               <span className="w-10">#</span>
-              <span className="w-9"></span> {/* Space for avatar */}
+              <span className="w-9"></span>
               <span className="w-[180px]">Name</span>
               <span className="w-[120px]">Student ID</span>
               <span className="w-[120px]">Department</span>
@@ -522,7 +510,6 @@ export default function BatchStudentsPage() {
                 </div>
               </div>{" "}
               <span className="w-[80px] truncate">{batch}</span>{" "}
-              {/* Batch column */}
               <span className="w-[140px] truncate flex items-center gap-1">
                 {student.fastingType === "not_fasting" && "Not Fasting"}
                 {student.fastingType === "fasting" && "Fasting"}
@@ -544,7 +531,6 @@ export default function BatchStudentsPage() {
                   checked={selectedStudents.includes(student._id)}
                   onChange={() => handleSelectStudent(student._id)}
                 />
-                {/* Menu button */}
                 <div className="relative">
                   <button
                     onClick={() =>
@@ -561,7 +547,7 @@ export default function BatchStudentsPage() {
                         className="block w-full px-3 py-2 text-sm hover:bg-gray-400 hover:text-black hover:rounded"
                         onClick={() => {
                           setStudentToEditData(student);
-                          setShowEditModal(true); // directly open edit modal
+                          setShowEditModal(true);
                           setOpenMenuId(null);
                         }}
                       >
@@ -589,7 +575,6 @@ export default function BatchStudentsPage() {
         {error && <p className="text-red-600 mt-4">{error}</p>}
       </div>
 
-      {/* Modals */}
       {showEditModal && studentToEditData && (
         <EditStudentModal
           student={studentToEditData}
@@ -603,7 +588,7 @@ export default function BatchStudentsPage() {
                 credentials: "include",
                 body: JSON.stringify({
                   ...updated,
-                  name: capitalizeName(updated.name), // capitalize before sending
+                  name: capitalizeName(updated.name),
                 }),
               });
               const data = await res.json();

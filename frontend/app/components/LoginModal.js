@@ -107,7 +107,6 @@ export default function LoginModal({
         else if (data.role === "campus") router.push("/campus");
       }, 800);
     } catch (err) {
-      console.error(err);
       setMessageType("error");
       setMessage("Failed to connect. Please check your internet.");
       triggerShake();
@@ -184,8 +183,8 @@ export default function LoginModal({
             <button
               type="button"
               onClick={() => {
-                onClose(); // close login modal
-                onOpenForgotPassword(); // open forgot password modal
+                onClose();
+                onOpenForgotPassword();
               }}
               className="text-xs text-gray-300 hover:text-white"
             >

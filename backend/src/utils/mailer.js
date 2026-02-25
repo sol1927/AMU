@@ -1,4 +1,3 @@
-// utils/mailer.js
 import nodemailer from "nodemailer";
 
 export const createTransporter = () =>

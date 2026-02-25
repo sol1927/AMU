@@ -26,14 +26,12 @@ export default function CameraModal({ onCapture, onCancel }) {
           video: true,
         });
         if (!mounted) {
-          // If unmounted before stream is ready
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (err) {
-        console.error("Camera error:", err);
       }
     };
 
@@ -41,7 +39,7 @@ export default function CameraModal({ onCapture, onCancel }) {
 
     return () => {
       mounted = false;
-      stopCamera(); // ✅ always stop on unmount
+      stopCamera();
     };
   }, []);
 
@@ -56,22 +54,19 @@ export default function CameraModal({ onCapture, onCancel }) {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     canvas.toBlob((blob) => {
-      stopCamera(); // stop camera immediately
+      stopCamera();
       if (blob) onCapture(blob);
     }, "image/jpeg");
   };
 
   const handleCancel = () => {
-    stopCamera(); // stop camera immediately
+    stopCamera();
     onCancel();
   };
 
   return (
     <>
-      {/* Blur Overlay */}
       <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[80]" />
-
-      {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-[90]">
         <div
           className="p-6 rounded-2xl border border-white/20 
@@ -79,7 +74,6 @@ export default function CameraModal({ onCapture, onCancel }) {
         flex flex-col items-center gap-4 text-white
         transform transition-all duration-300 scale-100"
         >
-          {/* Camera Preview */}
           <div className="w-56 h-56 bg-black rounded-xl overflow-hidden border-2 border-white/20">
             <video
               ref={videoRef}
@@ -90,8 +84,6 @@ export default function CameraModal({ onCapture, onCancel }) {
           </div>
 
           <canvas ref={canvasRef} className="hidden" />
-
-          {/* Buttons */}
           <div className="flex gap-3">
             <button
               type="button"

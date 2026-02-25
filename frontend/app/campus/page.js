@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import { useCampus } from "@/app/context/CampusContext";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CampusDashboardPage() {
   const { currentCampus, loading } = useCampus();
@@ -20,24 +20,21 @@ export default function CampusDashboardPage() {
 
   const [toast, setToast] = useState(null);
 
-  // ✅ Toast helper (2 seconds)
   const showToast = (message, type = "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   };
 
-  // ✅ Fetch dashboard stats with offline handling
   const fetchDashboardStats = useCallback(async () => {
     if (!currentCampus) return;
 
-    // 🔥 OFFLINE CHECK
     if (!navigator.onLine) {
       showToast("No internet connection");
       return;
     }
 
     try {
-      const res = await fetch(`${API_URL}/meal/dashboard`, {
+      const res = await fetch(`${url}/meal/dashboard`, {
         credentials: "include",
       });
 
@@ -54,7 +51,6 @@ export default function CampusDashboardPage() {
         recentScans: data.recentScans || [],
       });
     } catch (err) {
-      console.error("Failed to fetch dashboard stats:", err);
       showToast("Failed to load dashboard");
     }
   }, [currentCampus]);
@@ -63,7 +59,6 @@ export default function CampusDashboardPage() {
     fetchDashboardStats();
   }, [fetchDashboardStats]);
 
-  // ✅ Detect internet disconnect automatically
   useEffect(() => {
     const handleOffline = () => {
       showToast("You are offline");
@@ -88,9 +83,7 @@ export default function CampusDashboardPage() {
   return (
     <>
       <CampusNavbar />
-
       <div className="min-h-screen text-white pt-28 px-6 md:px-20 pb-12">
-        {/* Hero Section */}
         <section className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
             Welcome,{" "}
@@ -103,7 +96,6 @@ export default function CampusDashboardPage() {
           </p>
         </section>
 
-        {/* Stats Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8 max-w-4xl mx-auto mb-10">
           <div className="bg-gradient-to-tr from-blue-600/40 to-blue-500/20 border border-white/10 rounded-2xl p-8 shadow-lg hover:scale-105 transition-transform">
             <h3 className="text-lg font-semibold text-blue-300 mb-2">
@@ -142,7 +134,6 @@ export default function CampusDashboardPage() {
           </div>
         </div>
 
-        {/* Recent Scans */}
         <section className="max-w-4xl mx-auto mb-10">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-xl">
             <h2 className="font-bold text-2xl text-yellow-400 mb-4">
@@ -169,7 +160,6 @@ export default function CampusDashboardPage() {
         </section>
       </div>
 
-      {/* ✅ Toast Message */}
       {toast && (
         <div
           className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition ${

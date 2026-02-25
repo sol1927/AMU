@@ -7,14 +7,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       unique: true,
       required: true,
-      lowercase: true, // store all emails in lowercase
-      trim: true, // remove accidental spaces
+      lowercase: true,
+      trim: true,
     },
     password: { type: String, required: true, select: false },
     role: { type: String, default: "admin" },
     logo: {
       url: String,
-      public_id: String, // store Cloudinary public_id for deletion
+      public_id: String,
     },
     trustedDevices: [
       {

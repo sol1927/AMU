@@ -1,15 +1,13 @@
 import rateLimit from "express-rate-limit";
 
-// Helper to format milliseconds to minutes only
 const formatMs = (ms) => {
   const totalSeconds = Math.ceil(ms / 1000);
-  const minutes = Math.ceil(totalSeconds / 60); // round up to full minute
+  const minutes = Math.ceil(totalSeconds / 60);
   return `${minutes} minute(s)`;
 };
 
-// OTP request limiter
 export const otpLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
@@ -21,9 +19,8 @@ export const otpLimiter = rateLimit({
   },
 });
 
-// OTP verify limiter (anti brute-force)
 export const otpVerifyLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
@@ -35,9 +32,8 @@ export const otpVerifyLimiter = rateLimit({
   },
 });
 
-// Password reset request limiter
 export const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
@@ -49,10 +45,9 @@ export const passwordResetLimiter = rateLimit({
   },
 });
 
-// 🔐 LOGIN limiter (anti brute-force)
 export const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 115,
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
@@ -63,10 +58,9 @@ export const loginLimiter = rateLimit({
   },
 });
 
-// 🔐 NEW DEVICE OTP request limiter
 export const deviceOtpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // max 5 requests in 15 min
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {

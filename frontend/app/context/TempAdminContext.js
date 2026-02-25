@@ -24,7 +24,7 @@ export const TempAdminProvider = ({ children }) => {
         setName,
         message,
         setMessage,
-        resetTempAdmin, // ✅ helpful
+        resetTempAdmin,
       }}
     >
       {children}

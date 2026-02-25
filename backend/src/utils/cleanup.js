@@ -1,19 +1,19 @@
-import User from "../models/user.model.js"; // adjust path if needed
+import User from "../models/user.model.js";
 
-// Function to clear expired password reset tokens
 export const clearExpiredResetTokens = async () => {
   try {
     const result = await User.updateMany(
-      { resetTokenExpires: { $lt: new Date() } }, // expired tokens
-      { $unset: { resetToken: "", resetTokenExpires: "" } }, // remove fields
+      { resetTokenExpires: { $lt: new Date() } },
+      { $unset: { resetToken: "", resetTokenExpires: "" } },
     );
 
-    if (result.modifiedCount > 0) {
-      console.log(
-        `[Cleanup] Removed expired reset tokens for ${result.modifiedCount} user(s)`,
-      );
-    }
+    // Optional: use logger for internal tracking
+    // if (result.modifiedCount > 0) {
+    //   logger.info("Removed expired reset tokens", { count: result.modifiedCount });
+    // }
   } catch (err) {
-    console.error("[Cleanup] Error clearing expired reset tokens:", err);
+    // Production-safe: do not log raw error
+    // logger.error("Error clearing expired reset tokens", { error: err });
+    // Or leave empty if you prefer silent failure
   }
 };

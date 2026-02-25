@@ -16,7 +16,6 @@ export default function EmailChangeModal({
   const [isRequesting, setIsRequesting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Auto-hide messages
   useEffect(() => {
     if (success || error) {
       const timer = setTimeout(() => {
@@ -90,8 +89,6 @@ export default function EmailChangeModal({
       setCurrentUser((prev) => ({ ...prev, email: newEmail }));
       setNewEmail("");
       setOtp("");
-
-      // close modal after 0.5s
       setTimeout(() => onClose(), 500);
     } catch (err) {
       setError(err.message || "Something went wrong");
@@ -103,7 +100,6 @@ export default function EmailChangeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
       <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-80 shadow-lg hover:shadow-indigo-900/40 transition-all duration-300 relative animate-fadeIn">
-        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-white/70 hover:text-white transition"
@@ -114,8 +110,6 @@ export default function EmailChangeModal({
         <h2 className="text-xl font-bold mb-4 text-center text-white">
           Change Email
         </h2>
-
-        {/* Success / Error */}
         {error && (
           <p className="mb-4 p-2 rounded-lg text-center text-sm bg-red-500/20 text-red-400 border border-red-500/30">
             {error}
@@ -126,8 +120,6 @@ export default function EmailChangeModal({
             {success}
           </p>
         )}
-
-        {/* New Email */}
         <input
           type="email"
           placeholder="New email"
@@ -148,8 +140,6 @@ export default function EmailChangeModal({
         >
           {isRequesting ? "Requesting..." : "Request OTP"}
         </button>
-
-        {/* OTP */}
         <input
           type="text"
           placeholder="Enter OTP"
@@ -174,8 +164,6 @@ export default function EmailChangeModal({
           {isVerifying ? "Verifying..." : "Verify OTP"}
         </button>
       </div>
-
-      {/* Animation */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {

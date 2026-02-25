@@ -16,7 +16,6 @@ export const requestOTP = async (req, res) => {
         .status(400)
         .json({ message: "Please enter your email to receive an OTP." });
 
-    // Check if email already exists in admins
     const adminExists = await User.findOne({ email });
     if (adminExists)
       return res.status(403).json({
@@ -24,7 +23,6 @@ export const requestOTP = async (req, res) => {
           "An admin with this email already exists. Please login instead.",
       });
 
-    // Check if email already exists in regular users
     const userExists = await Campus.findOne({ email });
     if (userExists)
       return res.status(403).json({
@@ -32,19 +30,16 @@ export const requestOTP = async (req, res) => {
           "This email is already registered as a user. You cannot use it for admin registration.",
       });
 
-    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Store in TempAdmin
     await TempAdmin.findOneAndUpdate(
       { email },
       { name, email, otp: hashedOtp, otpExpires, verified: false },
       { upsert: true, new: true },
     );
 
-    // Send email
     await createTransporter().sendMail({
       from: process.env.EMAIL_USER,
       to: email,
@@ -67,7 +62,6 @@ export const requestOTP = async (req, res) => {
     `,
     });
 
-    // Sign OTP token
     const otpToken = jwt.sign({ email }, process.env.JWT_SECRET, {
       expiresIn: "10m",
     });
@@ -81,7 +75,6 @@ export const requestOTP = async (req, res) => {
       })
       .json({ message: "OTP sent to your email. Please check your inbox." });
   } catch (err) {
-    console.error(err);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
@@ -143,7 +136,6 @@ export const verifyOTP = async (req, res) => {
       })
       .json({ message: "OTP verified successfully!" });
   } catch (err) {
-    console.error(err);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
@@ -208,7 +200,6 @@ export const setPassword = async (req, res) => {
       admin: adminData,
     });
   } catch (err) {
-    console.error(err);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });

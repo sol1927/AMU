@@ -9,15 +9,13 @@ export default function ConfirmCampusPasswordModal({
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const [offlineError, setOfflineError] = useState("");
-  const [visibleError, setVisibleError] = useState(errorMessage); // local visible error
+  const [visibleError, setVisibleError] = useState(errorMessage);
   const modalRef = useRef(null);
 
-  // Update visibleError whenever prop errorMessage changes
   useEffect(() => {
     setVisibleError(errorMessage);
   }, [errorMessage]);
 
-  // Close when clicking outside
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) {
@@ -28,7 +26,6 @@ export default function ConfirmCampusPasswordModal({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [onCancel]);
 
-  // Auto clear errors after 2 seconds
   useEffect(() => {
     if (!offlineError && !visibleError) return;
     const timer = setTimeout(() => {
@@ -41,7 +38,6 @@ export default function ConfirmCampusPasswordModal({
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // ✅ Offline check
     if (!navigator.onLine) {
       setOfflineError("No internet connection. Please check your network.");
       return;
@@ -64,7 +60,6 @@ export default function ConfirmCampusPasswordModal({
           Confirm Campus Password
         </h3>
 
-        {/* Password input */}
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
@@ -86,15 +81,12 @@ export default function ConfirmCampusPasswordModal({
           </span>
         </div>
 
-        {/* Error messages */}
         {visibleError && (
           <p className="text-red-500 text-sm text-center">{visibleError}</p>
         )}
         {offlineError && (
           <p className="text-red-400 text-sm text-center">{offlineError}</p>
         )}
-
-        {/* Buttons */}
         <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"

@@ -32,7 +32,6 @@ export const CampusProvider = ({ children }) => {
     }
   };
 
-  // Fetch once on mount
   useEffect(() => {
     fetchCampus();
   }, []);

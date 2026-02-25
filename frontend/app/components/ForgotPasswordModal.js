@@ -6,18 +6,16 @@ const url = process.env.NEXT_PUBLIC_API_URL;
 export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("success"); // "success" or "error"
+  const [messageType, setMessageType] = useState("success");
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
-  // Automatically hide message after 3 seconds
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 3000);
     return () => clearTimeout(timer);
   }, [message]);
 
-  // Reset fields when modal opens
   useEffect(() => {
     if (show) {
       setEmail("");
@@ -59,14 +57,13 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       } else {
         setMessageType("success");
         setMessage(data.message || "Reset link sent successfully");
-        setEmail(""); // clear the email field on success
+        setEmail("");
         setTimeout(() => {
-          onClose(); // close the ForgotPassword modal
-          onOpenLogin(); // open the Login modal
+          onClose();
+          onOpenLogin();
         }, 1500);
       }
     } catch (error) {
-      console.error(error);
       setMessageType("error");
       setMessage(
         !navigator.onLine || error instanceof TypeError
@@ -84,13 +81,13 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end items-start"
-      onClick={onClose} // close when clicking outside
+      onClick={onClose}
     >
       <div
         className={`relative w-full max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-8 mt-20 mr-6 transition-all duration-300 ${
           shake ? "animate-shake" : "animate-fadeIn"
         }`}
-        onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside
+        onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-2xl font-bold mb-3 text-center text-white">
           Forgot Password
@@ -98,8 +95,6 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
         <p className="text-center text-gray-300 mb-6 text-sm">
           Enter your email to receive a password reset link
         </p>
-
-        {/* ⚡ Fixed message: always in DOM, fades in/out */}
         <p
           className={`mb-4 text-center p-2 rounded text-sm transition-opacity duration-300 ${
             messageType === "success"

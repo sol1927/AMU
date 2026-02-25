@@ -5,10 +5,9 @@ import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import upload from "../middlewares/upload.js";
 
-// In-memory attempt tracker
 const campusAttempts = new Map();
-const MAX_ATTEMPTS = 5; // max tries
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes window
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000;
 
 export const createCampus = async (req, res) => {
   try {
@@ -18,7 +17,6 @@ export const createCampus = async (req, res) => {
 
     const { name, email, password, location } = req.body;
 
-    // ✅ Check valid email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email.toLowerCase())) {
       return res.status(400).json({ message: "Invalid email format." });
@@ -30,7 +28,6 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    // Check if a campus with the same name already exists (case-insensitive)
     const existingCampus = await Campus.findOne({
       createdBy: req.userId,
       name: { $regex: `^${name.trim()}$`, $options: "i" },
@@ -41,7 +38,6 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    // Check if name/email conflicts with admin
     const adminWithEmailOrName = await User.findOne({
       $or: [{ email }, { name }],
     });
@@ -96,13 +92,11 @@ export const getCampuses = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Fetch all campuses created by this admin
     const campuses = await Campus.find({ createdBy: req.userId })
       .select("-password")
       .sort({ createdAt: -1 })
-      .lean(); // plain JS objects
+      .lean();
 
-    // Add the actual student count for each campus
     const campusesWithStudentCount = await Promise.all(
       campuses.map(async (campus) => {
         const studentsCount = await Student.countDocuments({
@@ -113,7 +107,6 @@ export const getCampuses = async (req, res) => {
     );
     res.json({ campuses: campusesWithStudentCount });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to fetch campuses" });
   }
 };
@@ -143,7 +136,6 @@ export const updateCampus = async (req, res) => {
 
     const { name, email, password, currentPassword, location } = req.body;
 
-    // Fetch campus including password
     const campus = await Campus.findOne({
       _id: req.params.id,
       createdBy: req.userId,
@@ -153,7 +145,6 @@ export const updateCampus = async (req, res) => {
       return res.status(404).json({ message: "Campus not found" });
     }
 
-    // ✅ Validate email format if updating
     if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.toLowerCase())) {
@@ -162,7 +153,6 @@ export const updateCampus = async (req, res) => {
       campus.email = email;
     }
 
-    // Case-insensitive check for name
     if (name) {
       const existingCampus = await Campus.findOne({
         _id: { $ne: req.params.id },
@@ -179,7 +169,6 @@ export const updateCampus = async (req, res) => {
       campus.name = name;
     }
 
-    // Check conflict with admin
     if (email || name) {
       const adminConflict = await User.findOne({
         $or: [{ email }, { name }],
@@ -191,10 +180,8 @@ export const updateCampus = async (req, res) => {
       }
     }
 
-    // Update location if provided
     if (location !== undefined) campus.location = location;
 
-    // Password update
     if (password) {
       if (!currentPassword) {
         return res.status(400).json({
@@ -250,7 +237,6 @@ export const updateCampus = async (req, res) => {
       }
     }
 
-    console.error(err);
     res.status(500).json({ message: "Failed to update campus" });
   }
 };
@@ -259,43 +245,34 @@ export const deleteCampus = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1️⃣ Find campus
     const campus = await Campus.findById(id);
     if (!campus) return res.status(404).json({ message: "Campus not found" });
 
-    // 2️⃣ Delete all students of that campus
     const students = await Student.find({ campus: campus._id });
 
-    // 3️⃣ Delete each student's photo from Cloudinary
     for (const student of students) {
       if (student.profilePublicId) {
         await cloudinary.uploader.destroy(student.profilePublicId);
       }
     }
 
-    // 4️⃣ Remove students from DB
     await Student.deleteMany({ campus: campus._id });
 
-    // 5️⃣ Remove campus logo from Cloudinary if exists
     if (campus.logoPublicId) {
       await cloudinary.uploader.destroy(campus.logoPublicId);
     }
 
-    // 6️⃣ Delete campus itself
     await Campus.findByIdAndDelete(id);
 
     res.json({ message: "Campus and its students deleted successfully" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// ---------- Campus Dashboard ----------
-// GET /api/campus/dashboard
 export const getCampusDashboard = async (req, res) => {
   try {
-    const campus = req.campus; // set from auth middleware
+    const campus = req.campus;
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
@@ -310,7 +287,6 @@ export const getCampusDashboard = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Failed to fetch campus info" });
   }
 };
@@ -318,26 +294,22 @@ export const getCampusDashboard = async (req, res) => {
 export const verifyCampusPassword = async (req, res) => {
   try {
     const { password } = req.body;
-    const campusId = req.campus._id.toString(); // unique key per campus
-
+    const campusId = req.campus._id.toString();
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    // Initialize attempts record if missing
     if (!campusAttempts.has(campusId)) {
       campusAttempts.set(campusId, { count: 0, firstAttemptAt: Date.now() });
     }
 
     const attempt = campusAttempts.get(campusId);
 
-    // Reset attempts if window passed
     if (Date.now() - attempt.firstAttemptAt > WINDOW_MS) {
       attempt.count = 0;
       attempt.firstAttemptAt = Date.now();
     }
 
-    // Block if max attempts reached
     if (attempt.count >= MAX_ATTEMPTS) {
       const minutesLeft = Math.ceil(
         (WINDOW_MS - (Date.now() - attempt.firstAttemptAt)) / 60000,
@@ -347,7 +319,6 @@ export const verifyCampusPassword = async (req, res) => {
       });
     }
 
-    // Fetch campus password
     const campus = await Campus.findById(campusId).select("+password");
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
@@ -355,7 +326,7 @@ export const verifyCampusPassword = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, campus.password);
     if (!isMatch) {
-      attempt.count += 1; // increment attempts
+      attempt.count += 1;
       campusAttempts.set(campusId, attempt);
 
       return res.status(401).json({
@@ -363,16 +334,13 @@ export const verifyCampusPassword = async (req, res) => {
       });
     }
 
-    // Success → reset attempts
     campusAttempts.delete(campusId);
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {
-    console.error("verifyCampusPassword error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// ---------- Campus Logout ----------
 export const logoutCampus = (req, res) => {
   res
     .cookie("campusToken", "", { httpOnly: true, expires: new Date(0) })

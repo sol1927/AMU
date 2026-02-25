@@ -14,7 +14,7 @@ export default function VerifyOTPModal({
   const { email } = useTempAdmin();
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("error"); // "success" or "error"
+  const [messageType, setMessageType] = useState("error");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [shake, setShake] = useState(false);
@@ -28,7 +28,6 @@ export default function VerifyOTPModal({
     );
   };
 
-  // Reset OTP when modal opens
   useEffect(() => {
     if (show) {
       setOtp("");
@@ -36,7 +35,6 @@ export default function VerifyOTPModal({
     }
   }, [show]);
 
-  // Auto-clear message
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 3000);
@@ -83,8 +81,8 @@ export default function VerifyOTPModal({
         setMessage(data.message || "OTP verified successfully!");
 
         setTimeout(() => {
-          onClose(); // close OTP modal
-          if (onSuccess) onSuccess(); // <-- trigger SetPasswordModal
+          onClose();
+          if (onSuccess) onSuccess();
         }, 1000);
       } else {
         setMessageType("error");
@@ -92,7 +90,6 @@ export default function VerifyOTPModal({
         triggerShake();
       }
     } catch (err) {
-      console.error(err);
       setMessageType("error");
       setMessage("Something went wrong. Please try again.");
       triggerShake();
@@ -104,7 +101,6 @@ export default function VerifyOTPModal({
   const handleResend = async () => {
     if (!email) return;
 
-    // Offline check
     if (!navigator.onLine) {
       setMessageType("error");
       setMessage("No internet connection. Please check your network.");
@@ -113,7 +109,7 @@ export default function VerifyOTPModal({
     }
 
     setResending(true);
-    setOtp(""); // <-- clear the OTP input immediately
+    setOtp("");
     try {
       const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
@@ -131,7 +127,6 @@ export default function VerifyOTPModal({
         setMessage("OTP resent successfully! Check your email.");
       }
     } catch (err) {
-      console.error(err);
       setMessageType("error");
       setMessage("Failed to resend OTP. Please check your connection.");
       triggerShake();

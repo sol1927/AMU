@@ -20,7 +20,6 @@ export default function VerifyDeviceOtp({
   const [resending, setResending] = useState(false);
   const [shake, setShake] = useState(false);
 
-  // Restore email after refresh
   useEffect(() => {
     if (!email) {
       const savedEmail = sessionStorage.getItem("tempAdminEmail");
@@ -28,7 +27,6 @@ export default function VerifyDeviceOtp({
     }
   }, [email, setEmail]);
 
-  // Auto clear message
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 3000);

@@ -1,16 +1,15 @@
 "use client";
 
-// DashboardLayout.js
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminNavbar from "../components/AdminNavbar";
-import { useUser } from "../context/UserContext"; // ✅ import user context
+import { useUser } from "../context/UserContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
-  const { currentUser } = useUser(); // ✅ get logged-in user
+  const { currentUser } = useUser();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,8 +26,8 @@ export default function DashboardLayout({ children }) {
         }
 
         const data = await res.json();
-        setStats(data.stats); // only dashboard stats
-      } catch {
+        setStats(data.stats);
+      } catch (err) {
         router.replace("/");
       } finally {
         setLoading(false);
@@ -42,7 +41,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <>
-      <AdminNavbar admin={currentUser} /> {/* ✅ get user info from context */}
+      <AdminNavbar admin={currentUser} />
       {children}
     </>
   );

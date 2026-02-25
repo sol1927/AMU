@@ -22,7 +22,7 @@ export default function CampusStudentsPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // "edit" | "delete"
+  const [pendingAction, setPendingAction] = useState(null);
   const [studentToEdit, setStudentToEdit] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [passwordError, setPasswordError] = useState("");
@@ -30,22 +30,19 @@ export default function CampusStudentsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentToEditData, setStudentToEditData] = useState(null);
   const { currentCampus, refreshCampus, setStudentsLoading } = useCampus();
-  const [fastingFilter, setFastingFilter] = useState(""); // "" | "fasting" | "not_fasting" | "sunday_fasting"
+  const [fastingFilter, setFastingFilter] = useState("");
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkFastingType, setBulkFastingType] = useState("");
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  const [totalStudents, setTotalStudents] = useState(0); // new
+  const [totalStudents, setTotalStudents] = useState(0);
 
-  // ✅ Toast helper (2 seconds)
   const showToast = (message, type = "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   };
-
-  /* ---------------- Fetch students ---------------- */
 
   const fetchStudents = async (query = "", fasting = "") => {
     if (!navigator.onLine) {
@@ -71,7 +68,7 @@ export default function CampusStudentsPage() {
       setError(err.message);
     } finally {
       setLoading(false);
-      setInitialLoadDone(true); // mark that first fetch finished
+      setInitialLoadDone(true);
     }
   };
 
@@ -82,7 +79,6 @@ export default function CampusStudentsPage() {
     fetchData();
   }, []);
 
-  // ✅ Detect internet disconnect automatically
   useEffect(() => {
     const handleOffline = () => {
       showToast("You are offline");
@@ -96,7 +92,6 @@ export default function CampusStudentsPage() {
     const timer = setTimeout(() => {
       fetchStudents(searchQuery, fastingFilter);
 
-      // Clear selection when filter/search changes
       setSelectedStudents([]);
       setSelectAll(false);
     }, 300);
@@ -104,7 +99,6 @@ export default function CampusStudentsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, fastingFilter]);
 
-  /* ---------------- Outside click for menu ---------------- */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest(".menu-button")) {
@@ -116,7 +110,7 @@ export default function CampusStudentsPage() {
   }, []);
   useEffect(() => {
     if (selectedStudents.length === 0) {
-      setBulkFastingType(""); // reset dropdown
+      setBulkFastingType("");
     }
   }, [selectedStudents]);
 
@@ -160,14 +154,12 @@ export default function CampusStudentsPage() {
 
       await refreshCampus();
 
-      // ✅ SUCCESS TOAST HERE
       showToast("Selected students deleted successfully", "success");
     } catch (err) {
       showToast("Bulk delete failed", "error");
     }
   };
 
-  /* ---------------- Handle password verification ---------------- */
   const handlePasswordSubmit = async (enteredPassword) => {
     if (!navigator.onLine) {
       showToast("No internet connection");
@@ -187,22 +179,19 @@ export default function CampusStudentsPage() {
       if (!res.ok) {
         setPasswordError(data.message || "Wrong password");
 
-        // Clear error after 2 seconds but keep modal open
         setTimeout(() => setPasswordError(""), 2000);
         return;
       }
 
-      // ✅ Correct password: close modal immediately
       setCampusPassword(enteredPassword);
       setShowPasswordModal(false);
       setPasswordError("");
 
-      // Perform pending action
       if (pendingAction === "delete" && studentToDelete) {
         await handleDelete(studentToDelete);
         setStudentToDelete(null);
       } else if (pendingAction === "edit" && studentToEditData) {
-        setShowEditModal(true); // Open edit modal after password is verified
+        setShowEditModal(true);
       } else if (pendingAction === "bulk_delete") {
         await handleBulkDelete();
       }
@@ -211,12 +200,10 @@ export default function CampusStudentsPage() {
     } catch (err) {
       setPasswordError("Something went wrong");
 
-      // Clear error after 2 seconds
       setTimeout(() => setPasswordError(""), 2000);
     }
   };
 
-  /* ---------------- Actions ---------------- */
   const handleDelete = async (id) => {
     if (!navigator.onLine) {
       showToast("No internet connection");
@@ -234,7 +221,6 @@ export default function CampusStudentsPage() {
       setStudents((prev) => prev.filter((s) => s._id !== id));
       showToast("Student deleted successfully", "success");
 
-      // 🔄 Refresh campus data so counts update
       await refreshCampus();
     } catch (err) {
       showToast(err.message || "Delete failed", "error");
@@ -268,7 +254,6 @@ export default function CampusStudentsPage() {
   if (!currentCampus)
     return <p className="p-6 text-center mt-24">Loading...</p>;
 
-  // Capitalize first letter of each word
   const capitalizeName = (name) => {
     if (!name) return "";
     return name
@@ -288,9 +273,7 @@ export default function CampusStudentsPage() {
         >
           <IoChevronBackSharp className="w-5 h-5" />
         </button>
-        {/* Header */}
         <div>
-          {/* Replace the bulk action header and search section with this layout */}
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-3xl font-bold">Students</h1>
             <button
@@ -308,7 +291,6 @@ export default function CampusStudentsPage() {
             </button>
           </div>
 
-          {/* Search & fasting filter */}
           <div className="flex gap-2 mb-4">
             <input
               value={searchQuery}
@@ -339,17 +321,13 @@ export default function CampusStudentsPage() {
             </select>
           </div>
 
-          {/* Header above table */}
           <div className="flex justify-between items-center mb-3 px-4">
-            {/* Total students */}
             <p className="text-gray-300 font-medium">
               {totalStudents} {totalStudents === 1 ? "student" : "students"}
             </p>
 
-            {/* Bulk delete button */}
             {selectedStudents.length > 0 && (
               <div className="flex items-center gap-2">
-                {/* Delete button */}
                 <button
                   onClick={() => {
                     setPendingAction("bulk_delete");
@@ -360,7 +338,6 @@ export default function CampusStudentsPage() {
                   Delete ({selectedStudents.length})
                 </button>
 
-                {/* Fasting dropdown */}
                 <select
                   value={bulkFastingType}
                   onChange={(e) => setBulkFastingType(e.target.value)}
@@ -391,7 +368,6 @@ export default function CampusStudentsPage() {
                     Muslim Fasting
                   </option>
                 </select>
-                {/* Save button */}
                 {bulkFastingType && (
                   <button
                     disabled={savingBulkFasting}
@@ -420,7 +396,6 @@ export default function CampusStudentsPage() {
                         const data = await res.json();
                         if (!res.ok) throw new Error(data.message);
 
-                        // Update state
                         setStudents((prev) =>
                           prev.map((s) =>
                             selectedStudents.includes(s._id)
@@ -429,7 +404,6 @@ export default function CampusStudentsPage() {
                           ),
                         );
 
-                        // Reset
                         setSelectedStudents([]);
                         setSelectAll(false);
                         setBulkFastingType("");
@@ -454,18 +428,16 @@ export default function CampusStudentsPage() {
 
           {loading && <p className="text-center mt-12">Loading students...</p>}
 
-          {/* Column Header */}
           {!loading && filteredAndSortedStudents.length > 0 && (
             <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
               <span className="w-10">#</span>
-              <span className="w-9"></span> {/* Avatar */}
+              <span className="w-9"></span>
               <span className="w-[180px]">Name</span>
               <span className="w-[120px]">Student ID</span>
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
               <span className="w-[100px]">Internship</span>{" "}
-              {/* <-- NEW COLUMN */}
               <div className="flex items-center gap-2 ml-auto">
                 <input
                   type="checkbox"
@@ -476,17 +448,13 @@ export default function CampusStudentsPage() {
             </div>
           )}
         </div>
-
-        {/* Students list */}
         <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
               className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-950 transition-all duration-300 relative"
             >
-              {/* Serial Number */}
               <span className="w-10 font-medium text-white">{index + 1}</span>
-              {/* Avatar */}
               <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                 {student.profileUrl ? (
                   <img
@@ -500,7 +468,6 @@ export default function CampusStudentsPage() {
                   </span>
                 )}
               </div>
-              {/* Name */}
               <div className="relative group w-[180px]">
                 <span className="truncate font-medium block cursor-pointer">
                   {capitalizeName(student.name)}
@@ -525,14 +492,12 @@ export default function CampusStudentsPage() {
                 </div>
               </div>{" "}
               <span className="w-[80px] truncate">{student.batch}</span>
-              {/* Fasting */}
               <span className="w-[140px] truncate">
                 {student.fastingType === "not_fasting" && "Not Fasting"}
                 {student.fastingType === "fasting" && "Fasting"}
                 {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
                 {student.fastingType === "muslim_fasting" && "Muslim Fasting"}
               </span>
-              {/* Frozen / Internship */}
               <span className="w-[120px]">
                 {student.isInternship ? (
                   <span className="text-yellow-400 font-semibold">
@@ -542,7 +507,6 @@ export default function CampusStudentsPage() {
                   <span className="text-gray-500">—</span>
                 )}
               </span>
-              {/* Actions: checkbox + menu */}
               <div className="flex items-center gap-2 ml-auto">
                 <input
                   type="checkbox"
@@ -570,7 +534,7 @@ export default function CampusStudentsPage() {
                             (s) => s._id === student._id,
                           );
                           setStudentToEditData(studentData);
-                          setShowEditModal(true); // ✅ directly open edit modal
+                          setShowEditModal(true);
                           setOpenMenuId(null);
                         }}
                       >
@@ -605,7 +569,6 @@ export default function CampusStudentsPage() {
 
         {error && <p className="text-red-600 mt-4">{error}</p>}
       </div>
-      {/* Add Student Modal */}
       {showAddModal && (
         <AddStudentModal
           onCancel={() => setShowAddModal(false)}
@@ -628,7 +591,7 @@ export default function CampusStudentsPage() {
               if (!photo) throw new Error("Photo is required");
 
               const formData = new FormData();
-              formData.append("name", capitalizeName(name)); // <-- capitalize here
+              formData.append("name", capitalizeName(name));
               formData.append("studentId", studentId);
               formData.append("department", department);
               formData.append("batch", batch);
@@ -644,14 +607,10 @@ export default function CampusStudentsPage() {
               const data = await res.json();
               if (!res.ok)
                 throw new Error(data.message || "Failed to add student");
-
-              // ✅ Update state
               setStudents((prev) => [...prev, data.student]);
-
-              // ✅ Update totalStudents
               setTotalStudents((prev) => prev + 1);
 
-              return null; // tell modal it succeeded
+              return null;
             } catch (err) {
               return err.message;
             }
@@ -680,7 +639,7 @@ export default function CampusStudentsPage() {
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  name: capitalizeName(name), // <-- capitalize here
+                  name: capitalizeName(name),
                   studentId,
                   department,
                   batch,
@@ -711,24 +670,19 @@ export default function CampusStudentsPage() {
                   profileUrl: dataPhoto.profileUrl,
                 };
               }
-
-              // Update students state
               setStudents((prev) =>
                 prev.map((s) =>
                   s._id === updatedStudent._id ? updatedStudent : s,
                 ),
               );
 
-              // ❌ Do not close modal here. Let EditStudentModal handle it.
-
-              return null; // success
+              return null;
             } catch (err) {
               return err.message;
             }
           }}
         />
       )}
-      {/* Campus password modal */}
       {showPasswordModal && (
         <ConfirmCampusPasswordModal
           onCancel={() => {
@@ -739,7 +693,6 @@ export default function CampusStudentsPage() {
           errorMessage={passwordError}
         />
       )}
-      {/* Toast Notification */}
       {toast && (
         <div
           className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300

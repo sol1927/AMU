@@ -9,7 +9,6 @@ const url = process.env.NEXT_PUBLIC_API_URL;
 export const UserProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Optionally fetch /me on app load to restore user after refresh
   useEffect(() => {
     const fetchUser = async () => {
       try {

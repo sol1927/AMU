@@ -19,7 +19,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
   const rulesRef = useRef(null);
   const router = useRouter();
 
-  // Password rules
   const rules = {
     length: (pw) => pw.length >= 8,
     uppercase: (pw) => /[A-Z]/.test(pw),
@@ -32,7 +31,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
   const status = checkRules(password);
   const allValid = Object.values(status).every(Boolean);
 
-  // Reset modal when opened
   useEffect(() => {
     if (show) {
       setPassword("");
@@ -45,14 +43,12 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
     }
   }, [show]);
 
-  // Auto-clear messages
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 2000);
     return () => clearTimeout(timer);
   }, [message]);
 
-  // Hide rules dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (rulesRef.current && !rulesRef.current.contains(e.target)) {
@@ -65,7 +61,7 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
 
   const triggerShake = () => {
     setMessageType("error");
-    setTimeout(() => {}, 500); // placeholder if animation added later
+    setTimeout(() => {}, 500);
   };
 
   const handleSubmit = async (e) => {
@@ -105,15 +101,14 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
         setMessageType("success");
         setMessage(data.message || "Password set successfully!");
         setTimeout(() => {
-          onClose(); // close SetPasswordModal
-          onOpenLogin(); // open Login modal
+          onClose();
+          onOpenLogin();
         }, 1000);
       } else {
         setMessageType("error");
         setMessage(data.message || "Failed to set password");
       }
     } catch (err) {
-      console.error(err);
       setMessageType("error");
       setMessage("Something went wrong. Please try again.");
     } finally {
@@ -149,7 +144,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Password Input */}
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -167,8 +161,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
               {showPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
             </button>
           </div>
-
-          {/* Confirm Password */}
           <div className="relative">
             <input
               type={showConfirm ? "text" : "password"}
@@ -187,7 +179,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
             </button>
           </div>
 
-          {/* Password Rules */}
           {showRules && !allValid && (
             <div
               ref={rulesRef}

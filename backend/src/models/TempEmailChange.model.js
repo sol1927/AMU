@@ -6,7 +6,7 @@ const tempEmailChangeSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       index: true,
-      unique: true, // one active OTP per user
+      unique: true,
     },
     newEmail: {
       type: String,
@@ -21,7 +21,7 @@ const tempEmailChangeSchema = new mongoose.Schema(
     otpExpires: {
       type: Date,
       required: true,
-      index: { expires: 0 }, // TTL auto delete
+      index: { expires: 0 },
     },
     verified: {
       type: Boolean,

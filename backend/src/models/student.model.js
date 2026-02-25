@@ -8,7 +8,7 @@ const studentSchema = new mongoose.Schema(
       trim: true,
     },
     profileUrl: { type: String, required: true, trim: true },
-    profilePublicId: { type: String, trim: true }, // ✅ needed for Cloudinary deletion
+    profilePublicId: { type: String, trim: true },
 
     studentId: {
       type: String,

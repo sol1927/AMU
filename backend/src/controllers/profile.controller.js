@@ -7,10 +7,9 @@ import jwt from "jsonwebtoken";
 import TempEmailChange from "../models/TempEmailChange.model.js";
 import { createTransporter } from "../utils/mailer.js";
 
-// 🔐 In-memory admin password attempt tracker
 const adminAttempts = new Map();
 const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const WINDOW_MS = 15 * 60 * 1000;
 
 const formatMinutes = (ms) => {
   const minutes = Math.ceil(ms / (60 * 1000));
@@ -24,7 +23,6 @@ export const getMyProfile = async (req, res) => {
 
     res.json({ user });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to load profile" });
   }
 };
@@ -44,13 +42,12 @@ export const updateProfile = async (req, res) => {
       message: "Profile updated successfully",
       user: {
         name: user.name,
-        email: user.email, // unchanged here
+        email: user.email,
         role: user.role,
         logo: user.logo,
       },
     });
   } catch (err) {
-    console.error(err);
     res.status(400).json({ message: "Profile update failed" });
   }
 };
@@ -63,19 +60,16 @@ export const updateProfilePhoto = async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Delete old photo if exists
     if (user.logo?.public_id) {
       await cloudinary.uploader.destroy(user.logo.public_id);
     }
 
-    // Save new logo
     user.logo = {
       url: req.file.path,
       public_id: req.file.filename,
     };
     await user.save();
 
-    // 🔹 Propagate to campuses
     await Campus.updateMany(
       { createdBy: req.userId },
       { $set: { logo: user.logo } },
@@ -83,7 +77,6 @@ export const updateProfilePhoto = async (req, res) => {
 
     res.json({ message: "Profile photo updated", photoUrl: user.logo.url });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Photo upload failed" });
   }
 };
@@ -92,14 +85,12 @@ export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    // 1️⃣ Check both fields
     if (!currentPassword || !newPassword) {
       return res
         .status(400)
         .json({ message: "Both current and new password are required" });
     }
 
-    // 2️⃣ Password rules
     const rules = [
       { test: (pw) => pw.length >= 8, message: "At least 8 characters" },
       { test: (pw) => /[A-Z]/.test(pw), message: "One uppercase letter (A-Z)" },
@@ -120,23 +111,19 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // 3️⃣ Fetch user with password
     const user = await User.findById(req.userId).select("+password");
     if (!user) return res.status(404).json({ message: "Account not found" });
 
-    // 4️⃣ Check current password
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch)
       return res.status(401).json({ message: "Wrong current password" });
 
-    // 5️⃣ Check new password != current password
     const sameAsCurrent = await bcrypt.compare(newPassword, user.password);
     if (sameAsCurrent)
       return res.status(400).json({
         message: "New password cannot be the same as current password",
       });
 
-    // 6️⃣ Hash and save new password
     user.password = await bcrypt.hash(
       newPassword,
       Number(process.env.SALT_ROUNDS) || 10,
@@ -145,29 +132,24 @@ export const changePassword = async (req, res) => {
 
     res.json({ message: "Password changed successfully" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Password change failed" });
   }
 };
 
-// ✅ New function to verify admin password
 export const verifyAdminPassword = async (req, res) => {
   try {
     const { password } = req.body;
     const ip = req.ip;
 
-    // 1️⃣ Validate input
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    // 2️⃣ Check lock status
     const record = adminAttempts.get(ip);
     const now = Date.now();
 
     if (record && record.count >= MAX_ATTEMPTS) {
       if (record.resetTime > now) {
-        // Lock is still active
         const remaining = record.resetTime - now;
         return res.status(429).json({
           message: `Too many attempts. Try again after ${formatMinutes(
@@ -175,22 +157,18 @@ export const verifyAdminPassword = async (req, res) => {
           )}.`,
         });
       } else {
-        // Lock expired → reset attempts
         adminAttempts.delete(ip);
       }
     }
 
-    // 3️⃣ Get admin
     const admin = await User.findById(req.userId).select("+password");
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    // 4️⃣ Compare password
     const isMatch = await bcrypt.compare(password, admin.password);
 
     if (!isMatch) {
-      // ❌ Failed attempt
       if (!record) {
         adminAttempts.set(ip, {
           count: 1,
@@ -198,7 +176,6 @@ export const verifyAdminPassword = async (req, res) => {
         });
       } else {
         record.count += 1;
-        // Reset the timer if hitting max
         if (record.count >= MAX_ATTEMPTS) {
           record.resetTime = now + WINDOW_MS;
         }
@@ -216,12 +193,10 @@ export const verifyAdminPassword = async (req, res) => {
       });
     }
 
-    // 5️⃣ ✅ SUCCESS → reset attempt
     if (record) adminAttempts.delete(ip);
 
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {
-    console.error("verifyAdminPassword error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -233,27 +208,23 @@ export const requestEmailChangeOTP = async (req, res) => {
     if (!newEmail)
       return res.status(400).json({ message: "New email is required." });
 
-    // ✅ Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(newEmail.toLowerCase())) {
       return res.status(400).json({ message: "Invalid email format." });
     }
 
-    // ✅ Get the logged-in user
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    // 1️⃣ Check that newEmail is not the same as current user's email
     if (newEmail.toLowerCase() === user.email.toLowerCase()) {
       return res.status(400).json({
         message: "New email cannot be the same as your current email.",
       });
     }
 
-    // 2️⃣ Check that no other admin uses this email
     const emailUsedByAdmin = await User.findOne({
       email: newEmail.toLowerCase(),
-      _id: { $ne: user._id }, // exclude current user
+      _id: { $ne: user._id },
       role: "admin",
     });
     if (emailUsedByAdmin) {
@@ -262,7 +233,6 @@ export const requestEmailChangeOTP = async (req, res) => {
         .json({ message: "Email already in use by another admin." });
     }
 
-    // 3️⃣ Check that no campus uses this email (if campuses store an email)
     const emailUsedByCampus = await Campus.findOne({
       email: newEmail.toLowerCase(),
     });
@@ -272,31 +242,27 @@ export const requestEmailChangeOTP = async (req, res) => {
         .json({ message: "Email already in use by a campus." });
     }
 
-    // ✅ Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Store OTP in TempEmailChange collection
     await TempEmailChange.findOneAndUpdate(
       { userId: user._id },
       {
         userId: user._id,
         newEmail: newEmail.toLowerCase(),
         otp: hashedOtp,
-        otpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 min
+        otpExpires: new Date(Date.now() + 10 * 60 * 1000),
         verified: false,
       },
       { upsert: true, new: true },
     );
 
-    // Send OTP via email
     await createTransporter().sendMail({
       to: newEmail,
       subject: "Confirm your new email",
       html: `<h2>Your OTP is: ${otp}</h2><p>Expires in 10 minutes</p>`,
     });
 
-    // Create short-lived OTP token cookie
     const otpToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "10m",
     });
@@ -310,7 +276,6 @@ export const requestEmailChangeOTP = async (req, res) => {
 
     res.json({ message: "OTP sent to new email address." });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to send OTP." });
   }
 };
@@ -337,7 +302,6 @@ export const verifyEmailChangeOTP = async (req, res) => {
     if (hashedOtp !== record.otp)
       return res.status(400).json({ message: "Invalid OTP." });
 
-    // ✅ Update email
     await User.findByIdAndUpdate(userId, { email: record.newEmail });
 
     await record.deleteOne();
@@ -345,7 +309,6 @@ export const verifyEmailChangeOTP = async (req, res) => {
 
     res.json({ message: "Email updated successfully." });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Email verification failed." });
   }
 };

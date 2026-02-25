@@ -74,7 +74,6 @@ export const verifyAdminDeviceOtp = async (req, res) => {
 
     res.json({ message: "Device verified. Please login again." });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -127,7 +126,6 @@ export const resendDeviceOtp = async (req, res) => {
 
     res.json({ message: "OTP resent successfully" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to resend OTP" });
   }
 };

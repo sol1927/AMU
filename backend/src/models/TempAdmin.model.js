@@ -1,28 +1,20 @@
-// models/TempAdmin.model.js
 import mongoose from "mongoose";
 
 const tempAdminSchema = new mongoose.Schema(
   {
-    name: { type: String }, // optional at this point
+    name: { type: String },
     email: { type: String, required: true, unique: true },
 
     otp: { type: String, required: true },
-    otpExpires: { type: Date, required: true }, // OTP validity
+    otpExpires: { type: Date, required: true },
 
-    // ✅ NEW: OTP verification status
     verified: { type: Boolean, default: false },
 
-    // ✅ NEW: when OTP was verified
     verifiedAt: { type: Date },
   },
-  { timestamps: true }, // adds createdAt & updatedAt
+  { timestamps: true },
 );
 
-// TTL index: auto delete after 24 hours
-// Useful cleanup if registration never completes
-tempAdminSchema.index(
-  { createdAt: 1 },
-  { expireAfterSeconds: 86400 }, // 24 hours
-);
+tempAdminSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
 
 export default mongoose.model("TempAdmin", tempAdminSchema);

@@ -15,7 +15,6 @@ export default function AdminNavbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const menuRef = useRef(null);
 
-  // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -42,8 +41,6 @@ export default function AdminNavbar() {
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/10 px-6 py-4 flex justify-between items-center shadow-lg">
-      
-      {/* LEFT: Logo */}
       <div
         className="flex items-center gap-3 cursor-pointer group"
         onClick={() => router.push("/dashboard")}
@@ -61,7 +58,6 @@ export default function AdminNavbar() {
         </span>
       </div>
 
-      {/* RIGHT: User Menu */}
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setOpenMenu(!openMenu)}
@@ -84,7 +80,6 @@ export default function AdminNavbar() {
             )}
           </div>
 
-          {/* NAME ALWAYS VISIBLE */}
           <span className="font-medium text-white max-w-[120px] truncate">
             {currentUser?.name || "User"}
           </span>
@@ -98,7 +93,6 @@ export default function AdminNavbar() {
           </span>
         </button>
 
-        {/* DROPDOWN */}
         <div
           className={`absolute right-0 mt-4 w-52 bg-slate-900/95 backdrop-blur-xl border border-white/10 text-white rounded-2xl shadow-2xl transform transition-all duration-300 ${
             openMenu
@@ -146,7 +140,6 @@ export default function AdminNavbar() {
           </button>
         </div>
 
-        {/* LOGOUT CONFIRM MODAL */}
         <ConfirmModal
           open={showLogoutModal}
           position={{ top: "3rem", right: 0 }}

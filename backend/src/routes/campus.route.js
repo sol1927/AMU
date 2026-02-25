@@ -19,54 +19,32 @@ import {
   bulkToggleInternshipStudents,
 } from "../controllers/student.controller.js";
 import { protectCampus } from "../middlewares/campusAuth.js";
-import upload from "../middlewares/upload.js"; // multer-cloudinary
+import upload from "../middlewares/upload.js";
 
 const router = express.Router();
 
-// ---------- Campus Logout ----------
 router.post("/logout", logoutCampus);
-
-// ---------- Campus Dashboard ----------
 router.get("/dashboard", protectCampus, getCampusDashboard);
-
-// ---------- Add New Student (optional photo upload) ----------
 router.post("/students", protectCampus, upload.single("photo"), addStudent);
-
-// ---------- Get All Students ----------
 router.get("/students", protectCampus, getCampusStudents);
-
-// ---------- Verify Campus Password ----------
 router.post("/verify-campus-password", protectCampus, verifyCampusPassword);
-
-// ---------- Update Student ----------
 router.put("/students/:id", protectCampus, updateStudent);
-
-// ---------- Delete Student ----------
 router.delete("/students/:id", protectCampus, deleteStudent);
 router.get("/students/batches", protectCampus, getCampusBatches);
 router.get("/students/batch/:batch", protectCampus, getStudentsByBatch);
-// ---------- Delete a Batch ----------
 router.delete("/students/batch/:batch", protectCampus, deleteBatch);
-
-// ---------- Bulk Delete Selected Students ----------
 router.post("/students/bulk-delete", protectCampus, bulkDeleteStudents);
 router.patch("/students/bulk-fasting", protectCampus, bulkUpdateFasting);
-
-// ---------- Freeze/Unfreeze Single Student ----------
 router.patch(
   "/students/:id/internship",
   protectCampus,
-  toggleInternshipStudent, // new controller
+  toggleInternshipStudent,
 );
-
-// ---------- Bulk Freeze/Unfreeze Selected Students ----------
 router.patch(
   "/students/bulk-internship",
   protectCampus,
-  bulkToggleInternshipStudents, // new controller
+  bulkToggleInternshipStudents,
 );
-
-// ---------- Update Student Photo ----------
 router.put(
   "/students/:id/photo",
   protectCampus,

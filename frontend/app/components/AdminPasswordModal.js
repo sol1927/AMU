@@ -9,10 +9,9 @@ export default function AdminPasswordModal({
   errorMessage,
 }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [offlineError, setOfflineError] = useState(""); // for offline messages
+  const [offlineError, setOfflineError] = useState("");
   const modalRef = useRef(null);
 
-  // close when clicking outside
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) {
@@ -24,7 +23,6 @@ export default function AdminPasswordModal({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [onCancel]);
 
-  // automatically clear offlineError after 2 seconds
   useEffect(() => {
     if (!offlineError) return;
     const timer = setTimeout(() => setOfflineError(""), 2000);
@@ -34,7 +32,6 @@ export default function AdminPasswordModal({
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // ✅ Offline check
     if (!navigator.onLine) {
       setOfflineError("No internet connection. Please check your network.");
       return;
@@ -56,7 +53,6 @@ export default function AdminPasswordModal({
           Enter Admin Password
         </h3>
 
-        {/* Password input */}
         <div style={{ position: "relative" }}>
           <input
             type={showPassword ? "text" : "password"}
@@ -78,7 +74,6 @@ export default function AdminPasswordModal({
           </span>
         </div>
 
-        {/* Error messages */}
         {errorMessage && (
           <p className="text-red-500 text-sm text-center">{errorMessage}</p>
         )}
@@ -86,7 +81,6 @@ export default function AdminPasswordModal({
           <p className="text-red-400 text-sm text-center">{offlineError}</p>
         )}
 
-        {/* Buttons */}
         <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"
@@ -105,7 +99,6 @@ export default function AdminPasswordModal({
         </div>
       </form>
 
-      {/* animation */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {

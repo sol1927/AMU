@@ -22,7 +22,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
   const [showCamera, setShowCamera] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
 
-  // Clear error/success messages after 2 seconds
   useEffect(() => {
     if (!error && !success) return;
     const timer = setTimeout(() => {
@@ -32,7 +31,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
     return () => clearTimeout(timer);
   }, [error, success]);
 
-  // Close photo options when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -50,7 +48,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showPhotoOptions]);
 
-  // Clean up preview URL on unmount
   useEffect(() => {
     return () => {
       if (photoPreview) URL.revokeObjectURL(photoPreview);
@@ -95,10 +92,7 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
       setError(errMessage);
       return;
     }
-
     setSuccess("Student added successfully!");
-
-    // Auto-close after 2 seconds
     setTimeout(() => {
       onCancel();
     }, 2000);
@@ -159,7 +153,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
           </option>
         </select>
 
-        {/* Photo section */}
         <div className="flex flex-col items-center mb-4 relative">
           <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/30">
             {photoPreview ? (
@@ -230,8 +223,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
             onCancel={() => setShowCamera(false)}
           />
         )}
-
-        {/* Buttons */}
         <div className="flex justify-end gap-2 mt-2">
           <button
             type="button"

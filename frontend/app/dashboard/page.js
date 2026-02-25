@@ -3,7 +3,7 @@
 import { useUser } from "../context/UserContext";
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminDashboardPage() {
   const { currentUser } = useUser();
@@ -14,7 +14,6 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       if (!navigator.onLine) {
-        console.warn("No internet connection");
         setLoading(false);
         setTotalCampuses(0);
         setTotalStudents(0);
@@ -23,7 +22,7 @@ export default function AdminDashboardPage() {
 
       try {
         setLoading(true);
-        const res = await fetch(`${API_URL}/dashboard/campuses`, {
+        const res = await fetch(`${url}/dashboard/campuses`, {
           credentials: "include",
         });
         const data = await res.json();
@@ -38,7 +37,6 @@ export default function AdminDashboardPage() {
         }
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching admin dashboard:", err);
         setLoading(false);
       }
     };
@@ -48,7 +46,6 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br pt-28 text-white px-6 md:px-20 py-12">
-      {/* Hero Section */}
       <section className="text-center mb-12">
         <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
           Welcome,{" "}
@@ -59,7 +56,6 @@ export default function AdminDashboardPage() {
         </p>
       </section>
 
-      {/* Stats Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 max-w-4xl mx-auto">
         <div className="bg-gradient-to-tr from-blue-600/40 to-blue-500/20 border border-white/10 rounded-2xl p-8 shadow-lg hover:scale-105 transition-transform">
           <h3 className="text-lg font-semibold text-blue-300 mb-2">
@@ -79,7 +75,6 @@ export default function AdminDashboardPage() {
           </p>
         </div>
       </section>
-      {/* Cafeteria System Overview */}
       <section className="max-w-6xl mx-auto mt-8 mb-10 ">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-extrabold text-yellow-400 mb-3">
@@ -91,7 +86,6 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left Side - Description */}
           <div className="bg-gradient-to-br from-white/5 to-white/10 border border-white/10 rounded-2xl p-8 backdrop-blur-md shadow-xl">
             <h3 className="text-xl font-semibold text-white mb-4">
               📊 System Purpose
@@ -111,7 +105,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Right Side - Feature Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="bg-blue-600/20 border border-blue-500/20 rounded-xl p-6 hover:scale-105 transition">
               <h4 className="text-blue-300 font-semibold mb-2">

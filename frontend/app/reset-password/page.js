@@ -4,9 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useSearchParams, useRouter } from "next/navigation";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const url = process.env.NEXT_PUBLIC_API_URL;
 
-export default function ResetPasswordPage({ onOpenLogin }) {
+function ResetPasswordContent({ onOpenLogin }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -86,10 +86,10 @@ export default function ResetPasswordPage({ onOpenLogin }) {
     setMessage("");
 
     try {
-      const res = await fetch(`${API_URL}/auth/reset-password`, {
+      const res = await fetch(`${url}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, token, newPassword }), // confirmPassword removed
+        body: JSON.stringify({ email, token, newPassword }),
       });
 
       const data = await res.json();
@@ -107,10 +107,9 @@ export default function ResetPasswordPage({ onOpenLogin }) {
       setLoading(false);
 
       setTimeout(() => {
-        router.push("/"); // <-- redirect to dashboard
+        router.push("/");
       }, 1500);
     } catch (err) {
-      console.error(err);
       setMessageType("error");
       setMessage("Connection error. Please try again.");
       triggerShake();
@@ -151,8 +150,6 @@ export default function ResetPasswordPage({ onOpenLogin }) {
             <p className="text-center">{message}</p>
           </div>
         )}
-
-        {/* New Password */}
         <div className="relative mb-4">
           <input
             type={showPassword ? "text" : "password"}
@@ -179,7 +176,7 @@ export default function ResetPasswordPage({ onOpenLogin }) {
         {showRules && !allValid && (
           <div
             ref={rulesRef}
-              className="mb-4 p-3 bg-white/10 border border-white/20 rounded text-sm text-white"
+            className="mb-4 p-3 bg-white/10 border border-white/20 rounded text-sm text-white"
           >
             <p className="font-semibold mb-2">Password must include:</p>
             <ul className="space-y-1">
@@ -207,8 +204,6 @@ export default function ResetPasswordPage({ onOpenLogin }) {
             </ul>
           </div>
         )}
-
-        {/* Confirm Password */}
         <div className="relative mb-6">
           <input
             type={showConfirm ? "text" : "password"}
@@ -241,5 +236,21 @@ export default function ResetPasswordPage({ onOpenLogin }) {
         </button>
       </form>
     </div>
+  );
+}
+
+import { Suspense } from "react";
+
+export default function ResetPasswordPage(props) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <ResetPasswordContent {...props} />
+    </Suspense>
   );
 }

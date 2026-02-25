@@ -5,7 +5,7 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   const [name, setName] = useState(campus.name);
-  const [location, setLocation] = useState(campus.location || ""); // <-- new state
+  const [location, setLocation] = useState(campus.location || "");
   const [email, setEmail] = useState(campus.email);
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +28,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   const handleUpdate = async () => {
     setMessage("");
 
-    // ✅ OFFLINE CHECK
     if (!navigator.onLine) {
       setMessage("No internet connection. Please check your network.");
       return;
@@ -58,7 +57,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       const errorMsg = await onSubmit(payload);
       if (errorMsg) setMessage(errorMsg);
     } catch (err) {
-      console.error(err);
       setMessage("Update failed");
     } finally {
       setUpdateLoading(false);
@@ -68,7 +66,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
       <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-80 shadow-lg hover:shadow-purple-900/40 transition-all duration-300 relative animate-fadeIn">
-        {/* Close button */}
         <button
           onClick={onCancel}
           className="absolute top-3 right-3 text-white/70 hover:text-white transition"
@@ -80,7 +77,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           Edit Campus
         </h2>
 
-        {/* Message */}
         {message && (
           <p
             className={`mb-4 p-2 rounded-lg text-center text-sm ${
@@ -92,8 +88,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             {message}
           </p>
         )}
-
-        {/* Name */}
         <input
           type="text"
           placeholder="Campus Name"
@@ -101,8 +95,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           onChange={(e) => setName(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
         />
-
-        {/* Location */}
         <input
           type="text"
           placeholder="Location (optional)"
@@ -110,8 +102,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           onChange={(e) => setLocation(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
         />
-
-        {/* Email */}
         <input
           type="email"
           placeholder="Campus Email"
@@ -119,8 +109,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           onChange={(e) => setEmail(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
         />
-
-        {/* Current Password */}
         <div className="relative mb-3">
           <input
             type={showCurrent ? "text" : "password"}
@@ -141,8 +129,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             )}
           </button>
         </div>
-
-        {/* New Password */}
         <div className="relative mb-3">
           <input
             type={showPassword ? "text" : "password"}
@@ -163,8 +149,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             )}
           </button>
         </div>
-
-        {/* Confirm Password */}
         <div className="relative mb-4">
           <input
             type={showConfirm ? "text" : "password"}
@@ -185,8 +169,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             )}
           </button>
         </div>
-
-        {/* Update Button */}
         <div className="flex justify-center">
           <button
             onClick={handleUpdate}
@@ -201,8 +183,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           </button>
         </div>
       </div>
-
-      {/* Animation */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
