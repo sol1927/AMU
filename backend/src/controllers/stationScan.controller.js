@@ -93,7 +93,7 @@ export const getCampusDashboardStats = async (req, res) => {
       pendingStudents: Math.max(totalStudents - servedStudents, 0),
       recentScans,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch dashboard stats" });
   }
 };
@@ -102,7 +102,7 @@ export const clearStationData = async (req, res) => {
   try {
     await StationScan.deleteMany({ campus: req.campus._id });
     res.json({ message: "Station data cleared. Students can eat again." });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to clear station" });
   }
 };

@@ -11,7 +11,7 @@ export const clearExpiredResetTokens = async () => {
     // if (result.modifiedCount > 0) {
     //   logger.info("Removed expired reset tokens", { count: result.modifiedCount });
     // }
-  } catch (err) {
+  } catch {
     // Production-safe: do not log raw error
     // logger.error("Error clearing expired reset tokens", { error: err });
     // Or leave empty if you prefer silent failure

@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { React, useRef, useEffect } from "react";
+import { PropTypes } from "prop-types";
 
 export default function CameraModal({ onCapture, onCancel }) {
   const videoRef = useRef(null);
@@ -32,6 +33,7 @@ export default function CameraModal({ onCapture, onCancel }) {
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (err) {
+        console.error("Camera error:", err);
       }
     };
 
@@ -74,7 +76,7 @@ export default function CameraModal({ onCapture, onCancel }) {
         flex flex-col items-center gap-4 text-white
         transform transition-all duration-300 scale-100"
         >
-          <div className="w-56 h-56 bg-black rounded-xl overflow-hidden border-2 border-white/20">
+          <div className="w-72 max-w-[90vw] h-72 max-h-[90vw] bg-black rounded-xl overflow-hidden border-2 border-white/20">
             <video
               ref={videoRef}
               autoPlay
@@ -110,3 +112,8 @@ export default function CameraModal({ onCapture, onCancel }) {
     </>
   );
 }
+
+CameraModal.propTypes = {
+  onCapture: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+};

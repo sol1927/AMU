@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { React, useState, useEffect } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import PropTypes from "prop-types";
 
 export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   const [name, setName] = useState(campus.name);
@@ -56,7 +57,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       setUpdateLoading(true);
       const errorMsg = await onSubmit(payload);
       if (errorMsg) setMessage(errorMsg);
-    } catch (err) {
+    } catch {
       setMessage("Update failed");
     } finally {
       setUpdateLoading(false);
@@ -65,28 +66,29 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-80 shadow-lg hover:shadow-purple-900/40 transition-all duration-300 relative animate-fadeIn">
+      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-full max-w-sm sm:w-80 shadow-lg ...">
+        {" "}
         <button
           onClick={onCancel}
           className="absolute top-3 right-3 text-white/70 hover:text-white transition"
         >
           ✕
         </button>
-
         <h2 className="text-xl font-bold mb-4 text-center text-white">
           Edit Campus
         </h2>
-
         {message && (
-          <p
-            className={`mb-4 p-2 rounded-lg text-center text-sm ${
-              message.toLowerCase().includes("success")
-                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : "bg-red-500/20 text-red-400 border border-red-500/30"
-            }`}
-          >
-            {message}
-          </p>
+          <div className="max-h-[80vh] overflow-y-auto mb-4">
+            <p
+              className={`p-2 rounded-lg text-center text-sm ${
+                message.toLowerCase().includes("success")
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                  : "bg-red-500/20 text-red-400 border border-red-500/30"
+              }`}
+            >
+              {message}
+            </p>
+          </div>
         )}
         <input
           type="text"
@@ -183,6 +185,8 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           </button>
         </div>
       </div>
+
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -201,3 +205,14 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
     </div>
   );
 }
+
+EditCampusModal.propTypes = {
+  campus: PropTypes.shape({
+    _id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    location: PropTypes.string,
+    email: PropTypes.string.isRequired,
+  }).isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+};

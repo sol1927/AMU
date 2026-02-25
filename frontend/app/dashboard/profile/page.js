@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { React, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useUser } from "../../context/UserContext";
@@ -12,6 +12,14 @@ import EmailChangeModal from "../../components/EmailChangeModal";
 import ChangePasswordModal from "../../components/ChangePasswordModal";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const capitalizeWords = (str) => {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -149,7 +157,7 @@ export default function ProfilePage() {
       setShowAdminPasswordModal(false);
       setPasswordError("");
       setShowEmailChangeModal(true);
-    } catch (err) {
+    } catch {
       setPasswordError("Something went wrong");
     }
   };
@@ -182,7 +190,7 @@ export default function ProfilePage() {
               />
             ) : (
               <div className="w-full h-full bg-gray-300 flex items-center justify-center text-white font-bold">
-                {currentUser?.name?.charAt(0) || "U"}
+                {capitalizeWords(currentUser?.name)?.charAt(0) || "U"}
               </div>
             )}
           </div>
@@ -201,7 +209,7 @@ export default function ProfilePage() {
         <form onSubmit={handleSaveChanges} className="space-y-4">
           <input
             type="text"
-            value={name}
+            value={capitalizeWords(name)}
             onChange={(e) => setName(e.target.value)}
             placeholder="Full Name"
             className="w-full border border-white/20 bg-white/5 text-white rounded-xl px-4 py-2 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"

@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { React, useState, useEffect } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import PropTypes from "prop-types";
 
 export default function AddCampusModal({ onCancel, onSubmit }) {
   const [name, setName] = useState("");
@@ -31,7 +32,7 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-white/10 border hover:shadow-purple-900/40 border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-80 animate-fadeIn"
+        className="bg-white/10 border hover:shadow-purple-900/40 border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-xs sm:w-80 animate-fadeIn"
       >
         <h3 className="text-lg font-bold">Add Campus</h3>
 
@@ -92,3 +93,8 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
     </div>
   );
 }
+
+AddCampusModal.propTypes = {
+  onCancel: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+};

@@ -79,7 +79,7 @@ export const login = async (req, res) => {
       user: userData,
       role,
     });
-  } catch (err) {
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again." });

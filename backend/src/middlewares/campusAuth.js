@@ -12,7 +12,7 @@ export const protectCampus = async (req, res, next) => {
 
     req.campus = campus;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ message: "Session expired" });
   }
 };

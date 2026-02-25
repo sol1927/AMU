@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { React, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { IoChevronBackSharp } from "react-icons/io5";
@@ -16,7 +16,6 @@ export default function CampusesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showAdminPasswordPrompt, setShowAdminPasswordPrompt] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
   const [campusToDelete, setCampusToDelete] = useState(null);
   const [campusToEdit, setCampusToEdit] = useState(null);
@@ -92,8 +91,6 @@ export default function CampusesPage() {
         setAdminError(data.message || "Wrong password");
         return;
       }
-
-      setAdminPassword(enteredPassword);
       setShowAdminPasswordPrompt(false);
       setAdminError("");
 
@@ -107,7 +104,7 @@ export default function CampusesPage() {
       }
 
       setPendingAction(null);
-    } catch (err) {
+    } catch {
       setAdminError("Something went wrong");
     }
   };
@@ -152,7 +149,8 @@ export default function CampusesPage() {
 
   return (
     <>
-      <div className="pt-24 h-screen text-white max-w-7xl mx-auto px-6 flex flex-col">
+      <div className="pt-24 h-screen text-white max-w-7xl mx-auto px-4 sm:px-6 md:px-6 flex flex-col">
+        {" "}
         <button
           onClick={() => router.push("/dashboard")}
           title="Back to Dashboard"
@@ -173,7 +171,6 @@ export default function CampusesPage() {
             + Add Campus
           </button>
         </div>
-
         {sortedCampuses.length > 0 && (
           <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
             <div className="w-10"></div>
@@ -184,7 +181,6 @@ export default function CampusesPage() {
             <div className="w-10"></div>
           </div>
         )}
-
         <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
           {sortedCampuses.length > 0 ? (
             sortedCampuses.map((campus) => (
@@ -291,7 +287,6 @@ export default function CampusesPage() {
             </div>
           )}
         </div>
-
         {showAdminPasswordPrompt && (
           <AdminPasswordModal
             onCancel={() => {
@@ -302,7 +297,6 @@ export default function CampusesPage() {
             errorMessage={adminError}
           />
         )}
-
         {showEditModal && campusToEdit && (
           <EditCampusModal
             campus={campuses.find((c) => c._id === campusToEdit)}
@@ -330,7 +324,6 @@ export default function CampusesPage() {
             }}
           />
         )}
-
         {showForm && (
           <AddCampusModal
             onCancel={() => setShowForm(false)}
@@ -361,7 +354,6 @@ export default function CampusesPage() {
             }}
           />
         )}
-
         {toast && (
           <div
             className={`fixed bottom-6 right-6 px-4 py-2 rounded text-white shadow ${

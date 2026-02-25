@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { React, useEffect, useState, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useSearchParams, useRouter } from "next/navigation";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-function ResetPasswordContent({ onOpenLogin }) {
+function ResetPasswordContent() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -109,7 +109,7 @@ function ResetPasswordContent({ onOpenLogin }) {
       setTimeout(() => {
         router.push("/");
       }, 1500);
-    } catch (err) {
+    } catch {
       setMessageType("error");
       setMessage("Connection error. Please try again.");
       triggerShake();

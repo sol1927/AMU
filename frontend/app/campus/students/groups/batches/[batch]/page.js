@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { React, useEffect, useState, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
@@ -130,7 +130,7 @@ export default function BatchStudentsPage() {
       }
 
       setPendingAction(null);
-    } catch (err) {
+    } catch {
       setPasswordError("Something went wrong");
       setTimeout(() => setPasswordError(""), 2000);
     }
@@ -181,7 +181,7 @@ export default function BatchStudentsPage() {
       setBulkFastingType("");
       await refreshCampus();
       showToast("Selected students deleted successfully", "success");
-    } catch (err) {
+    } catch {
       showToast("Bulk delete failed", "error");
     }
   };
@@ -470,7 +470,7 @@ export default function BatchStudentsPage() {
           {sortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-950 transition-all duration-300 relative"
+              className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-950 transition-all duration-300 relative"
             >
               <span className="w-10 font-medium text-white">{index + 1}</span>
               <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">

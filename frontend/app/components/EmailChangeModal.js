@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { React, useEffect, useState } from "react";
+import PropTypes from "prop-types";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-export default function EmailChangeModal({
-  currentEmail,
-  onClose,
-  setCurrentUser,
-}) {
+export default function EmailChangeModal({ onClose, setCurrentUser }) {
   const [newEmail, setNewEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
@@ -99,14 +96,14 @@ export default function EmailChangeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-80 shadow-lg hover:shadow-indigo-900/40 transition-all duration-300 relative animate-fadeIn">
+      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-4 w-full max-w-md sm:w-96 max-h-[90vh] overflow-y-auto shadow-lg relative animate-fadeIn">
+        {" "}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-white/70 hover:text-white transition"
         >
           ✕
         </button>
-
         <h2 className="text-xl font-bold mb-4 text-center text-white">
           Change Email
         </h2>
@@ -128,7 +125,6 @@ export default function EmailChangeModal({
           className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
           autoFocus
         />
-
         <button
           onClick={handleRequestOtp}
           disabled={!newEmail || isRequesting}
@@ -151,7 +147,6 @@ export default function EmailChangeModal({
           maxLength={6}
           className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
         />
-
         <button
           onClick={handleVerifyOtp}
           disabled={!otp || isVerifying}
@@ -164,6 +159,8 @@ export default function EmailChangeModal({
           {isVerifying ? "Verifying..." : "Verify OTP"}
         </button>
       </div>
+
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -182,3 +179,9 @@ export default function EmailChangeModal({
     </div>
   );
 }
+
+EmailChangeModal.propTypes = {
+  currentEmail: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired,
+  setCurrentUser: PropTypes.func.isRequired,
+};

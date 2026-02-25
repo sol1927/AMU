@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { React, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -273,7 +273,7 @@ export default function LandingPage() {
       <RequestOTPModal
         show={showSignupModal}
         onClose={() => setShowSignupModal(false)}
-        onSuccess={(email) => {
+        onSuccess={() => {
           setShowVerifyOTPModal(true);
         }}
         onOpenLogin={() => setShowLoginModal(true)}

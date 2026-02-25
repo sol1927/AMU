@@ -6,6 +6,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import TempEmailChange from "../models/TempEmailChange.model.js";
 import { createTransporter } from "../utils/mailer.js";
+import { formatFullName } from "../utils/formatName.js";
 
 const adminAttempts = new Map();
 const MAX_ATTEMPTS = 5;
@@ -22,7 +23,7 @@ export const getMyProfile = async (req, res) => {
     if (!user) return res.status(404).json({ message: "Account not found" });
 
     res.json({ user });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to load profile" });
   }
 };
@@ -34,8 +35,7 @@ export const updateProfile = async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "Account not found" });
 
-    if (name) user.name = name;
-
+    if (name) user.name = formatFullName(name.trim());
     await user.save();
 
     res.json({
@@ -47,7 +47,7 @@ export const updateProfile = async (req, res) => {
         logo: user.logo,
       },
     });
-  } catch (err) {
+  } catch {
     res.status(400).json({ message: "Profile update failed" });
   }
 };
@@ -76,7 +76,7 @@ export const updateProfilePhoto = async (req, res) => {
     );
 
     res.json({ message: "Profile photo updated", photoUrl: user.logo.url });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Photo upload failed" });
   }
 };
@@ -131,7 +131,7 @@ export const changePassword = async (req, res) => {
     await user.save();
 
     res.json({ message: "Password changed successfully" });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Password change failed" });
   }
 };
@@ -196,7 +196,7 @@ export const verifyAdminPassword = async (req, res) => {
     if (record) adminAttempts.delete(ip);
 
     return res.status(200).json({ message: "Password correct" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -258,9 +258,45 @@ export const requestEmailChangeOTP = async (req, res) => {
     );
 
     await createTransporter().sendMail({
+      from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
       to: newEmail,
-      subject: "Confirm your new email",
-      html: `<h2>Your OTP is: ${otp}</h2><p>Expires in 10 minutes</p>`,
+      subject: "Confirm Your New Email",
+      html: `
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
+
+    <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
+      <img 
+        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
+        alt="GibiGebeta Logo" 
+        style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
+      />
+    </a>
+
+    <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello,</h1>
+
+    <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
+      Please confirm your new email by entering the OTP below:
+    </p>
+
+    <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
+      ${otp}
+    </div>
+
+    <p style="font-size: 14px; color: #999; margin-bottom: 30px;">
+      This OTP will expire in 10 minutes.
+    </p>
+
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+
+    <p style="font-size: 12px; color: #bbb;">
+      If you did not request this, please ignore this email.
+    </p>
+
+    <p style="font-size: 12px; color: #bbb;">
+      &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
+    </p>
+  </div>
+  `,
     });
 
     const otpToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
@@ -275,7 +311,7 @@ export const requestEmailChangeOTP = async (req, res) => {
     });
 
     res.json({ message: "OTP sent to new email address." });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to send OTP." });
   }
 };
@@ -308,7 +344,7 @@ export const verifyEmailChangeOTP = async (req, res) => {
     res.clearCookie("emailOtpToken");
 
     res.json({ message: "Email updated successfully." });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Email verification failed." });
   }
 };

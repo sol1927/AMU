@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { React, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import PropTypes from "prop-types";
 
 export default function ConfirmModal({
   open,
-  position,
   title,
   message,
   onConfirm,
@@ -32,18 +32,18 @@ export default function ConfirmModal({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-40" />
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[60]" />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50" />
       <div
         ref={modalRef}
-        className={`fixed top-20 right-6 w-80 p-5 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl z-[70] transform transition-all duration-300
-      ${shake ? "animate-shake" : "scale-100 opacity-100"} hover:shadow-3xl`}
+        className={`fixed top-20 right-6 w-80 p-5 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl z-[60] transform transition-all duration-300
+  ${shake ? "animate-shake" : "scale-100 opacity-100"} hover:shadow-3xl`}
       >
         <h2 className="text-base font-semibold mb-2 text-white">
           {title || "Are you sure?"}
         </h2>
-        {message && <p className="text-white/80 mb-4">{message}</p>}
-
+        <div className="max-h-[80vh] overflow-y-auto">
+          {message && <p className="text-white/80 mb-4">{message}</p>}
+        </div>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
@@ -59,6 +59,8 @@ export default function ConfirmModal({
           </button>
         </div>
       </div>
+
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes shake {
           0% {
@@ -85,3 +87,12 @@ export default function ConfirmModal({
     document.body,
   );
 }
+
+ConfirmModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  position: PropTypes.string, // optional, since it may be unused
+  title: PropTypes.string,
+  message: PropTypes.string,
+  onConfirm: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+};

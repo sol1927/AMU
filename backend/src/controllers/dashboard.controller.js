@@ -15,7 +15,7 @@ export const getAdminDashboard = async (req, res) => {
         campuses: campusCount,
       },
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to load dashboard" });
   }
 };

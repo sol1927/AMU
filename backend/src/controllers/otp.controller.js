@@ -6,6 +6,7 @@ import Campus from "../models/campus.model.js";
 import TempAdmin from "../models/TempAdmin.model.js";
 import { createTransporter } from "../utils/mailer.js";
 import bcrypt from "bcryptjs";
+import { formatFullName } from "../utils/formatName.js";
 
 export const requestOTP = async (req, res) => {
   try {
@@ -36,30 +37,50 @@ export const requestOTP = async (req, res) => {
 
     await TempAdmin.findOneAndUpdate(
       { email },
-      { name, email, otp: hashedOtp, otpExpires, verified: false },
+      { name: formatFullName(name), email, otp: hashedOtp, otpExpires, verified: false },
       { upsert: true, new: true },
     );
 
     await createTransporter().sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Your OTP for Admin Registration",
       html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; text-align: center;">
-        <img src="https://example.com/logo.png" alt="Your Company Logo" style="width: 120px; margin-bottom: 20px;" />
-        <h2 style="color: #333;">Hello ${name || "Admin"},</h2>
-        <p style="font-size: 16px; color: #555;">
-          Your One-Time Password (OTP) for admin registration is:
-        </p>
-        <p style="font-size: 24px; font-weight: bold; color: #1a73e8;">${otp}</p>
-        <p style="font-size: 14px; color: #999;">
-          This OTP will expire in 10 minutes.
-        </p>
-        <p style="margin-top: 30px; font-size: 12px; color: #bbb;">
-          If you did not request this, please ignore this email.
-        </p>
-      </div>
-    `,
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
+    
+    <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
+      <img 
+        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
+        alt="GibiGebeta" 
+        style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
+      />
+    </a>
+    
+    <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello ${formatFullName(name) || "Admin"},</h1>
+    
+    <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
+      Your One-Time Password (OTP) for admin registration is:
+    </p>
+    
+    <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
+      ${otp}
+    </div>
+    
+    <p style="font-size: 14px; color: #999; margin-bottom: 30px;">
+      This OTP will expire in 10 minutes.
+    </p>
+    
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+    
+    <p style="font-size: 12px; color: #bbb;">
+      If you did not request this, please ignore this email.
+    </p>
+    
+    <p style="font-size: 12px; color: #bbb;">
+      &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
+    </p>
+  </div>
+  `,
     });
 
     const otpToken = jwt.sign({ email }, process.env.JWT_SECRET, {
@@ -74,7 +95,7 @@ export const requestOTP = async (req, res) => {
         maxAge: 10 * 60 * 1000,
       })
       .json({ message: "OTP sent to your email. Please check your inbox." });
-  } catch (err) {
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
@@ -135,7 +156,7 @@ export const verifyOTP = async (req, res) => {
         maxAge: 10 * 60 * 1000,
       })
       .json({ message: "OTP verified successfully!" });
-  } catch (err) {
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
@@ -184,7 +205,7 @@ export const setPassword = async (req, res) => {
     );
 
     const admin = await User.create({
-      name: tempAdmin.name,
+      name: formatFullName(tempAdmin.name),
       email,
       password: hashedPassword,
       role: "admin",
@@ -199,7 +220,7 @@ export const setPassword = async (req, res) => {
         "Your account has been created successfully! You can now log in.",
       admin: adminData,
     });
-  } catch (err) {
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });

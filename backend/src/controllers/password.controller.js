@@ -23,28 +23,45 @@ export const requestPasswordReset = async (req, res) => {
       user.resetTokenExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
 
-      const resetLink = `http://localhost:3000/reset-password?token=${resetToken}&email=${email}`;
+      const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${email}`;
 
       await createTransporter().sendMail({
-        from: process.env.EMAIL_USER,
+        from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Password Reset",
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; text-align: center;">
-            <img src="https://example.com/logo.png" alt="Logo" style="width: 120px; margin-bottom: 20px;" />
-            <h2 style="color: #333;">Hello there,</h2>
-            <p style="font-size: 16px; color: #555;">
-              You requested a password reset. Click the button below to set a new password:
-            </p>
-            <a href="${resetLink}" 
-               style="display: inline-block; padding: 10px 20px; margin-top: 20px; background-color: #1abc9c; color: white; text-decoration: none; border-radius: 5px;">
-               Reset Password
-            </a>
-            <p style="margin-top: 20px; font-size: 12px; color: #999;">
-              This link will expire in 10 minutes. If you did not request this, please ignore this email.
-            </p>
-          </div>
-        `,
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
+    
+    <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
+      <img 
+        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
+        alt="GibiGebeta Logo" 
+        style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
+      />
+    </a>
+    
+    <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello there,</h1>
+    
+    <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
+      You requested a password reset. Click the button below to set a new password:
+    </p>
+    
+    <a href="${resetLink}" 
+       style="display: inline-block; padding: 15px 25px; font-size: 16px; font-weight: bold; background: linear-gradient(135deg, #1a73e8, #4285f4); color: white; text-decoration: none; border-radius: 8px; margin-bottom: 20px;">
+       Reset Password
+    </a>
+    
+    <p style="margin-top: 20px; font-size: 14px; color: #999;">
+      This link will expire in 10 minutes. If you did not request this, please ignore this email.
+    </p>
+    
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+    
+    <p style="font-size: 12px; color: #bbb;">
+      &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
+    </p>
+  </div>
+  `,
       });
     }
 
@@ -53,7 +70,7 @@ export const requestPasswordReset = async (req, res) => {
     setTimeout(() => {
       res.json({ message: "If the email exists, a reset link has been sent" });
     }, wait);
-  } catch (err) {
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
@@ -121,7 +138,7 @@ export const resetPassword = async (req, res) => {
     await user.save();
 
     res.json({ message: "Password has been reset successfully" });
-  } catch (err) {
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });

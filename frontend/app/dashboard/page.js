@@ -1,9 +1,17 @@
 "use client";
 
-import { useUser } from "../context/UserContext";
+import { React, useUser } from "../context/UserContext";
 import { useEffect, useState } from "react";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const capitalizeWords = (str) => {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
 
 export default function AdminDashboardPage() {
   const { currentUser } = useUser();
@@ -36,7 +44,7 @@ export default function AdminDashboardPage() {
           setTotalStudents(totalStudents);
         }
         setLoading(false);
-      } catch (err) {
+      } catch {
         setLoading(false);
       }
     };
@@ -49,7 +57,9 @@ export default function AdminDashboardPage() {
       <section className="text-center mb-12">
         <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
           Welcome,{" "}
-          <span className="text-blue-400">{currentUser?.name || "Admin"}</span>
+          <span className="text-blue-400">
+            {capitalizeWords(currentUser?.name) || "Admin"}
+          </span>
         </h1>
         <p className="text-gray-300 mb-10 text-lg md:text-xl">
           Monitor your campuses and students at a glance 👀

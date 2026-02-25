@@ -3,10 +3,18 @@
 import ConfirmModal from "./ConfirmModal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { React, useEffect, useRef, useState } from "react";
 import { useCampus } from "../context/CampusContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const capitalizeWords = (str) => {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
 
 export default function CampusNavbar() {
   const router = useRouter();
@@ -46,8 +54,8 @@ export default function CampusNavbar() {
         onClick={() => router.push("/campus")}
       >
         <Image
-          src="/logo.png"
-          alt="Logo"
+          src="/logo.jpeg"
+          alt="GibiGebeta"
           width={40}
           height={40}
           className="rounded-full object-cover group-hover:scale-105 transition-transform"
@@ -66,7 +74,7 @@ export default function CampusNavbar() {
             {currentCampus?.logo?.url ? (
               <Image
                 src={currentCampus.logo.url}
-                alt="Campus Logo"
+                alt="GibiGebeta"
                 width={36}
                 height={36}
                 className="object-cover w-full h-full rounded-full"
@@ -74,13 +82,13 @@ export default function CampusNavbar() {
               />
             ) : (
               <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center rounded-full font-bold">
-                {currentCampus?.name?.charAt(0) || "C"}
+                {capitalizeWords(currentCampus?.name?.charAt(0) || "C")}
               </div>
             )}
           </div>
 
           <span className="font-medium text-white max-w-[120px] truncate">
-            {currentCampus?.name || "Campus"}
+            {capitalizeWords(currentCampus?.name || "Campus")}
           </span>
 
           <span
@@ -93,7 +101,7 @@ export default function CampusNavbar() {
         </button>
 
         <div
-          className={`absolute right-0 mt-4 w-52 bg-slate-900/95 backdrop-blur-xl border border-white/10 text-white rounded-2xl shadow-2xl transform transition-all duration-300 ${
+          className={`absolute right-0 mt-4 w-52 max-w-[90vw] bg-slate-900/95 backdrop-blur-xl border border-white/10 text-white rounded-2xl shadow-2xl transform transition-all duration-300 ${
             openMenu
               ? "opacity-100 scale-100"
               : "opacity-0 scale-95 pointer-events-none"
@@ -104,7 +112,7 @@ export default function CampusNavbar() {
               setOpenMenu(false);
               router.push("/campus");
             }}
-            className="w-full px-5 py-3 text-left hover:bg-white/10 rounded-t-2xl transition"
+            className="w-full px-3 sm:px-5 py-2 sm:py-3 text-left hover:bg-white/10 rounded-t-2xl transition"
           >
             Dashboard
           </button>
@@ -114,7 +122,7 @@ export default function CampusNavbar() {
               setOpenMenu(false);
               router.push("/campus/students");
             }}
-            className="w-full px-5 py-3 text-left hover:bg-white/10 transition"
+            className="w-full px-3 sm:px-5 py-2 sm:py-3 text-left hover:bg-white/10 transition"
           >
             Student List
           </button>
@@ -124,7 +132,7 @@ export default function CampusNavbar() {
               setOpenMenu(false);
               router.push("/campus/scan");
             }}
-            className="w-full px-5 py-3 text-left hover:bg-white/10 transition"
+            className="w-full px-3 sm:px-5 py-2 sm:py-3 text-left hover:bg-white/10 transition"
           >
             Scan
           </button>
@@ -133,7 +141,7 @@ export default function CampusNavbar() {
 
           <button
             onClick={handleLogoutClick}
-            className="w-full px-5 py-3 text-left text-red-400 hover:bg-red-500/10 rounded-b-2xl transition"
+            className="w-full px-3 sm:px-5 py-2 sm:py-3 text-left hover:bg-white/10 rounded-b-2xl transition"
           >
             Logout
           </button>

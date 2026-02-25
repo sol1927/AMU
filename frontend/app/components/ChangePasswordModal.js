@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { React, useState, useEffect, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import PropTypes from "prop-types";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -95,7 +96,8 @@ export default function ChangePasswordModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/20 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-80 max-w-full animate-fadeIn">
+      <div className="bg-white/20 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-xs animate-fadeIn">
+        {" "}
         <h3 className="text-lg font-semibold text-center text-white">
           Change Password
         </h3>
@@ -148,7 +150,6 @@ export default function ChangePasswordModal({ onClose }) {
             {showConfirm ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
         </div>
-
         {showRules && !allValid && (
           <div
             ref={rulesRef}
@@ -180,12 +181,10 @@ export default function ChangePasswordModal({ onClose }) {
             </ul>
           </div>
         )}
-
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         {success && (
           <p className="text-green-400 text-sm text-center">{success}</p>
         )}
-
         <div className="flex justify-end gap-2 mt-4">
           <button
             onClick={onClose}
@@ -202,6 +201,7 @@ export default function ChangePasswordModal({ onClose }) {
         </div>
       </div>
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -220,3 +220,7 @@ export default function ChangePasswordModal({ onClose }) {
     </div>
   );
 }
+
+ChangePasswordModal.propTypes = {
+  onClose: PropTypes.func.isRequired,
+};

@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { React, useRef, useState, useEffect } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import PropTypes from "prop-types";
 
 export default function AdminPasswordModal({
   onSubmit,
@@ -99,6 +100,7 @@ export default function AdminPasswordModal({
         </div>
       </form>
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -117,3 +119,9 @@ export default function AdminPasswordModal({
     </div>
   );
 }
+
+AdminPasswordModal.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  errorMessage: PropTypes.string,
+};

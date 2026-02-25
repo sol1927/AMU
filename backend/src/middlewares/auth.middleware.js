@@ -12,7 +12,7 @@ export const verifyToken = (req, res, next) => {
     req.userId = decoded.id;
     req.userRole = decoded.role;
     next();
-  } catch (err) {
+  } catch {
     return res
       .status(401)
       .json({ message: "Your session has expired. Please log in again." });

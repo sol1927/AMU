@@ -3,7 +3,7 @@ import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
-import upload from "../middlewares/upload.js";
+import { formatFullName } from "../utils/formatName.js";
 
 const campusAttempts = new Map();
 const MAX_ATTEMPTS = 5;
@@ -55,7 +55,7 @@ export const createCampus = async (req, res) => {
     const admin = await User.findById(req.userId).select("logo");
 
     const campus = await Campus.create({
-      name,
+      name: formatFullName(name.trim()),
       email,
       password: hashedPassword,
       location: location || "",
@@ -106,7 +106,7 @@ export const getCampuses = async (req, res) => {
       }),
     );
     res.json({ campuses: campusesWithStudentCount });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch campuses" });
   }
 };
@@ -166,7 +166,7 @@ export const updateCampus = async (req, res) => {
         });
       }
 
-      campus.name = name;
+      campus.name = formatFullName(name.trim());
     }
 
     if (email || name) {
@@ -265,7 +265,7 @@ export const deleteCampus = async (req, res) => {
     await Campus.findByIdAndDelete(id);
 
     res.json({ message: "Campus and its students deleted successfully" });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -286,7 +286,7 @@ export const getCampusDashboard = async (req, res) => {
         logo: campus.logo,
       },
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch campus info" });
   }
 };
@@ -336,7 +336,7 @@ export const verifyCampusPassword = async (req, res) => {
 
     campusAttempts.delete(campusId);
     return res.status(200).json({ message: "Password correct" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ message: "Server error" });
   }
 };

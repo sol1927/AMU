@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { React, useState, useEffect } from "react";
 import { useTempAdmin } from "../context/TempAdminContext";
+import PropTypes from "prop-types";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -89,7 +90,7 @@ export default function VerifyOTPModal({
         setMessage(data.message || "Invalid OTP. Try again.");
         triggerShake();
       }
-    } catch (err) {
+    } catch {
       setMessageType("error");
       setMessage("Something went wrong. Please try again.");
       triggerShake();
@@ -126,7 +127,7 @@ export default function VerifyOTPModal({
         setMessageType("success");
         setMessage("OTP resent successfully! Check your email.");
       }
-    } catch (err) {
+    } catch {
       setMessageType("error");
       setMessage("Failed to resend OTP. Please check your connection.");
       triggerShake();
@@ -223,6 +224,7 @@ export default function VerifyOTPModal({
         </div>
       </div>
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -255,3 +257,10 @@ export default function VerifyOTPModal({
     </div>
   );
 }
+
+VerifyOTPModal.propTypes = {
+  show: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onOpenLogin: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func,
+};

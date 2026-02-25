@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { React, useState, useEffect, useRef } from "react";
 import { FiCamera } from "react-icons/fi";
 import CameraModal from "./CameraModal";
+import PropTypes from "prop-types";
 
 export default function AddStudentModal({ onCancel, onSubmit }) {
   const [name, setName] = useState("");
@@ -102,7 +103,7 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-96 max-h-[90vh] overflow-y-auto animate-fadeIn text-white"
+        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-lg sm:w-96 max-h-[90vh] overflow-y-auto animate-fadeIn text-white"
       >
         <h3 className="text-lg font-bold">Add New Student</h3>
 
@@ -243,3 +244,8 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
     </div>
   );
 }
+
+AddStudentModal.propTypes = {
+  onCancel: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+};

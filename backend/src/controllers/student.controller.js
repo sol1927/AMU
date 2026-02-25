@@ -1,9 +1,5 @@
-import Campus from "../models/campus.model.js";
-import User from "../models/user.model.js";
-import bcrypt from "bcryptjs";
 import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
-import upload from "../middlewares/upload.js";
 import StationScan from "../models/stationScan.model.js";
 import { formatFullName } from "../utils/formatName.js";
 
@@ -56,7 +52,7 @@ export const getCampusStudents = async (req, res) => {
       students,
       totalStudents,
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch students" });
   }
 };
@@ -175,12 +171,10 @@ export const updateStudentPhoto = async (req, res) => {
 
     if (student.profilePublicId) {
       try {
-        const result = await cloudinary.uploader.destroy(
-          student.profilePublicId,
-        );
-        if (result.result !== "ok" && result.result !== "not found") {
-        }
-      } catch (err) {}
+        await cloudinary.uploader.destroy(student.profilePublicId);
+      } catch {
+        // intentionally ignore errors, do not log anything
+      }
     }
 
     student.profileUrl = req.file.path;
@@ -192,7 +186,7 @@ export const updateStudentPhoto = async (req, res) => {
       message: "Student photo updated",
       profileUrl: student.profileUrl,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to update photo" });
   }
 };
@@ -211,7 +205,7 @@ export const getCampusBatches = async (req, res) => {
     const sortedBatches = batches.sort((a, b) => a - b);
 
     res.json({ batches: sortedBatches });
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch batches" });
   }
 };
@@ -258,7 +252,7 @@ export const getStudentsByBatch = async (req, res) => {
       );
 
     res.json({ students });
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch students" });
   }
 };
@@ -276,12 +270,10 @@ export const deleteStudent = async (req, res) => {
 
     if (student.profilePublicId) {
       try {
-        const result = await cloudinary.uploader.destroy(
-          student.profilePublicId,
-        );
-        if (result.result !== "ok" && result.result !== "not found") {
-        }
-      } catch (err) {}
+        await cloudinary.uploader.destroy(student.profilePublicId);
+      } catch {
+        // intentionally ignore errors
+      }
     }
     await StationScan.deleteMany({
       student: student._id,
@@ -293,7 +285,7 @@ export const deleteStudent = async (req, res) => {
     res.json({
       message: "Student and related station scans deleted successfully",
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to delete student" });
   }
 };
@@ -322,7 +314,7 @@ export const deleteBatch = async (req, res) => {
             // Use internal logger if available; only track ID, not name/email
             // logger.warn("Cloudinary deletion returned unexpected result", { studentId: student._id, result });
           }
-        } catch (err) {
+        } catch {
           // Use logger for internal tracking instead of console.error
           // logger.error("Cloudinary deletion failed", { studentId: student._id, error: err });
           // If you don't have a logger yet, safely ignore or keep minimal info:
@@ -346,7 +338,7 @@ export const deleteBatch = async (req, res) => {
       message: `Batch ${batch} and all related student data deleted successfully`,
       deletedCount: result.deletedCount,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to delete batch" });
   }
 };
@@ -382,7 +374,7 @@ export const bulkDeleteStudents = async (req, res) => {
             // If no logger yet, leave empty to avoid leaking info
             // Do nothing
           }
-        } catch (err) {
+        } catch {
           // Production-safe: do not print raw error or student info
           // logger.error("Cloudinary deletion failed", { studentId: student._id, error: err });
           // Or safely ignore if you don't want logging
@@ -407,7 +399,7 @@ export const bulkDeleteStudents = async (req, res) => {
       message: "Selected students deleted successfully",
       deletedCount: studentIds.length,
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Bulk delete failed" });
   }
 };
@@ -440,7 +432,7 @@ export const bulkUpdateFasting = async (req, res) => {
       message: `Updated fasting status for ${result.modifiedCount} students`,
       modifiedCount: result.modifiedCount,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Bulk update failed" });
   }
 };
@@ -468,7 +460,7 @@ export const toggleInternshipStudent = async (req, res) => {
       message: `Student ${isInternship ? "marked as internship" : "marked as not internship"} successfully`,
       student,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to update internship status" });
   }
 };
@@ -493,7 +485,7 @@ export const bulkToggleInternshipStudents = async (req, res) => {
       message: `${isInternship ? "Marked as internship" : "Marked as not internship"} ${result.modifiedCount} students`,
       modifiedCount: result.modifiedCount,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Bulk internship status update failed" });
   }
 };

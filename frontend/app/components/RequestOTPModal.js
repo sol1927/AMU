@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { React, useState, useEffect } from "react";
 import { useTempAdmin } from "../context/TempAdminContext";
+import PropTypes from "prop-types";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -12,7 +12,6 @@ export default function RequestOTPModal({
   onOpenLogin,
   onSuccess,
 }) {
-  const router = useRouter();
   const { email, setEmail, name, setName } = useTempAdmin();
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("error");
@@ -94,7 +93,7 @@ export default function RequestOTPModal({
       onClick={onClose}
     >
       <div
-        className={`relative w-full max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-8 mt-20 mr-6 transition-all duration-300 ${
+        className={`relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-16 sm:mt-20 mr-4 sm:mr-6 max-h-[90vh] overflow-y-auto transition-all duration-300 ${
           shake ? "animate-shake" : "animate-fadeIn"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -165,6 +164,7 @@ export default function RequestOTPModal({
         </p>
       </div>
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -197,3 +197,10 @@ export default function RequestOTPModal({
     </div>
   );
 }
+
+RequestOTPModal.propTypes = {
+  show: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onOpenLogin: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func, // optional, only called sometimes
+};

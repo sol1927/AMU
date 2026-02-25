@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { React, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
@@ -106,7 +106,8 @@ export default function CampusStudentGroupsPage() {
   return (
     <>
       <CampusNavbar />
-      <div className="min-h-screen text-white pt-28 px-6 md:px-20 pb-12">
+      <div className="min-h-screen text-white pt-20 md:pt-28 px-4 sm:px-6 md:px-20 pb-12">
+        {" "}
         <button
           onClick={() => router.push("/campus/students")}
           title="Back to Students"

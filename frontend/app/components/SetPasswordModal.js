@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { React, useState, useEffect, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import PropTypes from "prop-types";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,7 +17,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
   const [loading, setLoading] = useState(false);
 
   const rulesRef = useRef(null);
-  const router = useRouter();
 
   const rules = {
     length: (pw) => pw.length >= 8,
@@ -58,11 +57,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const triggerShake = () => {
-    setMessageType("error");
-    setTimeout(() => {}, 500);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,7 +102,7 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
         setMessageType("error");
         setMessage(data.message || "Failed to set password");
       }
-    } catch (err) {
+    } catch {
       setMessageType("error");
       setMessage("Something went wrong. Please try again.");
     } finally {
@@ -124,7 +118,7 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-8 mt-20 mr-6 transition-all duration-300"
+        className="relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-16 sm:mt-20 mr-4 sm:mr-6 max-h-[90vh] overflow-y-auto transition-all duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-2xl font-bold mb-3 text-center text-white">
@@ -249,3 +243,9 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
     </div>
   );
 }
+
+SetPasswordModal.propTypes = {
+  show: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onOpenLogin: PropTypes.func.isRequired,
+};

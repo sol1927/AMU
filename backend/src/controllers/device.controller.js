@@ -2,6 +2,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { createTransporter } from "../utils/mailer.js";
+import { formatFullName } from "../utils/formatName.js";
 
 export const sendDeviceOtp = async (user, deviceId, deviceName) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -17,15 +18,45 @@ export const sendDeviceOtp = async (user, deviceId, deviceName) => {
   await user.save();
 
   await createTransporter().sendMail({
+    from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
     to: user.email,
     subject: "New Admin Device Verification",
     html: `
-      <div style="text-align:center">
-        <h2>New Admin Login Detected</h2>
-        <h1>${otp}</h1>
-        <p>Expires in 10 minutes</p>
-      </div>
-    `,
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
+    
+    <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
+      <img 
+        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
+        alt="GibiGebeta" 
+        style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
+      />
+    </a>
+    
+    <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello ${formatFullName(user.name) || "Admin"},</h1>
+    
+    <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
+      A login from a new device was detected for your admin account. Your verification code is:
+    </p>
+    
+    <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
+      ${otp}
+    </div>
+    
+    <p style="font-size: 14px; color: #999; margin-bottom: 30px;">
+      This code will expire in 10 minutes.
+    </p>
+    
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+    
+    <p style="font-size: 12px; color: #bbb;">
+      If you did not attempt this login, please secure your account immediately.
+    </p>
+    
+    <p style="font-size: 12px; color: #bbb;">
+      &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
+    </p>
+  </div>
+  `,
   });
 
   return jwt.sign({ email: user.email, deviceId }, process.env.JWT_SECRET, {
@@ -73,7 +104,7 @@ export const verifyAdminDeviceOtp = async (req, res) => {
     res.clearCookie("deviceOtpToken");
 
     res.json({ message: "Device verified. Please login again." });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -102,15 +133,45 @@ export const resendDeviceOtp = async (req, res) => {
     await user.save();
 
     await createTransporter().sendMail({
+      from: `"GibiGebeta Admin" <${process.env.EMAIL_USER}>`,
       to: user.email,
       subject: "Resend: Admin Device OTP",
       html: `
-        <div style="text-align:center">
-          <h2>Device Verification</h2>
-          <h1>${otp}</h1>
-          <p>Expires in 10 minutes</p>
-        </div>
-      `,
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
+
+    <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
+      <img 
+        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
+        alt="GibiGebeta" 
+        style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
+      />
+    </a>
+
+    <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello ${formatFullName(user.name) || "Admin"},</h1>
+
+    <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
+      You requested to resend your device verification OTP. Use the code below to verify this device:
+    </p>
+
+    <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
+      ${otp}
+    </div>
+
+    <p style="font-size: 14px; color: #999; margin-bottom: 30px;">
+      This OTP will expire in 10 minutes.
+    </p>
+
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+
+    <p style="font-size: 12px; color: #bbb;">
+      If you did not request this OTP, please secure your account immediately.
+    </p>
+
+    <p style="font-size: 12px; color: #bbb;">
+      &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
+    </p>
+  </div>
+  `,
     });
 
     const newToken = jwt.sign({ email, deviceId }, process.env.JWT_SECRET, {
@@ -125,7 +186,7 @@ export const resendDeviceOtp = async (req, res) => {
     });
 
     res.json({ message: "OTP resent successfully" });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to resend OTP" });
   }
 };

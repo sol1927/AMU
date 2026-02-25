@@ -1,6 +1,7 @@
 "use client";
-import { useRef, useState, useEffect } from "react";
+import { React, useRef, useState, useEffect } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import PropTypes from "prop-types";
 
 export default function ConfirmCampusPasswordModal({
   onConfirm,
@@ -54,7 +55,7 @@ export default function ConfirmCampusPasswordModal({
       <form
         ref={modalRef}
         onSubmit={handleSubmit}
-        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-80 animate-fadeIn"
+        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-xs animate-fadeIn"
       >
         <h3 className="text-lg font-semibold text-center text-white">
           Confirm Campus Password
@@ -98,13 +99,14 @@ export default function ConfirmCampusPasswordModal({
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
+            className="px-4 py-2 rounded-lg bg-linear-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
           >
             Confirm
           </button>
         </div>
       </form>
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -123,3 +125,9 @@ export default function ConfirmCampusPasswordModal({
     </div>
   );
 }
+
+ConfirmCampusPasswordModal.propTypes = {
+  onConfirm: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  errorMessage: PropTypes.string,
+};

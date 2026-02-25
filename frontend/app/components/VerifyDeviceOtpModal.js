@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { React, useState, useEffect } from "react";
 import { useTempAdmin } from "../context/TempAdminContext";
+import PropTypes from "prop-types";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -100,7 +101,7 @@ export default function VerifyDeviceOtp({
       setTimeout(() => {
         onSuccess?.();
       }, 800);
-    } catch (err) {
+    } catch {
       setMessageType("error");
       setMessage("Failed to connect. Please check your internet.");
       triggerShake();
@@ -227,6 +228,7 @@ export default function VerifyDeviceOtp({
           </button>
         </div>
 
+        {/* eslint-disable-next-line react/no-unknown-property */}
         <style jsx global>{`
           @keyframes fadeIn {
             from {
@@ -260,3 +262,10 @@ export default function VerifyDeviceOtp({
     </div>
   );
 }
+
+VerifyDeviceOtp.propTypes = {
+  show: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func,
+  onOpenLogin: PropTypes.func,
+};

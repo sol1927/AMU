@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { React, useState, useEffect, useRef } from "react";
 import { FiCamera } from "react-icons/fi";
 import CameraModal from "./CameraModal";
+import PropTypes from "prop-types";
 
 export default function EditStudentModal({ student, onCancel, onSubmit }) {
   const [name, setName] = useState(student.name);
@@ -95,10 +96,11 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      {" "}
       <form
         onSubmit={handleSubmit}
-        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-96 max-h-[90vh] overflow-y-auto animate-fadeIn text-white"
+        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-md sm:w-96 max-h-[90vh] overflow-y-auto animate-fadeIn text-white"
       >
         <h3 className="text-lg font-bold text-center">Edit Student</h3>
 
@@ -236,3 +238,17 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
     </div>
   );
 }
+
+EditStudentModal.propTypes = {
+  student: PropTypes.shape({
+    _id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    studentId: PropTypes.string.isRequired,
+    department: PropTypes.string.isRequired,
+    batch: PropTypes.string.isRequired,
+    fastingType: PropTypes.string,
+    profileUrl: PropTypes.string,
+  }).isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+};

@@ -3,10 +3,18 @@
 import ConfirmModal from "./ConfirmModal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { React, useEffect, useRef, useState } from "react";
 import { useUser } from "../context/UserContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const capitalizeWords = (str) => {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
 
 export default function AdminNavbar() {
   const router = useRouter();
@@ -75,13 +83,13 @@ export default function AdminNavbar() {
               />
             ) : (
               <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center rounded-full font-bold">
-                {currentUser?.name?.charAt(0) || "U"}
+                {capitalizeWords(currentUser?.name)?.charAt(0) || "U"}
               </div>
             )}
           </div>
 
           <span className="font-medium text-white max-w-[120px] truncate">
-            {currentUser?.name || "User"}
+            {capitalizeWords(currentUser?.name) || "User"}
           </span>
 
           <span

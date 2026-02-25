@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { React, useEffect, useState, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import AddStudentModal from "@/app/components/AddStudentModal";
@@ -23,13 +23,11 @@ export default function CampusStudentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
-  const [studentToEdit, setStudentToEdit] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [passwordError, setPasswordError] = useState("");
-  const [campusPassword, setCampusPassword] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentToEditData, setStudentToEditData] = useState(null);
-  const { currentCampus, refreshCampus, setStudentsLoading } = useCampus();
+  const { currentCampus, refreshCampus } = useCampus();
   const [fastingFilter, setFastingFilter] = useState("");
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -155,7 +153,7 @@ export default function CampusStudentsPage() {
       await refreshCampus();
 
       showToast("Selected students deleted successfully", "success");
-    } catch (err) {
+    } catch {
       showToast("Bulk delete failed", "error");
     }
   };
@@ -183,7 +181,6 @@ export default function CampusStudentsPage() {
         return;
       }
 
-      setCampusPassword(enteredPassword);
       setShowPasswordModal(false);
       setPasswordError("");
 
@@ -197,7 +194,7 @@ export default function CampusStudentsPage() {
       }
 
       setPendingAction(null);
-    } catch (err) {
+    } catch {
       setPasswordError("Something went wrong");
 
       setTimeout(() => setPasswordError(""), 2000);
@@ -265,17 +262,17 @@ export default function CampusStudentsPage() {
   return (
     <>
       <CampusNavbar />
-      <div className="pt-24 h-screen text-white max-w-7xl mx-auto px-6 flex flex-col">
+      <div className="pt-24 md:pt-24 h-screen text-white max-w-7xl mx-auto px-6 flex flex-col">
         <button
           onClick={() => router.push("/campus")}
           title="Back to Campus"
-          className="fixed top-24 left-6 z-20 bg-gray-900/80 hover:bg-gray-800 hover:cursor-pointer text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
+          className="fixed top-20 md:top-24 left-4 md:left-6 z-20 bg-gray-900/80 hover:bg-gray-800 hover:cursor-pointer text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
         >
           <IoChevronBackSharp className="w-5 h-5" />
         </button>
         <div>
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-3xl font-bold">Students</h1>
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <h1 className="text-3xl font-bold w-full sm:w-auto">Students</h1>
             <button
               onClick={() => router.push("/campus/students/groups")}
               className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
@@ -285,7 +282,7 @@ export default function CampusStudentsPage() {
 
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600  hover:cursor-pointer text-white px-5 py-2 rounded-2xl hover:bg-indigo-900 transition"
+              className="bg-indigo-600 hover:cursor-pointer text-white px-5 py-2 rounded-2xl hover:bg-indigo-900 transition"
             >
               + Add Student
             </button>
@@ -437,7 +434,7 @@ export default function CampusStudentsPage() {
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
-              <span className="w-[100px]">Internship</span>{" "}
+              <span className="w-[100px]">Internship</span>
               <div className="flex items-center gap-2 ml-auto">
                 <input
                   type="checkbox"
@@ -452,7 +449,7 @@ export default function CampusStudentsPage() {
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-950 transition-all duration-300 relative"
+              className="flex flex-wrap items-center gap-2 md:gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 ..."
             >
               <span className="w-10 font-medium text-white">{index + 1}</span>
               <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
@@ -695,9 +692,8 @@ export default function CampusStudentsPage() {
       )}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300
-    ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}
-  `}
+          className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 px-4 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300
+    ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}
         >
           {toast.message}
         </div>

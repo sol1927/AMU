@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { React, useEffect, useState, useCallback } from "react";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import { useCampus } from "@/app/context/CampusContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
+const capitalizeWords = (str) => {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 export default function CampusDashboardPage() {
   const { currentCampus, loading } = useCampus();
-  const router = useRouter();
 
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -50,7 +56,7 @@ export default function CampusDashboardPage() {
         pendingStudents: Math.max(total - served, 0),
         recentScans: data.recentScans || [],
       });
-    } catch (err) {
+    } catch {
       showToast("Failed to load dashboard");
     }
   }, [currentCampus]);
@@ -83,12 +89,12 @@ export default function CampusDashboardPage() {
   return (
     <>
       <CampusNavbar />
-      <div className="min-h-screen text-white pt-28 px-6 md:px-20 pb-12">
+      <div className="min-h-screen text-white pt-20 md:pt-28 px-6 md:px-20 pb-12">
         <section className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
             Welcome,{" "}
             <span className="text-yellow-400">
-              {currentCampus?.name || "Campus"}
+              {capitalizeWords(currentCampus?.name || "Campus")}
             </span>
           </h1>
           <p className="text-gray-300 text-lg md:text-xl">
@@ -143,7 +149,7 @@ export default function CampusDashboardPage() {
               <ul className="divide-y divide-white/20">
                 {stats.recentScans.map((scan, idx) => (
                   <li key={idx} className="flex justify-between py-2">
-                    <span>{scan.name}</span>
+                    <span className="truncate max-w-[70%]">{scan.name}</span>{" "}
                     <span className="text-gray-300 text-sm">
                       {new Date(scan.time).toLocaleTimeString([], {
                         hour: "2-digit",
@@ -162,7 +168,7 @@ export default function CampusDashboardPage() {
 
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition ${
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition sm:bottom-6 sm:right-6 ${
             toast.type === "error" ? "bg-red-600" : "bg-green-600"
           }`}
         >
