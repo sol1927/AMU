@@ -103,8 +103,8 @@ export const requestOTP = async (req, res) => {
     res
       .cookie("otpToken", otpToken, getCookieOptions())
       .json({ message: "OTP sent to your email. Please check your inbox." });
-  } catch {
-    console.error("OTP Request Error:");
+  } catch (error) {
+    console.error("OTP Request Error:", error);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
