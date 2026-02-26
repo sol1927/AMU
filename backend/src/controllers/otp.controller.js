@@ -37,7 +37,13 @@ export const requestOTP = async (req, res) => {
 
     await TempAdmin.findOneAndUpdate(
       { email },
-      { name: formatFullName(name), email, otp: hashedOtp, otpExpires, verified: false },
+      {
+        name: formatFullName(name),
+        email,
+        otp: hashedOtp,
+        otpExpires,
+        verified: false,
+      },
       { upsert: true, new: true },
     );
 
@@ -95,11 +101,12 @@ export const requestOTP = async (req, res) => {
         maxAge: 10 * 60 * 1000,
       })
       .json({ message: "OTP sent to your email. Please check your inbox." });
-  } catch {
-    res
-      .status(500)
-      .json({ message: "Something went wrong. Please try again later." });
-  }
+  } catch (error) {
+  console.error("❌ requestOTP error:", error);
+  res.status(500).json({
+    message: "Something went wrong. Please try again later.",
+  });
+}
 };
 
 export const verifyOTP = async (req, res) => {
