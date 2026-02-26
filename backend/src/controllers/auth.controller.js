@@ -9,6 +9,7 @@ const getCookieOptions = (duration = 24 * 60 * 60 * 1000) => ({
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   secure: true,
   maxAge: duration,
+  priority: "high",
 });
 
 export const login = async (req, res) => {

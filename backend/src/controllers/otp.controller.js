@@ -11,7 +11,8 @@ import { formatFullName } from "../utils/formatName.js";
 const getCookieOptions = (duration = 10 * 60 * 1000) => ({
   httpOnly: true,
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  secure: true,
+  secure: true, 
+  priority: "high",
   maxAge: duration,
 });
 
@@ -53,10 +54,6 @@ export const requestOTP = async (req, res) => {
       },
       { upsert: true, new: true },
     );
-    // Add this temporary log inside requestOTP
-    console.log("DEBUG: Testing variables...");
-    console.log("EMAIL_USER exists:", !!process.env.EMAIL_USER);
-    console.log("EMAIL_PASS exists:", !!process.env.EMAIL_PASS);
 
     await createTransporter().sendMail({
       from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
@@ -107,8 +104,8 @@ export const requestOTP = async (req, res) => {
     res
       .cookie("otpToken", otpToken, getCookieOptions())
       .json({ message: "OTP sent to your email. Please check your inbox." });
-  } catch (error) {
-    console.error("OTP Request Error:", error);
+  } catch {
+    console.error("OTP Request Error:");
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
