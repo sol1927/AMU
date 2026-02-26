@@ -100,6 +100,11 @@ export const requestOTP = async (req, res) => {
       expiresIn: "10m",
     });
 
+    // Add this temporary log inside requestOTP
+    console.log("DEBUG: Testing variables...");
+    console.log("EMAIL_USER exists:", !!process.env.EMAIL_USER);
+    console.log("EMAIL_PASS exists:", !!process.env.EMAIL_PASS);
+
     res
       .cookie("otpToken", otpToken, getCookieOptions())
       .json({ message: "OTP sent to your email. Please check your inbox." });
