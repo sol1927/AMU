@@ -4,14 +4,26 @@ import jwt from "jsonwebtoken";
 import { sendDeviceOtp } from "../controllers/device.controller.js";
 import Campus from "../models/campus.model.js";
 
+// Helper for consistent cookie settings
+const getCookieOptions = () => ({
+  httpOnly: true,
+  // Must be "none" for cross-domain (Render -> Localhost)
+  // Must be "lax" or "strict" for same-domain (Localhost -> Localhost)
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  // Must be true if sameSite is "none"
+  secure: true,
+  maxAge: 24 * 60 * 60 * 1000, // 1 day
+});
+
 export const login = async (req, res) => {
   try {
     const { email, password, deviceId, deviceName } = req.body;
 
-    if (!email || !password)
-      return res.status(400).json({
-        message: "Please enter both your email and password.",
-      });
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Please enter both email and password." });
+    }
 
     let user = await User.findOne({ email }).select("+password");
     let role = "admin";
@@ -28,31 +40,31 @@ export const login = async (req, res) => {
     if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password." });
 
+    // --- TRUSTED DEVICE LOGIC ---
     if (role === "admin") {
-      user.trustedDevices = user.trustedDevices || [];
-      if (user.trustedDevices.length) {
-        user.trustedDevices = user.trustedDevices.filter(
-          (d) => d.expiresAt && d.expiresAt > new Date(),
-        );
-        await user.save();
-      }
+      user.trustedDevices = (user.trustedDevices || []).filter(
+        (d) => d.expiresAt && d.expiresAt > new Date(),
+      );
 
-      if (!deviceId)
-        return res.status(400).json({
-          message: "Device information missing. Please refresh and try again.",
-        });
+      if (!deviceId) {
+        return res
+          .status(400)
+          .json({ message: "Device ID missing. Refresh and try again." });
+      }
 
       const isTrusted = user.trustedDevices.some(
         (d) => d.deviceId === deviceId,
       );
+
       if (!isTrusted) {
+        // This sends the email. If this fails, check Render Environment Variables!
         const deviceOtpToken = await sendDeviceOtp(user, deviceId, deviceName);
+
         res.cookie("deviceOtpToken", deviceOtpToken, {
-          httpOnly: true,
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-          maxAge: 10 * 60 * 1000,
+          ...getCookieOptions(),
+          maxAge: 10 * 60 * 1000, // 10 minutes
         });
+
         return res.status(202).json({
           message: "New device detected. OTP sent to your email.",
           requireDeviceOtp: true,
@@ -60,17 +72,14 @@ export const login = async (req, res) => {
       }
     }
 
+    // --- JWT GENERATION ---
     const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, {
       expiresIn: "1d",
     });
 
     const cookieName = role === "admin" ? "accessToken" : "campusToken";
-    res.cookie(cookieName, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+
+    res.cookie(cookieName, token, getCookieOptions());
 
     const { password: pwd, ...userData } = user._doc || user.toObject();
 
@@ -79,19 +88,16 @@ export const login = async (req, res) => {
       user: userData,
       role,
     });
-  } catch {
-    res
-      .status(500)
-      .json({ message: "Something went wrong. Please try again." });
+  } catch (error) {
+    console.error("Login Error:", error); // Vital for Render Logs
+    res.status(500).json({ message: "Internal server error." });
   }
 };
 
 export const logout = (req, res) => {
+  const options = { ...getCookieOptions(), maxAge: 0 };
   res
-    .clearCookie("accessToken", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    })
+    .clearCookie("accessToken", options)
+    .clearCookie("campusToken", options)
     .json({ message: "Logged out" });
 };
