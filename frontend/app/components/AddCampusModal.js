@@ -20,13 +20,33 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
     if (!navigator.onLine) {
       setError("No internet connection. Please try again.");
       return;
     }
 
-    const errMessage = await onSubmit({ name, location, email, password });
-    if (errMessage) setError(errMessage);
+    if (!name || !location || !email || !password) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    try {
+      const errMessage = await onSubmit({ name, location, email, password });
+
+      if (errMessage) {
+        setError(errMessage);
+      } else {
+        setError("");
+        setName("");
+        setLocation("");
+        setEmail("");
+        setPassword("");
+        setTimeout(() => onCancel(), 2000);
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
   };
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">

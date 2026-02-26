@@ -49,6 +49,7 @@ export default function VerifyOTPModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage("");
 
     if (!otp || otp.length !== 6) {
       setMessageType("error");
@@ -57,16 +58,16 @@ export default function VerifyOTPModal({
       return;
     }
 
-    setLoading(true);
-    setMessage("");
-
     if (!navigator.onLine) {
       setMessageType("error");
       setMessage("No internet connection. Please check your network.");
       triggerShake();
-      setLoading(false);
       return;
     }
+
+    setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
     try {
       const res = await fetch(`${url}/auth/verify-otp`, {
@@ -74,25 +75,34 @@ export default function VerifyOTPModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
         credentials: "include",
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (res.ok) {
         setMessageType("success");
         setMessage(data.message || "OTP verified successfully!");
-
         setTimeout(() => {
           onClose();
-          if (onSuccess) onSuccess();
+          onSuccess?.();
         }, 1000);
       } else {
         setMessageType("error");
         setMessage(data.message || "Invalid OTP. Try again.");
         triggerShake();
       }
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage("Something went wrong. Please try again.");
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Something went wrong. Please try again.");
+      }
       triggerShake();
     } finally {
       setLoading(false);
@@ -111,12 +121,18 @@ export default function VerifyOTPModal({
 
     setResending(true);
     setOtp("");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (!res.ok) {
@@ -127,9 +143,16 @@ export default function VerifyOTPModal({
         setMessageType("success");
         setMessage("OTP resent successfully! Check your email.");
       }
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage("Failed to resend OTP. Please check your connection.");
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Failed to resend OTP. Please try again.");
+      }
       triggerShake();
     } finally {
       setResending(false);

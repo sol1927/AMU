@@ -39,17 +39,22 @@ export default function ConfirmCampusPasswordModal({
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    setOfflineError("");
+    setVisibleError("");
+
     if (!navigator.onLine) {
       setOfflineError("No internet connection. Please check your network.");
       return;
     }
 
     const enteredPassword = e.target.password.value.trim();
-    if (!enteredPassword) return;
+    if (!enteredPassword) {
+      setVisibleError("Please enter your password");
+      return;
+    }
 
     onConfirm(enteredPassword);
   };
-
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form

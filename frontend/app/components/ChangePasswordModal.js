@@ -51,7 +51,8 @@ export default function ChangePasswordModal({ onClose }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError("");
     setSuccess("");
 
@@ -69,6 +70,11 @@ export default function ChangePasswordModal({ onClose }) {
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match");
       setShowRules(true);
+      return;
+    }
+
+    if (!currentPassword) {
+      setError("Enter your current password to update");
       return;
     }
 

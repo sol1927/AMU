@@ -39,8 +39,14 @@ export default function AdminPasswordModal({
     }
 
     const enteredPassword = e.target.password.value.trim();
-    if (!enteredPassword) return;
+    if (!enteredPassword) {
+      setOfflineError("Please enter your password");
+      return;
+    }
+
     onSubmit(enteredPassword);
+
+    e.target.password.value = "";
   };
 
   return (

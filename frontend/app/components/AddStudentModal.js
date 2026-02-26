@@ -79,24 +79,36 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
     }
 
     setLoading(true);
-    const errMessage = await onSubmit({
-      name,
-      studentId,
-      department,
-      batch,
-      fastingType,
-      photo,
-    });
-    setLoading(false);
 
-    if (errMessage) {
-      setError(errMessage);
-      return;
+    try {
+      const errMessage = await onSubmit({
+        name,
+        studentId,
+        department,
+        batch,
+        fastingType,
+        photo,
+      });
+
+      if (errMessage) {
+        setError(errMessage);
+      } else {
+        setSuccess("Student added successfully!");
+        setName("");
+        setStudentId("");
+        setDepartment("");
+        setBatch("");
+        setPhoto(null);
+        setPhotoPreview(null);
+        setFastingType("not_fasting");
+
+        setTimeout(() => onCancel(), 2000);
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setSuccess("Student added successfully!");
-    setTimeout(() => {
-      onCancel();
-    }, 2000);
   };
 
   return (

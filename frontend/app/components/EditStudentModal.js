@@ -66,33 +66,43 @@ export default function EditStudentModal({ student, onCancel, onSubmit }) {
 
     if (!navigator.onLine) {
       setError("No internet connection. Please try again.");
+      setTimeout(() => setError(""), 2000);
       return;
     }
 
     if (!name || !studentId || !department || !batch) {
       setError("Please fill in all required fields.");
+      setTimeout(() => setError(""), 2000);
       return;
     }
 
     setLoading(true);
-    const errMessage = await onSubmit({
-      id: student._id,
-      name,
-      studentId,
-      department,
-      batch,
-      fastingType,
-      photo,
-    });
-    setLoading(false);
 
-    if (errMessage) {
-      setError(errMessage);
-      return;
+    try {
+      const errMessage = await onSubmit({
+        id: student._id,
+        name,
+        studentId,
+        department,
+        batch,
+        fastingType,
+        photo,
+      });
+
+      if (errMessage) {
+        setError(errMessage);
+        setTimeout(() => setError(""), 2000);
+        return;
+      }
+
+      setSuccess("Student updated successfully!");
+      setTimeout(() => onCancel(), 2000);
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setTimeout(() => setError(""), 2000);
+    } finally {
+      setLoading(false);
     }
-
-    setSuccess("Student updated successfully!");
-    setTimeout(() => onCancel(), 2000);
   };
 
   return (

@@ -42,13 +42,18 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const res = await fetch(`${url}/auth/request-password-reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (!res.ok) {
@@ -65,12 +70,17 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
         }, 1500);
       }
     } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage(
-        !navigator.onLine || error instanceof TypeError
-          ? "No internet connection. Please check your network."
-          : "Something went wrong. Please try again.",
-      );
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else {
+        setMessage(
+          !navigator.onLine || error instanceof TypeError
+            ? "No internet connection. Please check your network."
+            : "Something went wrong. Please try again.",
+        );
+      }
       triggerShake();
     } finally {
       setLoading(false);

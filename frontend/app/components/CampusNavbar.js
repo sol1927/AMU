@@ -40,11 +40,22 @@ export default function CampusNavbar() {
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
-    await fetch(`${url}/campus/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-    router.replace("/");
+
+    try {
+      const res = await fetch(`${url}/campus/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        console.error("Logout failed");
+        return;
+      }
+
+      router.replace("/");
+    } catch {
+      console.error("Logout error:");
+    }
   };
 
   return (

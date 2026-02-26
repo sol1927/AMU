@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { React, useEffect, useRef, useState } from "react";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
@@ -24,7 +24,6 @@ export default function StationScanPage() {
   const timeoutRef = useRef(null);
   const [toast, setToast] = useState(null);
 
-  // Toast helper
   const showToast = (message, type = "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
@@ -122,9 +121,8 @@ export default function StationScanPage() {
         credentials: "include",
         body: JSON.stringify({ password: enteredPassword }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        setPasswordError(data.message || "Wrong password");
+        setPasswordError("Incorrect password");
         return;
       }
       setShowClearModal(false);
@@ -149,7 +147,6 @@ export default function StationScanPage() {
   if (setStudentsLoading || !currentCampus)
     return <p className="p-6 text-center mt-24">Loading...</p>;
 
-  // --- CARD COLORS ---
   const getCardClasses = () => {
     if (!student) return "bg-gray-100";
     if (student.name === "UNKNOWN STUDENT")
@@ -241,7 +238,6 @@ export default function StationScanPage() {
           )}
         </div>
 
-        {/* Manual input */}
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md flex gap-2 items-center bg-black/70 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/20">
           <input
             ref={manualInputRef}
@@ -262,7 +258,6 @@ export default function StationScanPage() {
           </button>
         </div>
 
-        {/* Clear Station */}
         <button
           onClick={() => setShowClearModal(true)}
           className="fixed bottom-6 right-6 bg-red-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg hover:bg-red-700 transition-colors"
@@ -298,6 +293,7 @@ export default function StationScanPage() {
         </div>
       )}
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes shake {
           0%,

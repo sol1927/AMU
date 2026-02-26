@@ -77,14 +77,19 @@ export default function VerifyDeviceOtp({
     }
 
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const res = await fetch(`${url}/auth/verify-device-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ otp }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (!res.ok) {
@@ -101,9 +106,16 @@ export default function VerifyDeviceOtp({
       setTimeout(() => {
         onSuccess?.();
       }, 800);
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage("Failed to connect. Please check your internet.");
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Failed to connect. Please try again.");
+      }
       triggerShake();
     } finally {
       setLoading(false);
@@ -119,12 +131,17 @@ export default function VerifyDeviceOtp({
     }
 
     setResending(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const res = await fetch(`${url}/auth/resend-device-otp`, {
         method: "POST",
         credentials: "include",
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (!res.ok) {
@@ -137,9 +154,16 @@ export default function VerifyDeviceOtp({
       setMessageType("success");
       setMessage("OTP resent successfully. Check your email.");
       setOtp("");
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage("Failed to resend OTP");
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Failed to resend OTP");
+      }
       triggerShake();
     } finally {
       setResending(false);

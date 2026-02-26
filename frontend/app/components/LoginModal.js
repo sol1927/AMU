@@ -63,6 +63,9 @@ export default function LoginModal({
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
       localStorage.setItem("deviceId", deviceId);
@@ -73,8 +76,10 @@ export default function LoginModal({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ email, password, deviceId, deviceName }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (!res.ok) {
@@ -107,9 +112,14 @@ export default function LoginModal({
         if (data.role === "admin") router.push("/dashboard");
         else if (data.role === "campus") router.push("/campus");
       }, 800);
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage("Failed to connect. Please check your internet.");
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else {
+        setMessage("Failed to connect. Please check your internet.");
+      }
       triggerShake();
     } finally {
       setLoading(false);

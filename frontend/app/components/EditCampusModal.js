@@ -31,19 +31,25 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
     if (!navigator.onLine) {
       setMessage("No internet connection. Please check your network.");
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
 
     if ((password || confirmPassword) && !currentPassword) {
       setMessage("Enter current password to update");
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
+
     if (password && password.length < 6) {
       setMessage("New password must be at least 6 characters");
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
+
     if (password && password !== confirmPassword) {
       setMessage("Passwords do not match");
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
 
@@ -53,12 +59,20 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       payload.currentPassword = currentPassword;
     }
 
+    setUpdateLoading(true);
     try {
-      setUpdateLoading(true);
       const errorMsg = await onSubmit(payload);
-      if (errorMsg) setMessage(errorMsg);
+
+      if (errorMsg) {
+        setMessage(errorMsg);
+        setTimeout(() => setMessage(""), 2000);
+      } else {
+        setMessage("Campus updated successfully!");
+        setTimeout(() => onCancel(), 2000);
+      }
     } catch {
-      setMessage("Update failed");
+      setMessage("Update failed. Please try again.");
+      setTimeout(() => setMessage(""), 2000);
     } finally {
       setUpdateLoading(false);
     }

@@ -39,18 +39,30 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
     setError("");
     setSuccess("");
     setIsRequesting(true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const res = await fetch(`${url}/profile/me/email/request-otp`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newEmail }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
       const data = await res.json();
+
       if (!res.ok) throw new Error(data.message || "Failed to send OTP");
+
       setSuccess("OTP sent to your new email!");
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      clearTimeout(timeoutId);
+      if (err.name === "AbortError")
+        setError("Request timed out. Please try again.");
+      else setError(err.message || "Something went wrong");
     } finally {
       setIsRequesting(false);
     }
@@ -72,14 +84,22 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
     setError("");
     setSuccess("");
     setIsVerifying(true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const res = await fetch(`${url}/profile/me/email/verify-otp`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
       const data = await res.json();
+
       if (!res.ok) throw new Error(data.message || "OTP verification failed");
 
       setSuccess("Email updated successfully!");
@@ -88,7 +108,10 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
       setOtp("");
       setTimeout(() => onClose(), 500);
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      clearTimeout(timeoutId);
+      if (err.name === "AbortError")
+        setError("Request timed out. Please try again.");
+      else setError(err.message || "Something went wrong");
     } finally {
       setIsVerifying(false);
     }

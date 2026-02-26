@@ -50,13 +50,19 @@ export default function RequestOTPModal({
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email }),
         credentials: "include",
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -73,12 +79,15 @@ export default function RequestOTPModal({
         triggerShake();
       }
     } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage(
-        !navigator.onLine || error instanceof TypeError
-          ? "No internet connection. Please check your network."
-          : "Something went wrong. Please try again.",
-      );
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Something went wrong. Please try again.");
+      }
       triggerShake();
     } finally {
       setLoading(false);

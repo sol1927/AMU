@@ -81,13 +81,20 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
     }
 
     setLoading(true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const res = await fetch(`${url}/auth/set-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ password, confirmPassword }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -102,9 +109,17 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
         setMessageType("error");
         setMessage(data.message || "Failed to set password");
       }
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage("Something went wrong. Please try again.");
+
+      if (error.name === "AbortError") {
+        setMessage("Request timed out. Please try again.");
+      } else if (!navigator.onLine || error instanceof TypeError) {
+        setMessage("No internet connection. Please check your network.");
+      } else {
+        setMessage("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -57,7 +57,12 @@ export default function LandingPage() {
         <div className="max-w-8xl mx-auto px-6 py-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 relative rounded-full overflow-hidden border border-blue-500 shadow-md">
-              <Image src="/logo.png" alt="Logo" fill className="object-cover" />
+              <Image
+                src="/logo.jpeg"
+                alt="Logo"
+                fill
+                className="object-cover"
+              />
             </div>
 
             <h1 className="text-xl font-bold">
