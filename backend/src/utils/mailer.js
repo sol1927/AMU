@@ -1,16 +1,12 @@
 import nodemailer from "nodemailer";
+
 export const createTransporter = () =>
   nodemailer.createTransport({
-    service: "gmail", // Let Nodemailer handle the host/port logic
+    host: "smtp.ethereal.email",
+    port: 587,
+    secure: false, // Use true for port 465, false for port 587
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    // Increased timeouts for slow cloud networks
-    connectionTimeout: 30000, // 30 seconds
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-    dnsTimeout: 30000,
-    debug: true,
-    logger: true,
   });
