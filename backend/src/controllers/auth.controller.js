@@ -47,13 +47,11 @@ export const login = async (req, res) => {
       );
       if (!isTrusted) {
         const deviceOtpToken = await sendDeviceOtp(user, deviceId, deviceName);
-        const isProd = process.env.NODE_ENV === "production";
-
-        res.cookie(cookieName, token, {
+        res.cookie("deviceOtpToken", deviceOtpToken, {
           httpOnly: true,
-          secure: isProd, // true only in production
-          sameSite: isProd ? "none" : "lax", // cross-site allowed in prod
-          maxAge: 24 * 60 * 60 * 1000,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: 10 * 60 * 1000,
         });
         return res.status(202).json({
           message: "New device detected. OTP sent to your email.",
