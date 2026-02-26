@@ -8,6 +8,13 @@ import { createTransporter } from "../utils/mailer.js";
 import bcrypt from "bcryptjs";
 import { formatFullName } from "../utils/formatName.js";
 
+const getCookieOptions = (duration = 10 * 60 * 1000) => ({
+  httpOnly: true,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  secure: true,
+  maxAge: duration,
+});
+
 export const requestOTP = async (req, res) => {
   try {
     const { name, email } = req.body;
@@ -94,14 +101,10 @@ export const requestOTP = async (req, res) => {
     });
 
     res
-      .cookie("otpToken", otpToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 10 * 60 * 1000,
-      })
+      .cookie("otpToken", otpToken, getCookieOptions())
       .json({ message: "OTP sent to your email. Please check your inbox." });
   } catch {
+    console.error("OTP Request Error:");
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
@@ -154,13 +157,8 @@ export const verifyOTP = async (req, res) => {
     });
 
     res
-      .clearCookie("otpToken")
-      .cookie("registerToken", registerToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 10 * 60 * 1000,
-      })
+      .clearCookie("otpToken", { ...getCookieOptions(), maxAge: 0 })
+      .cookie("registerToken", registerToken, getCookieOptions())
       .json({ message: "OTP verified successfully!" });
   } catch {
     res
@@ -218,7 +216,7 @@ export const setPassword = async (req, res) => {
     });
 
     await tempAdmin.deleteOne();
-    res.clearCookie("registerToken");
+    res.clearCookie("registerToken", { ...getCookieOptions(), maxAge: 0 });
 
     const { password: pwd, ...adminData } = admin._doc;
     res.status(201).json({
