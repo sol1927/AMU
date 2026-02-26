@@ -93,13 +93,11 @@ export const requestOTP = async (req, res) => {
       expiresIn: "10m",
     });
 
-    const isProd = process.env.NODE_ENV === "production";
-
     res
       .cookie("otpToken", otpToken, {
         httpOnly: true,
-        secure: isProd, // true in production, false locally
-        sameSite: isProd ? "none" : "lax", // allow cross-site locally
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
         maxAge: 10 * 60 * 1000,
       })
       .json({ message: "OTP sent to your email. Please check your inbox." });
