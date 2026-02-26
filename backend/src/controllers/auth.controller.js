@@ -8,13 +8,11 @@ export const login = async (req, res) => {
   try {
     const { email, password, deviceId, deviceName } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password)
       return res.status(400).json({
         message: "Please enter both your email and password.",
       });
-    }
 
-    // Find user (admin first, then campus)
     let user = await User.findOne({ email }).select("+password");
     let role = "admin";
 
@@ -23,47 +21,37 @@ export const login = async (req, res) => {
       role = "campus";
     }
 
-    if (!user) {
+    if (!user)
       return res.status(401).json({ message: "Invalid email or password." });
-    }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password." });
-    }
 
-    // Generate JWT first
-    const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
-
-    // Trusted devices check (admins only)
     if (role === "admin") {
       user.trustedDevices = user.trustedDevices || [];
-      // remove expired devices
-      user.trustedDevices = user.trustedDevices.filter(
-        (d) => d.expiresAt && d.expiresAt > new Date()
-      );
-      await user.save();
+      if (user.trustedDevices.length) {
+        user.trustedDevices = user.trustedDevices.filter(
+          (d) => d.expiresAt && d.expiresAt > new Date(),
+        );
+        await user.save();
+      }
 
-      if (!deviceId) {
+      if (!deviceId)
         return res.status(400).json({
           message: "Device information missing. Please refresh and try again.",
         });
-      }
 
-      const isTrusted = user.trustedDevices.some((d) => d.deviceId === deviceId);
+      const isTrusted = user.trustedDevices.some(
+        (d) => d.deviceId === deviceId,
+      );
       if (!isTrusted) {
-        // Send OTP to new device
         const deviceOtpToken = await sendDeviceOtp(user, deviceId, deviceName);
         res.cookie("deviceOtpToken", deviceOtpToken, {
           httpOnly: true,
           sameSite: "lax",
-          secure:
-            process.env.NODE_ENV === "production" &&
-            process.env.LOCAL_DEV !== "true",
-          maxAge: 10 * 60 * 1000, // 10 minutes
+          secure: process.env.NODE_ENV === "production",
+          maxAge: 10 * 60 * 1000,
         });
         return res.status(202).json({
           message: "New device detected. OTP sent to your email.",
@@ -72,18 +60,18 @@ export const login = async (req, res) => {
       }
     }
 
-    // Set JWT cookie (works for local and Render)
+    const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
     const cookieName = role === "admin" ? "accessToken" : "campusToken";
     res.cookie(cookieName, token, {
       httpOnly: true,
       sameSite: "lax",
-      secure:
-        process.env.NODE_ENV === "production" &&
-        process.env.LOCAL_DEV !== "true",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
-    // Remove password from response
     const { password: pwd, ...userData } = user._doc || user.toObject();
 
     res.json({
@@ -91,21 +79,16 @@ export const login = async (req, res) => {
       user: userData,
       role,
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Something went wrong. Please try again." });
+  } catch {
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again." });
   }
 };
 
-// Logout function (clears both cookies)
 export const logout = (req, res) => {
   res
     .clearCookie("accessToken", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    })
-    .clearCookie("campusToken", {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
