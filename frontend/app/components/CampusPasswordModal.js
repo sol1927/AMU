@@ -10,12 +10,25 @@ export default function ConfirmCampusPasswordModal({
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const [offlineError, setOfflineError] = useState("");
-  const [visibleError, setVisibleError] = useState(errorMessage);
+  const [localError, setLocalError] = useState("");
   const modalRef = useRef(null);
 
   useEffect(() => {
-    setVisibleError(errorMessage);
+    if (!errorMessage) return;
+    setLocalError(errorMessage);
+
+    const timer = setTimeout(() => {
+      setLocalError("");
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [errorMessage]);
+
+  useEffect(() => {
+    if (!offlineError) return;
+    const timer = setTimeout(() => setOfflineError(""), 2000);
+    return () => clearTimeout(timer);
+  }, [offlineError]);
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -27,20 +40,10 @@ export default function ConfirmCampusPasswordModal({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [onCancel]);
 
-  useEffect(() => {
-    if (!offlineError && !visibleError) return;
-    const timer = setTimeout(() => {
-      setOfflineError("");
-      setVisibleError("");
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [offlineError, visibleError]);
-
   const handleSubmit = (e) => {
     e.preventDefault();
 
     setOfflineError("");
-    setVisibleError("");
 
     if (!navigator.onLine) {
       setOfflineError("No internet connection. Please check your network.");
@@ -49,7 +52,6 @@ export default function ConfirmCampusPasswordModal({
 
     const enteredPassword = e.target.password.value.trim();
     if (!enteredPassword) {
-      setVisibleError("Please enter your password");
       return;
     }
 
@@ -87,11 +89,10 @@ export default function ConfirmCampusPasswordModal({
           </span>
         </div>
 
-        {visibleError && (
-          <p className="text-red-500 text-sm text-center">{visibleError}</p>
-        )}
-        {offlineError && (
-          <p className="text-red-400 text-sm text-center">{offlineError}</p>
+        {(localError || offlineError) && (
+          <p className="text-red-500 text-sm text-center">
+            {localError || offlineError}
+          </p>
         )}
         <div className="flex justify-end gap-2 mt-2">
           <button

@@ -30,6 +30,17 @@ export default function StationScanPage() {
   };
 
   useEffect(() => {
+    if (!student) return;
+
+    const timer = setTimeout(() => {
+      setStudent(null);
+      setAllowed(null);
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [student]);
+
+  useEffect(() => {
     hiddenInputRef.current?.focus();
     lastTimeRef.current = Date.now();
   }, []);
@@ -110,6 +121,7 @@ export default function StationScanPage() {
   };
 
   const handleClearConfirm = async (enteredPassword) => {
+    setPasswordError("");
     if (!navigator.onLine) {
       setPasswordError("No internet connection");
       return;
@@ -125,6 +137,8 @@ export default function StationScanPage() {
         setPasswordError("Incorrect password");
         return;
       }
+
+      setShowClearModal(false);
       setShowClearModal(false);
       setPasswordError("");
 

@@ -30,7 +30,7 @@ export default function AdminPasswordModal({
     return () => clearTimeout(timer);
   }, [offlineError]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!navigator.onLine) {
@@ -38,15 +38,15 @@ export default function AdminPasswordModal({
       return;
     }
 
-    const enteredPassword = e.target.password.value.trim();
+    const passwordField = e.target.password;
+    const enteredPassword = passwordField.value.trim();
+
     if (!enteredPassword) {
       setOfflineError("Please enter your password");
       return;
     }
 
-    onSubmit(enteredPassword);
-
-    e.target.password.value = "";
+    await onSubmit(enteredPassword);
   };
 
   return (
