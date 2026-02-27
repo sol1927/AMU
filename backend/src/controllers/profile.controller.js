@@ -8,6 +8,9 @@ import TempEmailChange from "../models/TempEmailChange.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { formatFullName } from "../utils/formatName.js";
 
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000;
+
 const formatMinutes = (ms) => {
   const minutes = Math.ceil(ms / (60 * 1000));
   return `${minutes} minute${minutes > 1 ? "s" : ""}`;

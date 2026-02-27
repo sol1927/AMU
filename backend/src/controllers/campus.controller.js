@@ -5,6 +5,9 @@ import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import { formatFullName } from "../utils/formatName.js";
 
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000;
+
 export const createCampus = async (req, res) => {
   try {
     if (req.userRole !== "admin") {
