@@ -15,6 +15,14 @@ const campusSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    loginAttempts: {
+      type: Number,
+      default: 0,
+      required: true,
+    },
+    lockUntil: {
+      type: Number,
+    },
     password: {
       type: String,
       required: true,

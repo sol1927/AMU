@@ -8,10 +8,6 @@ import TempEmailChange from "../models/TempEmailChange.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { formatFullName } from "../utils/formatName.js";
 
-const adminAttempts = new Map();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000;
-
 const formatMinutes = (ms) => {
   const minutes = Math.ceil(ms / (60 * 1000));
   return `${minutes} minute${minutes > 1 ? "s" : ""}`;
@@ -139,61 +135,49 @@ export const changePassword = async (req, res) => {
 export const verifyAdminPassword = async (req, res) => {
   try {
     const { password } = req.body;
-    const ip = req.ip;
 
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    const record = adminAttempts.get(ip);
+    const admin = await User.findById(req.userId).select(
+      "+password loginAttempts lockUntil",
+    );
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
     const now = Date.now();
 
-    if (record && record.count >= MAX_ATTEMPTS) {
-      if (record.resetTime > now) {
-        const remaining = record.resetTime - now;
-        return res.status(429).json({
-          message: `Too many attempts. Try again after ${formatMinutes(
-            remaining,
-          )}.`,
-        });
-      } else {
-        adminAttempts.delete(ip);
-      }
-    }
-
-    const admin = await User.findById(req.userId).select("+password");
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
+    if (admin.lockUntil && admin.lockUntil > now) {
+      const remaining = admin.lockUntil - now;
+      return res.status(429).json({
+        message: `Too many attempts. Try again after ${formatMinutes(remaining)}.`,
+      });
     }
 
     const isMatch = await bcrypt.compare(password, admin.password);
 
     if (!isMatch) {
-      if (!record) {
-        adminAttempts.set(ip, {
-          count: 1,
-          resetTime: now + WINDOW_MS,
-        });
-      } else {
-        record.count += 1;
-        if (record.count >= MAX_ATTEMPTS) {
-          record.resetTime = now + WINDOW_MS;
-        }
-        adminAttempts.set(ip, record);
+      admin.loginAttempts += 1;
+
+      if (admin.loginAttempts >= MAX_ATTEMPTS) {
+        admin.lockUntil = now + WINDOW_MS;
       }
 
-      const attemptsLeft = MAX_ATTEMPTS - (record?.count || 1);
+      await admin.save();
+
+      const attemptsLeft = Math.max(0, MAX_ATTEMPTS - admin.loginAttempts);
+
       return res.status(401).json({
         message:
           attemptsLeft > 0
             ? `Wrong password. ${attemptsLeft} attempt(s) left.`
-            : `Too many attempts. Try again after ${formatMinutes(
-                (record?.resetTime || now + WINDOW_MS) - now,
-              )}.`,
+            : `Too many attempts. Try again after ${formatMinutes(WINDOW_MS)}.`,
       });
     }
 
-    if (record) adminAttempts.delete(ip);
+    admin.loginAttempts = 0;
+    admin.lockUntil = undefined;
+    await admin.save();
 
     return res.status(200).json({ message: "Password correct" });
   } catch {

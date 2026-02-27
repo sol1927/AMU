@@ -5,10 +5,6 @@ import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import { formatFullName } from "../utils/formatName.js";
 
-const campusAttempts = new Map();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000;
-
 export const createCampus = async (req, res) => {
   try {
     if (req.userRole !== "admin") {
@@ -294,49 +290,55 @@ export const getCampusDashboard = async (req, res) => {
 export const verifyCampusPassword = async (req, res) => {
   try {
     const { password } = req.body;
-    const campusId = req.campus._id.toString();
+    const campusId = req.campus._id;
+
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    if (!campusAttempts.has(campusId)) {
-      campusAttempts.set(campusId, { count: 0, firstAttemptAt: Date.now() });
-    }
+    const campus = await Campus.findById(campusId).select(
+      "+password loginAttempts lockUntil",
+    );
+    if (!campus) return res.status(404).json({ message: "Campus not found" });
 
-    const attempt = campusAttempts.get(campusId);
+    const now = Date.now();
 
-    if (Date.now() - attempt.firstAttemptAt > WINDOW_MS) {
-      attempt.count = 0;
-      attempt.firstAttemptAt = Date.now();
-    }
-
-    if (attempt.count >= MAX_ATTEMPTS) {
-      const minutesLeft = Math.ceil(
-        (WINDOW_MS - (Date.now() - attempt.firstAttemptAt)) / 60000,
-      );
+    if (campus.lockUntil && campus.lockUntil > now) {
+      const remaining = campus.lockUntil - now;
+      const minutesLeft = Math.ceil(remaining / 60000);
       return res.status(429).json({
         message: `Too many attempts. Try again in ${minutesLeft} minute(s).`,
       });
     }
 
-    const campus = await Campus.findById(campusId).select("+password");
-    if (!campus) {
-      return res.status(404).json({ message: "Campus not found" });
-    }
-
     const isMatch = await bcrypt.compare(password, campus.password);
+
     if (!isMatch) {
-      attempt.count += 1;
-      campusAttempts.set(campusId, attempt);
+      campus.loginAttempts += 1;
+
+      if (campus.loginAttempts >= MAX_ATTEMPTS) {
+        campus.lockUntil = now + WINDOW_MS;
+      }
+
+      await campus.save();
+
+      const attemptsLeft = Math.max(0, MAX_ATTEMPTS - campus.loginAttempts);
 
       return res.status(401).json({
-        message: `Wrong password. ${MAX_ATTEMPTS - attempt.count} attempt(s) left.`,
+        message:
+          attemptsLeft > 0
+            ? `Wrong password. ${attemptsLeft} attempt(s) left.`
+            : `Too many attempts. Try again in ${Math.ceil(WINDOW_MS / 60000)} minute(s).`,
       });
     }
 
-    campusAttempts.delete(campusId);
+    campus.loginAttempts = 0;
+    campus.lockUntil = undefined;
+    await campus.save();
+
     return res.status(200).json({ message: "Password correct" });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
 };

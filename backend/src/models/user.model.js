@@ -16,6 +16,14 @@ const userSchema = new mongoose.Schema(
       url: String,
       public_id: String,
     },
+    loginAttempts: {
+      type: Number,
+      default: 0,
+      required: true,
+    },
+    lockUntil: {
+      type: Number,
+    },
     trustedDevices: [
       {
         deviceId: { type: String, required: true },
