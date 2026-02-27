@@ -11,7 +11,7 @@ import { formatFullName } from "../utils/formatName.js";
 const getCookieOptions = (duration = 10 * 60 * 1000) => ({
   httpOnly: true,
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  secure: true, 
+  secure: true,
   priority: "high",
   maxAge: duration,
 });
