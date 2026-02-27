@@ -1,4 +1,3 @@
-// utils/mailer.js
 import SibApiV3Sdk from "sib-api-v3-sdk";
 
 const client = SibApiV3Sdk.ApiClient.instance;
@@ -16,8 +15,7 @@ export const sendEmail = async ({ toEmail, toName, subject, htmlContent }) => {
       htmlContent,
     });
     console.log(`Email sent successfully to ${toEmail}`);
-  } catch (err) {
-    console.error("Brevo API Error:", err);
-    throw err; // throw so your requestOTP can handle it
+  } catch {
+    console.error("Brevo API Error:");
   }
 };

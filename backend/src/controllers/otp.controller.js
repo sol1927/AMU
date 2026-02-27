@@ -1,4 +1,3 @@
-// controllers/otp.controller.js
 import jwt from "jsonwebtoken";
 import { passwordRegex } from "../utils/validation.js";
 import crypto from "crypto";
@@ -9,7 +8,6 @@ import { sendEmail } from "../utils/mailer.js";
 import bcrypt from "bcryptjs";
 import { formatFullName } from "../utils/formatName.js";
 
-// Cookie options
 const getCookieOptions = (duration = 10 * 60 * 1000) => ({
   httpOnly: true,
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
@@ -18,7 +16,6 @@ const getCookieOptions = (duration = 10 * 60 * 1000) => ({
   maxAge: duration,
 });
 
-// Request OTP
 export const requestOTP = async (req, res) => {
   try {
     const { name, email } = req.body;
@@ -28,25 +25,24 @@ export const requestOTP = async (req, res) => {
         .status(400)
         .json({ message: "Please enter your email to receive an OTP." });
 
-    // Check if email already exists
-    if (await User.findOne({ email }))
+    const adminExists = await User.findOne({ email });
+    if (adminExists)
       return res.status(403).json({
         message:
           "An admin with this email already exists. Please login instead.",
       });
 
-    if (await Campus.findOne({ email }))
+    const userExists = await Campus.findOne({ email });
+    if (userExists)
       return res.status(403).json({
         message:
           "This email is already registered as a user. You cannot use it for admin registration.",
       });
 
-    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Save or update temp admin
     await TempAdmin.findOneAndUpdate(
       { email },
       {
@@ -59,42 +55,48 @@ export const requestOTP = async (req, res) => {
       { upsert: true, new: true },
     );
 
-    // Send OTP via Brevo
     await sendEmail({
       toEmail: email,
       toName: formatFullName(name) || "Admin",
       subject: "Your OTP for Admin Registration",
-      htmlContent: `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
-          <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
-            <img 
-              src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
-              alt="GibiGebeta" 
-              style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
-            />
-          </a>
-          <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello ${formatFullName(name) || "Admin"},</h1>
-          <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
-            Your One-Time Password (OTP) for admin registration is:
-          </p>
-          <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
-            ${otp}
-          </div>
-          <p style="font-size: 14px; color: #999; margin-bottom: 30px;">
-            This OTP will expire in 10 minutes.
-          </p>
-          <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-          <p style="font-size: 12px; color: #bbb;">
-            If you did not request this, please ignore this email.
-          </p>
-          <p style="font-size: 12px; color: #bbb;">
-            &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
-          </p>
-        </div>
-      `,
+      html: `
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
+    
+    <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
+      <img 
+        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
+        alt="GibiGebeta" 
+        style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
+      />
+    </a>
+    
+    <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello ${formatFullName(name) || "Admin"},</h1>
+    
+    <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
+      Your One-Time Password (OTP) for admin registration is:
+    </p>
+    
+    <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
+      ${otp}
+    </div>
+    
+    <p style="font-size: 14px; color: #999; margin-bottom: 30px;">
+      This OTP will expire in 10 minutes.
+    </p>
+    
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+    
+    <p style="font-size: 12px; color: #bbb;">
+      If you did not request this, please ignore this email.
+    </p>
+    
+    <p style="font-size: 12px; color: #bbb;">
+      &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
+    </p>
+  </div>
+  `,
     });
 
-    // Generate OTP JWT token
     const otpToken = jwt.sign({ email }, process.env.JWT_SECRET, {
       expiresIn: "10m",
     });
@@ -102,15 +104,14 @@ export const requestOTP = async (req, res) => {
     res
       .cookie("otpToken", otpToken, getCookieOptions())
       .json({ message: "OTP sent to your email. Please check your inbox." });
-  } catch (err) {
-    console.error("OTP Request Error:", err);
+  } catch {
+    console.error("OTP Request Error:");
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
-// Verify OTP
 export const verifyOTP = async (req, res) => {
   try {
     const { otp } = req.body;
@@ -141,6 +142,7 @@ export const verifyOTP = async (req, res) => {
         .json({ message: "Your OTP has expired. Please request a new one." });
 
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
     if (hashedOtp !== tempAdmin.otp)
       return res.status(400).json({
         message:
@@ -159,15 +161,13 @@ export const verifyOTP = async (req, res) => {
       .clearCookie("otpToken", { ...getCookieOptions(), maxAge: 0 })
       .cookie("registerToken", registerToken, getCookieOptions())
       .json({ message: "OTP verified successfully!" });
-  } catch (err) {
-    console.error("Verify OTP Error:", err);
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
   }
 };
 
-// Set Password & create admin
 export const setPassword = async (req, res) => {
   try {
     const { password, confirmPassword } = req.body;
@@ -225,8 +225,7 @@ export const setPassword = async (req, res) => {
         "Your account has been created successfully! You can now log in.",
       admin: adminData,
     });
-  } catch (err) {
-    console.error("Set Password Error:", err);
+  } catch {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });
