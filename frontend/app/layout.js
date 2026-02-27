@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "GibiGebeta",
+  title: "GiibiGebeta",
   description: "Smart Cafeteria Meal Tracking System",
   icons: {
     icon: "/tab.png",
@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.className} bg-linear-tos-br from-black via-gray-900 to-black text-white min-h-screen overflow-x-hidden antialiased`}
+        className={`${inter.className} bg-linear-to-br from-black via-gray-900 to-black text-white min-h-screen overflow-x-hidden antialiased`}
       >
         <UserProvider>
           <TempAdminProvider>
