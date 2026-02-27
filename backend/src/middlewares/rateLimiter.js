@@ -22,6 +22,7 @@ export const otpLimiter = rateLimit({
 export const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
@@ -48,6 +49,7 @@ export const passwordResetLimiter = rateLimit({
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {

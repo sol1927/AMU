@@ -1,6 +1,5 @@
 "use client";
 import { React, useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 import LoginModal from "./components/LoginModal";
@@ -11,8 +10,6 @@ import SetPasswordModal from "./components/SetPasswordModal";
 import VerifyDeviceOtpModal from "./components/VerifyDeviceOtpModal";
 
 export default function LandingPage() {
-  const router = useRouter();
-
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -41,8 +38,7 @@ export default function LandingPage() {
   }, []);
 
   const handleLoginSuccess = () => {
-    setShowLoginModal(false);
-    router.push("/dashboard");
+    console.log("Login successful, waiting for redirect...");
   };
 
   const handleLearnMore = () => {

@@ -27,6 +27,7 @@ export default function LoginModal({
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const { setCurrentCampus } = useCampus();
+  const [isExiting, setIsExiting] = useState(false);
 
   const router = useRouter();
   const { setEmail: setTempEmail } = useTempAdmin();
@@ -106,12 +107,20 @@ export default function LoginModal({
 
       setMessageType("success");
       setMessage("Login successful");
-
+      setIsExiting(true);
       setTimeout(() => {
         onLoginSuccess?.(data.user);
         if (data.role === "admin") router.push("/dashboard");
         else if (data.role === "campus") router.push("/campus");
-      }, 800);
+      }, 400);
+
+      onLoginSuccess?.(data.user);
+
+      if (data.role === "admin") {
+        router.push("/dashboard");
+      } else if (data.role === "campus") {
+        router.push("/campus");
+      }
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
@@ -134,7 +143,7 @@ export default function LoginModal({
       onClick={onClose}
     >
       <div
-        className={`relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-16 sm:mt-20 mr-4 sm:mr-6 transition-all duration-300 ${shake ? "animate-shake" : "animate-fadeIn"}`}
+        className={`relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-16 sm:mt-20 mr-4 sm:mr-6 transition-all duration-300 ${isExiting ? "animate-fadeOut" : shake ? "animate-shake" : "animate-fadeIn"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-2xl font-bold mb-3 text-center text-white">
@@ -257,6 +266,22 @@ export default function LoginModal({
 
         .animate-shake {
           animation: shake 0.5s;
+        }
+
+        /* Add this alongside your other keyframes */
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+        }
+
+        .animate-fadeOut {
+          animation: fadeOut 0.4s forwards;
         }
       `}</style>
     </div>
