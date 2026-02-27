@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import Campus from "../models/campus.model.js";
 import TempAdmin from "../models/TempAdmin.model.js";
-import { createTransporter } from "../utils/mailer.js";
+import { sendEmail } from "../utils/mailer.js";
 import { formatFullName } from "../utils/formatName.js";
 
 const getCookieOptions = (duration = 10 * 60 * 1000) => ({
@@ -41,7 +41,7 @@ export const requestOTP = async (req, res) => {
         .status(403)
         .json({
           message:
-            "This email is already registered as a user. You cannot use it for admin registration.",
+            "This email is already registered as a user. Cannot use for admin registration.",
         });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -60,39 +60,22 @@ export const requestOTP = async (req, res) => {
       { upsert: true, new: true },
     );
 
-    try {
-      await createTransporter().sendMail({
-        from: `"GibiGebeta" <${process.env.BREVO_EMAIL}>`,
-        to: email,
-        subject: "Your OTP for Admin Registration",
-        html: `
-          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
-            <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
-              <img src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
-                   alt="GibiGebeta" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;" />
-            </a>
-            <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello ${formatFullName(name) || "Admin"},</h1>
-            <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
-              Your One-Time Password (OTP) for admin registration is:
-            </p>
-            <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
-              ${otp}
-            </div>
-            <p style="font-size: 14px; color: #999; margin-bottom: 30px;">This OTP will expire in 10 minutes.</p>
-            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-            <p style="font-size: 12px; color: #bbb;">If you did not request this, please ignore this email.</p>
-            <p style="font-size: 12px; color: #bbb;">&copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.</p>
-          </div>
-        `,
-      });
-      console.log(`OTP email sent successfully to ${email}`);
-    } catch (mailError) {
-      console.error("Nodemailer / Brevo Error:", mailError);
-      return res.status(500).json({
-        message: "Failed to send OTP email. Check server logs for details.",
-        error: mailError.message,
-      });
-    }
+    // Send email via Brevo API
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin:auto; padding:30px; border:1px solid #e0e0e0; border-radius:12px; background:#f9f9f9; text-align:center;">
+        <h1 style="color:#1a73e8;">Hello ${formatFullName(name) || "Admin"},</h1>
+        <p>Your OTP for admin registration is:</p>
+        <div style="padding:15px 25px; font-size:24px; font-weight:bold; color:#fff; background:#1a73e8; border-radius:8px;">${otp}</div>
+        <p>This OTP expires in 10 minutes.</p>
+      </div>
+    `;
+
+    await sendEmail({
+      toEmail: email,
+      toName: formatFullName(name),
+      subject: "Your OTP for Admin Registration",
+      htmlContent,
+    });
 
     const otpToken = jwt.sign({ email }, process.env.JWT_SECRET, {
       expiresIn: "10m",
@@ -105,7 +88,7 @@ export const requestOTP = async (req, res) => {
     res
       .status(500)
       .json({
-        message: "Something went wrong. Please try again later.",
+        message: "Failed to send OTP. See server logs.",
         error: err.message,
       });
   }
@@ -116,45 +99,21 @@ export const verifyOTP = async (req, res) => {
   try {
     const { otp } = req.body;
     const token = req.cookies.otpToken;
-
     if (!token)
-      return res
-        .status(400)
-        .json({
-          message: "Your OTP session has expired. Please request a new OTP.",
-        });
+      return res.status(400).json({ message: "OTP session expired." });
 
     const { email } = jwt.verify(token, process.env.JWT_SECRET);
     const tempAdmin = await TempAdmin.findOne({ email });
-
     if (!tempAdmin)
-      return res
-        .status(400)
-        .json({
-          message: "We could not find your OTP request. Please try again.",
-        });
-
+      return res.status(400).json({ message: "OTP request not found." });
     if (tempAdmin.verified)
-      return res
-        .status(400)
-        .json({
-          message:
-            "This OTP has already been used. Please login or request a new OTP.",
-        });
-
+      return res.status(400).json({ message: "OTP already used." });
     if (tempAdmin.otpExpires < new Date())
-      return res
-        .status(400)
-        .json({ message: "Your OTP has expired. Please request a new one." });
+      return res.status(400).json({ message: "OTP expired." });
 
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     if (hashedOtp !== tempAdmin.otp)
-      return res
-        .status(400)
-        .json({
-          message:
-            "The OTP you entered is incorrect. Please check and try again.",
-        });
+      return res.status(400).json({ message: "Incorrect OTP." });
 
     tempAdmin.verified = true;
     tempAdmin.verifiedAt = new Date();
@@ -171,10 +130,7 @@ export const verifyOTP = async (req, res) => {
     console.error("OTP Verification Error:", err);
     res
       .status(500)
-      .json({
-        message: "Something went wrong. Please try again later.",
-        error: err.message,
-      });
+      .json({ message: "OTP verification failed.", error: err.message });
   }
 };
 
@@ -183,43 +139,21 @@ export const setPassword = async (req, res) => {
   try {
     const { password, confirmPassword } = req.body;
     const token = req.cookies.registerToken;
-
     if (!token)
-      return res
-        .status(400)
-        .json({
-          message:
-            "Your registration session has expired. Please verify your email again to continue.",
-        });
-
+      return res.status(400).json({ message: "Registration session expired." });
     if (!password || !confirmPassword)
       return res
         .status(400)
-        .json({ message: "Please enter both password and confirm password." });
-
+        .json({ message: "Enter both password and confirm password." });
     if (password !== confirmPassword)
-      return res
-        .status(400)
-        .json({ message: "Passwords don’t match. Please try again." });
-
+      return res.status(400).json({ message: "Passwords don’t match." });
     if (!passwordRegex.test(password))
-      return res
-        .status(400)
-        .json({
-          message:
-            "Password must be at least 8 characters and include uppercase, lowercase, number, and special character.",
-        });
+      return res.status(400).json({ message: "Password invalid." });
 
     const { email } = jwt.verify(token, process.env.JWT_SECRET);
     const tempAdmin = await TempAdmin.findOne({ email, verified: true });
-
     if (!tempAdmin)
-      return res
-        .status(403)
-        .json({
-          message:
-            "You must verify your email first. Please complete OTP verification.",
-        });
+      return res.status(403).json({ message: "Verify email first." });
 
     const hashedPassword = await bcrypt.hash(
       password,
@@ -238,18 +172,11 @@ export const setPassword = async (req, res) => {
     const { password: pwd, ...adminData } = admin._doc;
     res
       .status(201)
-      .json({
-        message:
-          "Your account has been created successfully! You can now log in.",
-        admin: adminData,
-      });
+      .json({ message: "Account created successfully!", admin: adminData });
   } catch (err) {
     console.error("Set Password Error:", err);
     res
       .status(500)
-      .json({
-        message: "Something went wrong. Please try again later.",
-        error: err.message,
-      });
+      .json({ message: "Failed to set password.", error: err.message });
   }
 };
