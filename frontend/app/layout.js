@@ -14,10 +14,10 @@ const inter = Inter({
 export const metadata = {
   title: "GibiGebeta",
   description: "Smart Cafeteria Meal Tracking System",
-  icons: {
-    icon: "/tab.png",
-    apple: "/tab.png",
-  },
+ icons: {
+  icon: "/tab.png?v=3", // Change the number here
+  apple: "/tab.png?v=3",
+},
 };
 
 export default function RootLayout({ children }) {
