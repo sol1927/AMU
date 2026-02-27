@@ -21,7 +21,7 @@ export const sendDeviceOtp = async (user, deviceId, deviceName) => {
     toEmail: user.email,
     toName: formatFullName(user.name) || "Admin",
     subject: "New Admin Device Verification",
-    html: `
+    htmlContent: `
   <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
     
     <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
@@ -132,11 +132,11 @@ export const resendDeviceOtp = async (req, res) => {
 
     await user.save();
 
-    await sendEEmail({
+    await sendEmail({
       toEmail: user.email,
       toName: formatFullName(user.name) || "Admin",
       subject: "Resend: Admin Device OTP",
-      html: `
+      htmlContent: `
   <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
 
     <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">

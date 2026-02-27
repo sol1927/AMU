@@ -59,7 +59,7 @@ export const requestOTP = async (req, res) => {
       toEmail: email,
       toName: formatFullName(name) || "Admin",
       subject: "Your OTP for Admin Registration",
-      html: `
+      htmlContent: `
   <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
     
     <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
