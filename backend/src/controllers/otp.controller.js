@@ -56,7 +56,7 @@ export const requestOTP = async (req, res) => {
     );
 
     await createTransporter().sendMail({
-      from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
+      from: `"GibiGebeta" <${process.env.BREVO_EMAIL}>`,
       to: email,
       subject: "Your OTP for Admin Registration",
       html: `
