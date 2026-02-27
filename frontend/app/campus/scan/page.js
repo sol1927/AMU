@@ -260,32 +260,35 @@ export default function StationScanPage() {
           )}
         </div>
 
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md flex gap-2 items-center bg-black/70 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/20">
-          <input
-            ref={manualInputRef}
-            type="text"
-            placeholder="Enter Student ID..."
-            value={manualInput}
-            onChange={(e) => setManualInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleManualScan();
-            }}
-            className="flex-1 px-4 py-2 rounded-lg border border-white/20 bg-white/10 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-          />
+        <div className="fixed bottom-4 inset-x-4 flex flex-col md:flex-row items-center justify-between gap-3 z-40">
+          <div className="hidden md:block w-[140px]"></div>
+
+          <div className="w-full max-w-md flex gap-2 items-center bg-black/80 backdrop-blur-md p-3 md:p-4 rounded-2xl shadow-xl border border-white/20">
+            <input
+              ref={manualInputRef}
+              type="text"
+              placeholder="Enter Student ID..."
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleManualScan();
+              }}
+              className="flex-1 min-w-0 px-4 py-2 rounded-lg border border-white/20 bg-white/10 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            />
+            <button
+              onClick={handleManualScan}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-2 rounded-lg font-bold hover:scale-105 transition shrink-0"
+            >
+              Scan
+            </button>
+          </div>
           <button
-            onClick={handleManualScan}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg font-bold hover:scale-105 transition"
+            onClick={() => setShowClearModal(true)}
+            className="w-full md:w-[140px] bg-red-600/90 backdrop-blur-md text-white px-4 py-3 md:py-2 rounded-2xl md:rounded-xl font-bold shadow-lg hover:bg-red-700 transition-all border border-red-500/50"
           >
-            Scan
+            Clear Station
           </button>
         </div>
-
-        <button
-          onClick={() => setShowClearModal(true)}
-          className="fixed bottom-6 right-6 bg-red-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg hover:bg-red-700 transition-colors"
-        >
-          Clear Station
-        </button>
 
         {showClearModal && (
           <ConfirmCampusPasswordModal

@@ -26,7 +26,7 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
       return;
     }
 
-    if (!name || !location || !email || !password) {
+    if (!name || !email || !password) {
       setError("Please fill in all required fields.");
       return;
     }

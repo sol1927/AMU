@@ -25,7 +25,18 @@ const router = express.Router();
 
 router.post("/logout", logoutCampus);
 router.get("/dashboard", protectCampus, getCampusDashboard);
-router.post("/students", protectCampus, upload.single("photo"), addStudent);
+router.post("/students", protectCampus, (req, res, next) => {
+  upload.single("photo")(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "📸 Photo is too big! Please keep it under 5MB."
+          : "🚫 Invalid file type. Use JPG, PNG, or WebP.";
+      return res.status(400).json({ message });
+    }
+    addStudent(req, res, next);
+  });
+});
 router.get("/students", protectCampus, getCampusStudents);
 router.post("/verify-campus-password", protectCampus, verifyCampusPassword);
 router.put("/students/:id", protectCampus, updateStudent);
@@ -45,11 +56,17 @@ router.patch(
   protectCampus,
   bulkToggleInternshipStudents,
 );
-router.put(
-  "/students/:id/photo",
-  protectCampus,
-  upload.single("photo"),
-  updateStudentPhoto,
-);
+router.put("/students/:id/photo", protectCampus, (req, res, next) => {
+  upload.single("photo")(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "📸 Photo is too big! Please keep it under 2MB."
+          : "🚫 Invalid file type. Use JPG, PNG, or WebP.";
+      return res.status(400).json({ message });
+    }
+    updateStudentPhoto(req, res, next);
+  });
+});
 
 export default router;

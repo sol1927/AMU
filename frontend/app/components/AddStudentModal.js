@@ -115,7 +115,7 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-lg sm:w-96 max-h-[90vh] overflow-y-auto animate-fadeIn text-white"
+        className="bg-white/10 border border-white/20 rounded-2xl shadow-lg p-5 md:p-6 flex flex-col gap-4 w-[95%] sm:w-[450px] max-h-[95vh] overflow-y-auto animate-fadeIn text-white"
       >
         <h3 className="text-lg font-bold">Add New Student</h3>
 
