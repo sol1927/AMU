@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "GiibiGebeta",
+  title: "GibiGebeta",
   description: "Smart Cafeteria Meal Tracking System",
   icons: {
     icon: "/tab.png",
