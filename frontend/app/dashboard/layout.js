@@ -1,9 +1,11 @@
 "use client";
 
+import React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminNavbar from "../components/AdminNavbar";
 import { useUser } from "../context/UserContext";
+import PropTypes from "prop-types";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -27,7 +29,7 @@ export default function DashboardLayout({ children }) {
 
         const data = await res.json();
         setStats(data.stats);
-      } catch (err) {
+      } catch {
         router.replace("/");
       } finally {
         setLoading(false);
@@ -46,3 +48,7 @@ export default function DashboardLayout({ children }) {
     </>
   );
 }
+
+DashboardLayout.propTypes = {
+  children: PropTypes.node.isRequired,
+};

@@ -1,8 +1,10 @@
 import "./globals.css";
+import React from "react";
 import { Inter } from "next/font/google";
 import { TempAdminProvider } from "./context/TempAdminContext";
 import { UserProvider } from "./context/UserContext";
 import { CampusProvider } from "./context/CampusContext";
+import PropTypes from "prop-types";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,8 +12,12 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "UniCafeteria",
+  title: "GibiGebeta",
   description: "Smart Cafeteria Meal Tracking System",
+  icons: {
+    icon: "/tab.png",
+    apple: "/tab.png",
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -29,3 +35,7 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+
+RootLayout.propTypes = {
+  children: PropTypes.node.isRequired,
+};
