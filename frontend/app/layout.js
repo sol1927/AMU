@@ -15,7 +15,7 @@ export const metadata = {
   title: "GibiGebeta",
   description: "Smart Cafeteria Meal Tracking System",
  icons: {
-  icon: "/tab.png?v=3", // Change the number here
+  icon: "/tab.png?v=3",
   apple: "/tab.png?v=3",
 },
 };
@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.className} bg-linear-to-br from-black via-gray-900 to-black text-white min-h-screen overflow-x-hidden antialiased`}
+        className={`${inter.className} bg-linear-tdo-br from-black via-gray-900 to-black text-white min-h-screen overflow-x-hidden antialiased`}
       >
         <UserProvider>
           <TempAdminProvider>
