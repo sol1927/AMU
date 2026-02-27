@@ -75,9 +75,15 @@ export default function CampusDashboardPage() {
   }, []);
 
   if (loading) {
-    return <p className="p-6 text-center mt-24 text-gray-600">Loading...</p>;
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="relative flex items-center justify-center">
+          <div className="h-12 w-12 rounded-full border-4 border-white/10"></div>
+          <div className="absolute h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+        </div>
+      </div>
+    );
   }
-
   if (!currentCampus) {
     return (
       <p className="p-6 text-center mt-24 text-red-600">

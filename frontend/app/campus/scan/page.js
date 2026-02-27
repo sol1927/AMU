@@ -158,8 +158,16 @@ export default function StationScanPage() {
     }
   };
 
-  if (setStudentsLoading || !currentCampus)
-    return <p className="p-6 text-center mt-24">Loading...</p>;
+  if (setStudentsLoading || !currentCampus) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="relative flex items-center justify-center">
+          <div className="h-14 w-14 rounded-full border-4 border-white/5"></div>
+          <div className="absolute h-14 w-14 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+        </div>
+      </div>
+    );
+  }
 
   const getCardClasses = () => {
     if (!student) return "bg-gray-100";

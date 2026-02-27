@@ -246,8 +246,16 @@ export default function BatchStudentsPage() {
     if (selectedStudents.length === 0) setBulkFastingType("");
   }, [selectedStudents, sortedStudents]);
 
-  if (!currentCampus)
-    return <p className="p-6 text-center mt-24">Loading...</p>;
+  if (!currentCampus) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="relative flex items-center justify-center">
+          <div className="h-14 w-14 rounded-full border-4 border-white/5"></div>
+          <div className="absolute h-14 w-14 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+        </div>
+      </div>
+    );
+  }
 
   const capitalizeName = (name) => {
     if (!name) return "";

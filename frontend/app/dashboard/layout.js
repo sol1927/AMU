@@ -39,8 +39,16 @@ export default function DashboardLayout({ children }) {
     fetchDashboard();
   }, [router]);
 
-  if (loading) return <p className="p-6">Loading...</p>;
-
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="relative">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-white/10 border-t-white shadow-lg"></div>
+          <div className="absolute inset-0 m-auto h-12 w-12 animate-pulse rounded-full bg-white/5"></div>
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       <AdminNavbar admin={currentUser} />

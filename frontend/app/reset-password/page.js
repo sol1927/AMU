@@ -245,8 +245,11 @@ export default function ResetPasswordPage(props) {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          Loading...
+        <div className="flex h-screen w-full items-center justify-center">
+          <div className="relative flex items-center justify-center">
+            <div className="h-12 w-12 rounded-full border-4 border-white/10"></div>
+            <div className="absolute h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+          </div>
         </div>
       }
     >
