@@ -588,12 +588,12 @@ export default function CampusStudentsPage() {
             if (!navigator.onLine) {
               return "No internet connection";
             }
+
             try {
               if (!name.trim()) throw new Error("Name is required");
               if (!studentId.trim()) throw new Error("Student ID is required");
               if (!department.trim()) throw new Error("Department is required");
               if (!batch.trim()) throw new Error("Batch is required");
-              if (!photo) throw new Error("Photo is required");
 
               const formData = new FormData();
               formData.append("name", capitalizeName(name));
@@ -601,7 +601,10 @@ export default function CampusStudentsPage() {
               formData.append("department", department);
               formData.append("batch", batch);
               formData.append("fastingType", fastingType);
-              formData.append("photo", photo);
+
+              if (photo) {
+                formData.append("photo", photo);
+              }
 
               const res = await fetch(`${url}/campus/students`, {
                 method: "POST",
@@ -612,6 +615,7 @@ export default function CampusStudentsPage() {
               const data = await res.json();
               if (!res.ok)
                 throw new Error(data.message || "Failed to add student");
+
               setStudents((prev) => [...prev, data.student]);
               setTotalStudents((prev) => prev + 1);
 

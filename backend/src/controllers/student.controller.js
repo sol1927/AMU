@@ -2,6 +2,7 @@ import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import StationScan from "../models/stationScan.model.js";
 import { formatFullName } from "../utils/formatName.js";
+import streamifier from "streamifier";
 
 const parseBatch = (input) => {
   const batch = Number(input);
@@ -67,9 +68,15 @@ export const addStudent = async (req, res) => {
       });
     }
 
-    const batchNum = parseBatch(batch);
-    if (batchNum === null) {
+    const batchStr = batch.toString().trim();
+    if (!/^\d+$/.test(batchStr)) {
       return res.status(400).json({ message: "Batch must be a number" });
+    }
+    const batchNum = Number(batchStr);
+
+    const existingStudent = await Student.findOne({ studentId });
+    if (existingStudent) {
+      return res.status(400).json({ message: "Student ID must be unique" });
     }
 
     const allowedFastingTypes = [
@@ -86,8 +93,19 @@ export const addStudent = async (req, res) => {
     let profilePublicId = "";
 
     if (req.file) {
-      profileUrl = req.file.path;
-      profilePublicId = req.file.filename.replace(/\.[^.]+$/, "");
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "students" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+
+      profileUrl = result.secure_url;
+      profilePublicId = result.public_id;
     }
 
     const student = await Student.create({
@@ -103,10 +121,6 @@ export const addStudent = async (req, res) => {
 
     res.status(201).json({ message: "Student added", student });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({ message: "Student ID must be unique" });
-    }
-
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

@@ -73,8 +73,8 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
       return;
     }
 
-    if (!name || !studentId || !department || !batch || !photo) {
-      setError("Please fill in all required fields, including photo.");
+    if (!name || !studentId || !department || !batch) {
+      setError("Please fill in all required fields.");
       return;
     }
 

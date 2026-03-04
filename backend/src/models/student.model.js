@@ -7,9 +7,8 @@ const studentSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    profileUrl: { type: String, required: true, trim: true },
+    profileUrl: { type: String, trim: true },
     profilePublicId: { type: String, trim: true },
-
     studentId: {
       type: String,
       required: true,

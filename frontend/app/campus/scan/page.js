@@ -206,12 +206,16 @@ export default function StationScanPage() {
             >
               {student.name !== "UNKNOWN STUDENT" &&
                 student.name !== "OFFLINE ❌" && (
-                  <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white mb-6 flex-shrink-0">
-                    <img
-                      src={student.profileUrl || "/default-avatar.png"}
-                      alt={student.name}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white mb-6 flex items-center justify-center bg-gray-300 text-black text-center text-sm font-semibold">
+                    {student.profileUrl ? (
+                      <img
+                        src={student.profileUrl}
+                        alt={student.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="px-2">{student.name}</span>
+                    )}
                   </div>
                 )}
 
