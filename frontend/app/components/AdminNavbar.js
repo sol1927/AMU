@@ -54,7 +54,7 @@ export default function AdminNavbar() {
         onClick={() => router.push("/dashboard")}
       >
         <Image
-          src="/logo.jpeg"
+          src="/logo.png"
           alt="Logo"
           width={40}
           height={40}

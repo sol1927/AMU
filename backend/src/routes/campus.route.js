@@ -17,9 +17,11 @@ import {
   bulkUpdateFasting,
   toggleInternshipStudent,
   bulkToggleInternshipStudents,
+  bulkUploadStudents,
 } from "../controllers/student.controller.js";
 import { protectCampus } from "../middlewares/campusAuth.js";
 import upload from "../middlewares/upload.js";
+import excelUpload from "../middlewares/excelUpload.js";
 
 const router = express.Router();
 
@@ -35,6 +37,19 @@ router.post("/students", protectCampus, (req, res, next) => {
       return res.status(400).json({ message });
     }
     addStudent(req, res, next);
+  });
+});
+
+router.post("/students/upload", protectCampus, (req, res) => {
+  excelUpload.single("file")(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "📄 File is too big! Max 5MB."
+          : "🚫 Invalid file type. Use CSV, XLS, or XLSX.";
+      return res.status(400).json({ message });
+    }
+    bulkUploadStudents(req, res);
   });
 });
 router.get("/students", protectCampus, getCampusStudents);

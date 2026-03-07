@@ -3,6 +3,8 @@ import cloudinary from "../config/cloudinary.js";
 import StationScan from "../models/stationScan.model.js";
 import { formatFullName } from "../utils/formatName.js";
 import streamifier from "streamifier";
+import Papa from "papaparse";
+import XLSX from "xlsx";
 
 const parseBatch = (input) => {
   const batch = Number(input);
@@ -122,6 +124,178 @@ export const addStudent = async (req, res) => {
     res.status(201).json({ message: "Student added", student });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const bulkUploadStudents = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    let data = [];
+    const filename = req.file.originalname.toLowerCase();
+
+    if (filename.endsWith(".csv")) {
+      const text = req.file.buffer.toString("utf-8");
+      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+      if (parsed.errors.length > 0) {
+        return res.status(400).json({
+          message: "CSV parsing error",
+          errors: parsed.errors,
+        });
+      }
+      data = parsed.data;
+    } else if (filename.endsWith(".xlsx") || filename.endsWith(".xls")) {
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      data = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    } else {
+      return res.status(400).json({
+        message: "Unsupported file type. Use CSV or Excel.",
+      });
+    }
+
+    if (data.length === 0) {
+      return res.status(400).json({ message: "File is empty" });
+    }
+
+    const campusId = req.campus._id;
+    const requiredHeaders = ["name", "studentid", "batch", "department"];
+    const headers = Object.keys(data[0]).map((h) => h.trim().toLowerCase());
+    const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
+
+    if (missingHeaders.length > 0) {
+      return res.status(400).json({
+        message: "Missing required headers",
+        missingHeaders,
+      });
+    }
+
+    const studentsToInsert = [];
+    const skippedRows = [];
+    const fileIds = {};
+
+    data.forEach((row, index) => {
+      const normalizedRow = {};
+      for (const key in row) {
+        normalizedRow[key.trim().toLowerCase()] = row[key];
+      }
+
+      const { name, studentid, batch, department } = normalizedRow;
+      const missingFields = [];
+
+      if (!name) missingFields.push("name");
+      if (!studentid) missingFields.push("studentId");
+      if (!batch) missingFields.push("batch");
+      if (!department) missingFields.push("department");
+
+      if (missingFields.length > 0) {
+        skippedRows.push({
+          row: index + 2,
+          error: `Missing fields: ${missingFields.join(", ")}`,
+        });
+        return;
+      }
+
+      const batchNum = Number(batch);
+      if (Number.isNaN(batchNum)) {
+        skippedRows.push({
+          row: index + 2,
+          error: "Batch must be a number",
+        });
+        return;
+      }
+
+      const id = studentid.trim();
+
+      if (!fileIds[id]) fileIds[id] = [];
+      fileIds[id].push(index + 2);
+
+      studentsToInsert.push({
+        name: name.trim(),
+        studentId: id,
+        batch: batchNum,
+        department: department.trim(),
+        campus: campusId,
+        row: index + 2,
+      });
+    });
+
+    Object.entries(fileIds).forEach(([id, rows]) => {
+      if (rows.length > 1) {
+        const rowText =
+          rows.length === 2
+            ? `Row ${rows[0]} and Row ${rows[1]}`
+            : `Row ${rows.slice(0, -1).join(", ")}, and Row ${rows[rows.length - 1]}`;
+        skippedRows.push({
+          row: rows,
+          error: `${rowText} have the same studentId (${id})`,
+        });
+      }
+    });
+
+    if (skippedRows.length > 0) {
+      const preview = skippedRows
+        .slice(0, 5)
+        .map((r) =>
+          Array.isArray(r.row) ? `${r.error}` : `Row ${r.row}: ${r.error}`,
+        )
+        .join("; ");
+      const more =
+        skippedRows.length > 5 ? `; ...and ${skippedRows.length - 5} more` : "";
+      return res.status(400).json({
+        message: `File contains ${skippedRows.length} error(s): ${preview}${more}`,
+        skippedRows,
+      });
+    }
+
+    const ids = studentsToInsert.map((s) => s.studentId);
+    const existingStudents = await Student.find({ studentId: { $in: ids } })
+      .select("studentId")
+      .lean();
+    const existingSet = new Set(existingStudents.map((s) => s.studentId));
+
+    const finalStudents = [];
+    const alreadyInDb = [];
+    const newStudents = [];
+
+    studentsToInsert.forEach((s) => {
+      if (existingSet.has(s.studentId)) {
+        alreadyInDb.push({
+          row: s.row,
+          studentId: s.studentId,
+          error: `StudentId already exists (${s.studentId})`,
+        });
+      } else {
+        newStudents.push(s);
+      }
+    });
+
+    finalStudents.push(...newStudents);
+
+    if (finalStudents.length === 0) {
+      return res.status(400).json({
+        message: `All ${alreadyInDb.length} students already exist in the database`,
+        skippedRows: alreadyInDb,
+      });
+    }
+    const studentsToInsertClean = finalStudents.map(({ row, ...rest }) => rest);
+    const inserted = await Student.insertMany(studentsToInsertClean, {
+      ordered: false,
+    });
+    res.json({
+      message:
+        `Successfully added ${inserted.length} student(s)` +
+        (alreadyInDb.length > 0
+          ? `; ${alreadyInDb.length} student(s) already existed in DB`
+          : ""),
+      students: inserted,
+      skippedRows: alreadyInDb.length > 0 ? alreadyInDb : undefined,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to upload students" });
   }
 };
 
@@ -323,15 +497,11 @@ export const deleteBatch = async (req, res) => {
             student.profilePublicId,
           );
 
-          // Optional: check for unexpected result, but do NOT log sensitive info
           if (result.result !== "ok" && result.result !== "not found") {
-            // Use internal logger if available; only track ID, not name/email
             // logger.warn("Cloudinary deletion returned unexpected result", { studentId: student._id, result });
           }
         } catch {
-          // Use logger for internal tracking instead of console.error
           // logger.error("Cloudinary deletion failed", { studentId: student._id, error: err });
-          // If you don't have a logger yet, safely ignore or keep minimal info:
           // console.error("Cloudinary deletion failed for a student"); // no sensitive info
         }
       }
@@ -381,17 +551,10 @@ export const bulkDeleteStudents = async (req, res) => {
             student.profilePublicId,
           );
 
-          // Optional: check for unexpected result
           if (result.result !== "ok" && result.result !== "not found") {
-            // Use a logger for internal tracking (student ID only, no name/email)
-            // logger.warn("Cloudinary deletion returned unexpected result", { studentId: student._id, result });
-            // If no logger yet, leave empty to avoid leaking info
             // Do nothing
           }
         } catch {
-          // Production-safe: do not print raw error or student info
-          // logger.error("Cloudinary deletion failed", { studentId: student._id, error: err });
-          // Or safely ignore if you don't want logging
           // Do nothing
         }
       }

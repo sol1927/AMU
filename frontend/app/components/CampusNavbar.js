@@ -65,7 +65,7 @@ export default function CampusNavbar() {
         onClick={() => router.push("/campus")}
       >
         <Image
-          src="/logo.jpeg"
+          src="/logo.png"
           alt="GibiGebeta"
           width={40}
           height={40}

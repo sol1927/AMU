@@ -1,0 +1,25 @@
+import multer from "multer";
+
+const storage = multer.memoryStorage();
+
+const excelUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "text/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
+    if (!allowedTypes.includes(file.mimetype)) {
+      const error = new Error(
+        "Invalid file type. Only CSV, XLS, and XLSX are allowed.",
+      );
+      error.code = "LIMIT_FILE_TYPE";
+      return cb(error, false);
+    }
+    cb(null, true);
+  },
+});
+
+export default excelUpload;

@@ -9,6 +9,7 @@ import EditStudentModal from "@/app/components/EditStudentModal";
 import { useCampus } from "@/app/context/CampusContext";
 import { useRouter } from "next/navigation";
 import { IoChevronBackSharp } from "react-icons/io5";
+import UploadStudentsModal from "@/app/components/UploadStudentsModal";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -35,7 +36,7 @@ export default function CampusStudentsPage() {
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  const [totalStudents, setTotalStudents] = useState(0);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -61,7 +62,6 @@ export default function CampusStudentsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setStudents(data.students || []);
-      setTotalStudents(data.totalStudents || 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -294,6 +294,12 @@ export default function CampusStudentsPage() {
             >
               + Add Student
             </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="bg-green-600 hover:cursor-pointer text-white px-5 py-2 rounded-2xl hover:bg-green-800 transition"
+            >
+              Upload Students
+            </button>
           </div>
 
           <div className="flex gap-2 mb-4">
@@ -328,7 +334,7 @@ export default function CampusStudentsPage() {
 
           <div className="flex justify-between items-center mb-3 px-4">
             <p className="text-gray-300 font-medium">
-              {totalStudents} {totalStudents === 1 ? "student" : "students"}
+              {students.length} {students.length === 1 ? "student" : "students"}
             </p>
 
             {selectedStudents.length > 0 && (
@@ -617,7 +623,6 @@ export default function CampusStudentsPage() {
                 throw new Error(data.message || "Failed to add student");
 
               setStudents((prev) => [...prev, data.student]);
-              setTotalStudents((prev) => prev + 1);
 
               return null;
             } catch (err) {
@@ -700,6 +705,41 @@ export default function CampusStudentsPage() {
           }}
           onConfirm={handlePasswordSubmit}
           errorMessage={passwordError}
+        />
+      )}
+      {showUploadModal && (
+        <UploadStudentsModal
+          onCancel={() => setShowUploadModal(false)}
+          onUpload={async (file) => {
+            if (!navigator.onLine) return { message: "No internet connection" };
+
+            try {
+              const formData = new FormData();
+              formData.append("file", file);
+
+              const res = await fetch(`${url}/campus/students/upload`, {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+              });
+
+              const data = await res.json();
+
+              if (!res.ok) return data;
+              if (!data.students || data.students.length === 0) {
+                return {
+                  message: "No students were uploaded. Check the file.",
+                };
+              }
+
+              if (data.students?.length > 0) {
+                setStudents((prev) => [...prev, ...data.students]);
+              }
+              return data;
+            } catch (err) {
+              return { message: err.message || "Upload failed" };
+            }
+          }}
         />
       )}
       {toast && (

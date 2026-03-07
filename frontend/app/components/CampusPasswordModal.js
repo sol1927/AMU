@@ -14,8 +14,9 @@ export default function ConfirmCampusPasswordModal({
   const modalRef = useRef(null);
 
   useEffect(() => {
+    setLocalError(errorMessage || "");
+
     if (!errorMessage) return;
-    setLocalError(errorMessage);
 
     const timer = setTimeout(() => {
       setLocalError("");

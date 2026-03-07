@@ -15,8 +15,8 @@ export const metadata = {
   title: "GibiGebeta",
   description: "Smart Cafeteria Meal Tracking System",
   icons: {
-    icon: "/tab.png",
-    apple: "/tab.png",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
