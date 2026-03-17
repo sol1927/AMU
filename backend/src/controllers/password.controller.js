@@ -33,9 +33,9 @@ export const requestPasswordReset = async (req, res) => {
         htmlContent: `
   <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
     
-    <a href="https://yourwebsite.com" target="_blank" style="text-decoration: none;">
+    <a href="https://gibigebeta.vercel.app/" target="_blank" style="text-decoration: none;">
       <img 
-        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1772027632/logo_m6xobp.jpg" 
+        src="https://res.cloudinary.com/dgujf1ixo/image/upload/v1773724590/logo_svdji9.png" 
         alt="GibiGebeta Logo" 
         style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;"
       />
