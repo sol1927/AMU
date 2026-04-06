@@ -67,12 +67,6 @@ export default function AddStudentModal({ onCancel, onSubmit }) {
     e.preventDefault();
     setError("");
     setSuccess("");
-
-    if (!navigator.onLine) {
-      setError("No internet connection. Please try again.");
-      return;
-    }
-
     if (!name || !studentId || !department || !batch) {
       setError("Please fill in all required fields.");
       return;

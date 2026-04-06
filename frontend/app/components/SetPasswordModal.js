@@ -73,13 +73,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
       setShowRules(true);
       return;
     }
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection. Please check your network.");
-      return;
-    }
-
     setLoading(true);
 
     const controller = new AbortController();
@@ -115,8 +108,6 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
 
       if (error.name === "AbortError") {
         setMessage("Request timed out. Please try again.");
-      } else if (!navigator.onLine || error instanceof TypeError) {
-        setMessage("No internet connection. Please check your network.");
       } else {
         setMessage("Something went wrong. Please try again.");
       }

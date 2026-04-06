@@ -8,10 +8,8 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   const [name, setName] = useState(campus.name);
   const [location, setLocation] = useState(campus.location || "");
   const [email, setEmail] = useState(campus.email);
-  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [message, setMessage] = useState("");
@@ -28,35 +26,19 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
   const handleUpdate = async () => {
     setMessage("");
-
-    if (!navigator.onLine) {
-      setMessage("No internet connection. Please check your network.");
-      setTimeout(() => setMessage(""), 2000);
-      return;
-    }
-
-    if ((password || confirmPassword) && !currentPassword) {
-      setMessage("Enter current password to update");
-      setTimeout(() => setMessage(""), 2000);
-      return;
-    }
-
     if (password && password.length < 6) {
       setMessage("New password must be at least 6 characters");
-      setTimeout(() => setMessage(""), 2000);
       return;
     }
 
     if (password && password !== confirmPassword) {
       setMessage("Passwords do not match");
-      setTimeout(() => setMessage(""), 2000);
       return;
     }
 
     const payload = { id: campus._id, name, location, email };
     if (password) {
       payload.password = password;
-      payload.currentPassword = currentPassword;
     }
 
     setUpdateLoading(true);
@@ -65,14 +47,11 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
       if (errorMsg) {
         setMessage(errorMsg);
-        setTimeout(() => setMessage(""), 2000);
       } else {
         setMessage("Campus updated successfully!");
-        setTimeout(() => onCancel(), 2000);
       }
     } catch {
       setMessage("Update failed. Please try again.");
-      setTimeout(() => setMessage(""), 2000);
     } finally {
       setUpdateLoading(false);
     }
@@ -80,8 +59,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-full max-w-sm sm:w-80 shadow-lg ...">
-        {" "}
+      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-full max-w-sm sm:w-80 shadow-lg relative animate-fadeIn">
         <button
           onClick={onCancel}
           className="absolute top-3 right-3 text-white/70 hover:text-white transition"
@@ -92,7 +70,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           Edit Campus
         </h2>
         {message && (
-          <div className="max-h-[80vh] overflow-y-auto mb-4">
+          <div className="mb-4">
             <p
               className={`p-2 rounded-lg text-center text-sm ${
                 message.toLowerCase().includes("success")
@@ -104,6 +82,10 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             </p>
           </div>
         )}
+
+        <label className="text-xs text-gray-400 ml-1 mb-1 block">
+          Campus Details
+        </label>
         <input
           type="text"
           placeholder="Campus Name"
@@ -125,26 +107,10 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           onChange={(e) => setEmail(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
         />
-        <div className="relative mb-3">
-          <input
-            type={showCurrent ? "text" : "password"}
-            placeholder="Current password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-          />
-          <button
-            type="button"
-            onClick={() => setShowCurrent(!showCurrent)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
-          >
-            {showCurrent ? (
-              <AiOutlineEyeInvisible size={20} />
-            ) : (
-              <AiOutlineEye size={20} />
-            )}
-          </button>
-        </div>
+
+        <label className="text-xs text-gray-400 ml-1 mb-1 block">
+          Change Password
+        </label>
         <div className="relative mb-3">
           <input
             type={showPassword ? "text" : "password"}
@@ -168,7 +134,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
         <div className="relative mb-4">
           <input
             type={showConfirm ? "text" : "password"}
-            placeholder="Confirm password"
+            placeholder="Confirm new password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
@@ -185,6 +151,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             )}
           </button>
         </div>
+
         <div className="flex justify-center">
           <button
             onClick={handleUpdate}
@@ -200,7 +167,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
         </div>
       </div>
 
-      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {

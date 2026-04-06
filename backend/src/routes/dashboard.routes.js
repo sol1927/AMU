@@ -7,6 +7,7 @@ import {
   // getCampus,
   updateCampus,
   deleteCampus,
+  selfUpdateCampus,
 } from "../controllers/campus.controller.js";
 
 const router = express.Router();
@@ -16,5 +17,6 @@ router.post("/campuses", verifyToken, createCampus);
 router.get("/campuses", verifyToken, getCampuses);
 router.patch("/campuses/:id", verifyToken, updateCampus);
 router.delete("/campuses/:id", verifyToken, deleteCampus);
+router.patch("/campuses/selfUpdate/:id", verifyToken, selfUpdateCampus);
 
 export default router;

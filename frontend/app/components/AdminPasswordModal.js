@@ -32,12 +32,6 @@ export default function AdminPasswordModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!navigator.onLine) {
-      setOfflineError("No internet connection. Please check your network.");
-      return;
-    }
-
     const passwordField = e.target.password;
     const enteredPassword = passwordField.value.trim();
 

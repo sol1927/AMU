@@ -30,7 +30,6 @@ export default function UploadStudentsModal({ onCancel, onUpload }) {
     e.preventDefault();
 
     if (!file) return setError("Please select a CSV or Excel file");
-    if (!navigator.onLine) return setError("No internet connection");
 
     setLoading(true);
     setError("");

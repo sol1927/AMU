@@ -9,9 +9,9 @@ const url = process.env.NEXT_PUBLIC_API_URL;
 const capitalizeWords = (str) => {
   if (!str) return "";
   return str
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
+    .toLowerCase()
+    .trim()
+    .replace(/(^|[\s-])\S/g, (match) => match.toUpperCase());
 };
 
 export default function CampusDashboardPage() {
@@ -24,6 +24,7 @@ export default function CampusDashboardPage() {
     recentScans: [],
   });
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = "error") => {
@@ -31,49 +32,48 @@ export default function CampusDashboardPage() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  const fetchDashboardStats = useCallback(async () => {
-    if (!currentCampus) return;
+  const fetchDashboardStats = useCallback(
+    async (manual = false) => {
+      if (!currentCampus) return;
+      if (manual) setIsRefreshing(true);
 
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
+      try {
+        const res = await fetch(`${url}/meal/dashboard`, {
+          credentials: "include",
+        });
 
-    try {
-      const res = await fetch(`${url}/meal/dashboard`, {
-        credentials: "include",
-      });
+        if (!res.ok) throw new Error("Failed to fetch dashboard stats");
 
-      if (!res.ok) throw new Error("Failed to fetch dashboard stats");
+        const data = await res.json();
+        const total = Number(data.totalStudents) || 0;
+        const served = Number(data.servedStudents) || 0;
 
-      const data = await res.json();
-      const total = Number(data.totalStudents) || 0;
-      const served = Number(data.servedStudents) || 0;
+        setStats({
+          totalStudents: total,
+          servedStudents: served,
+          pendingStudents: Math.max(total - served, 0),
+          recentScans: data.recentScans || [],
+        });
 
-      setStats({
-        totalStudents: total,
-        servedStudents: served,
-        pendingStudents: Math.max(total - served, 0),
-        recentScans: data.recentScans || [],
-      });
-    } catch {
-      showToast("Failed to load dashboard");
-    }
-  }, [currentCampus]);
+        if (manual) showToast("Stats updated", "success");
+      } catch {
+        showToast("Failed to load dashboard");
+      } finally {
+        setIsRefreshing(false);
+      }
+    },
+    [currentCampus],
+  );
 
   useEffect(() => {
     fetchDashboardStats();
   }, [fetchDashboardStats]);
 
   useEffect(() => {
-    const handleOffline = () => {
-      showToast("You are offline");
-    };
-
+    const handleOffline = () => showToast("You are offline");
     window.addEventListener("offline", handleOffline);
     return () => window.removeEventListener("offline", handleOffline);
   }, []);
-
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -84,6 +84,7 @@ export default function CampusDashboardPage() {
       </div>
     );
   }
+
   if (!currentCampus) {
     return (
       <p className="p-6 text-center mt-24 text-red-600">
@@ -138,10 +139,18 @@ export default function CampusDashboardPage() {
         <div className="max-w-4xl mx-auto mb-4">
           <div className="flex justify-end">
             <button
-              onClick={fetchDashboardStats}
-              className="bg-gray-600 text-white px-6 py-3 rounded-xl hover:bg-gray-700 shadow-lg transition"
+              onClick={() => fetchDashboardStats(true)}
+              disabled={isRefreshing}
+              className={`flex items-center gap-2 text-white px-6 py-3 rounded-xl shadow-lg transition active:scale-95 ${
+                isRefreshing
+                  ? "bg-gray-700 cursor-not-allowed"
+                  : "bg-gray-600 hover:bg-gray-700"
+              }`}
             >
-              Refresh Stats
+              {isRefreshing && (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white"></div>
+              )}
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
         </div>
@@ -155,7 +164,7 @@ export default function CampusDashboardPage() {
               <ul className="divide-y divide-white/20">
                 {stats.recentScans.map((scan, idx) => (
                   <li key={idx} className="flex justify-between py-2">
-                    <span className="truncate max-w-[70%]">{scan.name}</span>{" "}
+                    <span className="truncate max-w-[70%]">{scan.name}</span>
                     <span className="text-gray-300 text-sm">
                       {new Date(scan.time).toLocaleTimeString([], {
                         hour: "2-digit",
@@ -174,7 +183,7 @@ export default function CampusDashboardPage() {
 
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition sm:bottom-6 sm:right-6 ${
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition z-50 ${
             toast.type === "error" ? "bg-red-600" : "bg-green-600"
           }`}
         >

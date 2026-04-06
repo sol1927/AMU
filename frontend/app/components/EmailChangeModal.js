@@ -24,12 +24,6 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
   }, [success, error]);
 
   const handleRequestOtp = async () => {
-    if (!navigator.onLine) {
-      setError("No internet connection. Please check your network.");
-      setTimeout(() => setError(""), 2000);
-      return;
-    }
-
     if (!newEmail) {
       setError("Enter a new email first");
       setTimeout(() => setError(""), 2000);
@@ -69,12 +63,6 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
   };
 
   const handleVerifyOtp = async () => {
-    if (!navigator.onLine) {
-      setError("No internet connection. Please check your network.");
-      setTimeout(() => setError(""), 2000);
-      return;
-    }
-
     if (!otp) {
       setError("Enter the OTP first");
       setTimeout(() => setError(""), 2000);

@@ -44,10 +44,6 @@ export default function CampusStudentsPage() {
   };
 
   const fetchStudents = async (query = "", fasting = "") => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
     setLoading(true);
 
     try {
@@ -75,15 +71,6 @@ export default function CampusStudentsPage() {
       await fetchStudents();
     };
     fetchData();
-  }, []);
-
-  useEffect(() => {
-    const handleOffline = () => {
-      showToast("You are offline");
-    };
-
-    window.addEventListener("offline", handleOffline);
-    return () => window.removeEventListener("offline", handleOffline);
   }, []);
 
   useEffect(() => {
@@ -128,11 +115,6 @@ export default function CampusStudentsPage() {
   };
 
   const handleBulkDelete = async () => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     try {
       await Promise.all(
         selectedStudents.map((id) =>
@@ -159,11 +141,6 @@ export default function CampusStudentsPage() {
   };
 
   const handlePasswordSubmit = async (enteredPassword) => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     try {
       const res = await fetch(`${url}/campus/verify-campus-password`, {
         method: "POST",
@@ -202,11 +179,6 @@ export default function CampusStudentsPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     try {
       const res = await fetch(`${url}/campus/students/${id}`, {
         method: "DELETE",
@@ -383,11 +355,6 @@ export default function CampusStudentsPage() {
                   <button
                     disabled={savingBulkFasting}
                     onClick={async () => {
-                      if (!navigator.onLine) {
-                        showToast("No internet connection");
-                        return;
-                      }
-
                       try {
                         setSavingBulkFasting(true);
 
@@ -591,10 +558,6 @@ export default function CampusStudentsPage() {
             fastingType,
             photo,
           }) => {
-            if (!navigator.onLine) {
-              return "No internet connection";
-            }
-
             try {
               if (!name.trim()) throw new Error("Name is required");
               if (!studentId.trim()) throw new Error("Student ID is required");
@@ -644,9 +607,6 @@ export default function CampusStudentsPage() {
             photo,
             fastingType,
           }) => {
-            if (!navigator.onLine) {
-              return "No internet connection";
-            }
             try {
               const resText = await fetch(`${url}/campus/students/${id}`, {
                 method: "PUT",
@@ -711,8 +671,6 @@ export default function CampusStudentsPage() {
         <UploadStudentsModal
           onCancel={() => setShowUploadModal(false)}
           onUpload={async (file) => {
-            if (!navigator.onLine) return { message: "No internet connection" };
-
             try {
               const formData = new FormData();
               formData.append("file", file);

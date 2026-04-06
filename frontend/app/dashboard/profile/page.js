@@ -80,14 +80,6 @@ export default function ProfilePage() {
     setSavingChanges(true);
     setMessage("");
     setError("");
-
-    if (!navigator.onLine) {
-      setError("No internet connection. Please check your network.");
-      setSavingChanges(false);
-      setTimeout(() => setError(""), 2000);
-      return;
-    }
-
     try {
       let photoUrl = photoPreview;
 

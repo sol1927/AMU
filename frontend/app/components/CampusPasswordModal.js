@@ -45,12 +45,6 @@ export default function ConfirmCampusPasswordModal({
     e.preventDefault();
 
     setOfflineError("");
-
-    if (!navigator.onLine) {
-      setOfflineError("No internet connection. Please check your network.");
-      return;
-    }
-
     const enteredPassword = e.target.password.value.trim();
     if (!enteredPassword) {
       return;

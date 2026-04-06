@@ -33,15 +33,6 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
     e.preventDefault();
     setMessage("");
     setLoading(true);
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection. Please check your network.");
-      triggerShake();
-      setLoading(false);
-      return;
-    }
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -75,11 +66,7 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       if (error.name === "AbortError") {
         setMessage("Request timed out. Please try again.");
       } else {
-        setMessage(
-          !navigator.onLine || error instanceof TypeError
-            ? "No internet connection. Please check your network."
-            : "Something went wrong. Please try again.",
-        );
+        setMessage("Something went wrong. Please try again.");
       }
       triggerShake();
     } finally {

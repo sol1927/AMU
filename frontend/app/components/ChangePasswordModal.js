@@ -55,12 +55,6 @@ export default function ChangePasswordModal({ onClose }) {
     e.preventDefault();
     setError("");
     setSuccess("");
-
-    if (!navigator.onLine) {
-      setError("No internet connection. Please check your network.");
-      return;
-    }
-
     if (!allValid) {
       setError("Password does not meet all requirements");
       setShowRules(true);

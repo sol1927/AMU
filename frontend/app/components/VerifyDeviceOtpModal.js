@@ -61,14 +61,6 @@ export default function VerifyDeviceOtp({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection. Please check your network.");
-      triggerShake();
-      return;
-    }
-
     if (otp.length !== 6) {
       setMessageType("error");
       setMessage("Please enter the 6-digit OTP");
@@ -107,14 +99,12 @@ export default function VerifyDeviceOtp({
         onSuccess?.();
       }, 800);
     } catch (error) {
-      clearTimeout(timeoutId);
-      setMessageType("error");
       if (error.name === "AbortError") {
+        setMessageType("error");
         setMessage("Request timed out. Please try again.");
-      } else if (!navigator.onLine || error instanceof TypeError) {
-        setMessage("No internet connection. Please check your network.");
       } else {
-        setMessage("Failed to connect. Please try again.");
+        setMessageType("error");
+        setMessage("Failed to verify OTP. Please try again.");
       }
       triggerShake();
     } finally {
@@ -123,16 +113,9 @@ export default function VerifyDeviceOtp({
   };
 
   const handleResend = async () => {
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection.");
-      triggerShake();
-      return;
-    }
-
     setResending(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const res = await fetch(`${url}/auth/resend-device-otp`, {
@@ -155,14 +138,12 @@ export default function VerifyDeviceOtp({
       setMessage("OTP resent successfully. Check your email.");
       setOtp("");
     } catch (error) {
-      clearTimeout(timeoutId);
-      setMessageType("error");
       if (error.name === "AbortError") {
+        setMessageType("error");
         setMessage("Request timed out. Please try again.");
-      } else if (!navigator.onLine || error instanceof TypeError) {
-        setMessage("No internet connection. Please check your network.");
       } else {
-        setMessage("Failed to resend OTP");
+        setMessageType("error");
+        setMessage("Failed to verify OTP. Please try again.");
       }
       triggerShake();
     } finally {

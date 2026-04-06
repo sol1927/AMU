@@ -28,12 +28,6 @@ export default function CampusStudentGroupsPage() {
 
   const fetchBatches = useCallback(async () => {
     if (!currentCampus) return;
-
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     setLoading(true);
     try {
       const res = await fetch(`${url}/campus/students/batches`, {
@@ -55,11 +49,6 @@ export default function CampusStudentGroupsPage() {
   }, [fetchBatches]);
   const handlePasswordSubmit = async (enteredPassword) => {
     if (!batchToDelete) return;
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     try {
       const verifyRes = await fetch(`${url}/campus/verify-campus-password`, {
         method: "POST",
@@ -91,11 +80,6 @@ export default function CampusStudentGroupsPage() {
       showToast(err.message || "Failed to delete batch");
     }
   };
-  useEffect(() => {
-    const handleOffline = () => showToast("You are offline");
-    window.addEventListener("offline", handleOffline);
-    return () => window.removeEventListener("offline", handleOffline);
-  }, []);
 
   if (!currentCampus) {
     return (

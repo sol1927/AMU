@@ -35,7 +35,7 @@ export default function StationScanPage() {
     const timer = setTimeout(() => {
       setStudent(null);
       setAllowed(null);
-    }, 10000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [student]);
@@ -46,14 +46,6 @@ export default function StationScanPage() {
   }, []);
 
   const processScan = async (studentId) => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      setShokeKey((prev) => prev + 1);
-      setStudent({ name: "OFFLINE ❌", studentId });
-      setAllowed(false);
-      return;
-    }
-
     try {
       const res = await fetch(`${url}/meal/students/station-scan`, {
         method: "POST",
@@ -122,10 +114,6 @@ export default function StationScanPage() {
 
   const handleClearConfirm = async (enteredPassword) => {
     setPasswordError("");
-    if (!navigator.onLine) {
-      setPasswordError("No internet connection");
-      return;
-    }
     try {
       const res = await fetch(`${url}/campus/verify-campus-password`, {
         method: "POST",
@@ -196,7 +184,6 @@ export default function StationScanPage() {
           {successMessage}
         </div>
       )}
-
       <div className="pt-24 w-full min-h-[calc(100vh-96px)] flex flex-col items-center">
         <div className="w-full max-w-4xl flex-1 flex flex-col items-center justify-center relative">
           {student ? (

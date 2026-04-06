@@ -51,12 +51,6 @@ export default function CampusesPage() {
 
   useEffect(() => {
     const fetchCampuses = async () => {
-      if (!navigator.onLine) {
-        showToast("No internet connection", "error");
-        setLoading(false);
-        return;
-      }
-
       try {
         const res = await fetch(`${url}/dashboard/campuses`, {
           credentials: "include",
@@ -115,11 +109,6 @@ export default function CampusesPage() {
   );
 
   const handleDelete = async (id) => {
-    if (!navigator.onLine) {
-      showToast("No internet connection", "error");
-      return;
-    }
-
     const res = await fetch(`${url}/dashboard/campuses/${id}`, {
       method: "DELETE",
       credentials: "include",
@@ -136,16 +125,6 @@ export default function CampusesPage() {
   };
 
   if (loading) return <p className="p-6">Loading campuses...</p>;
-  const capitalizeWords = (str) =>
-    str
-      ? str
-          .split(" ")
-          .map(
-            (word) =>
-              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
-          )
-          .join(" ")
-      : "";
 
   return (
     <>
@@ -177,6 +156,8 @@ export default function CampusesPage() {
             <div className="w-[180px]">Name</div>
             <div className="w-[150px]">Location</div>
             <div className="w-[100px] text-center">Students</div>
+            <div className="w-[100px] text-center">Served</div>
+            <div className="w-[100px] text-center">Pending</div>
             <div className="flex-1">Email</div>
             <div className="w-10"></div>
           </div>
@@ -203,7 +184,7 @@ export default function CampusesPage() {
                 </div>
                 <div className="relative group w-[180px]">
                   <span className="truncate font-medium block cursor-pointer">
-                    {capitalizeWords(campus.name)}
+                    {campus.name}
                   </span>
 
                   <div
@@ -211,7 +192,7 @@ export default function CampusesPage() {
       bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50
       min-w-max"
                   >
-                    {capitalizeWords(campus.name)}
+                    {campus.name}
                   </div>
                 </div>
                 <div className="relative group w-[150px]">
@@ -231,6 +212,14 @@ export default function CampusesPage() {
                 </div>
                 <div className="w-[100px] text-center text-gray-400">
                   {campus.students ?? 0}
+                </div>
+
+                <div className="w-[100px] text-center text-green-400">
+                  {campus.served ?? 0}
+                </div>
+
+                <div className="w-[100px] text-center text-yellow-400">
+                  {Math.max((campus.students ?? 0) - (campus.served ?? 0), 0)}
                 </div>
 
                 <div className="flex-1 truncate text-gray-400">
@@ -319,7 +308,7 @@ export default function CampusesPage() {
                 );
                 return result.message;
               } else {
-                return result.message;
+                return result.message || "Failed to update campus";
               }
             }}
           />

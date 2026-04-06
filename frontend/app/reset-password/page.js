@@ -59,14 +59,6 @@ function ResetPasswordContent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection");
-      triggerShake();
-      return;
-    }
-
     if (!allValid) {
       setMessageType("error");
       setMessage("Password does not meet all requirements");

@@ -12,7 +12,12 @@ const capitalizeWords = (str) => {
   if (!str) return "";
   return str
     .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) =>
+      word
+        .split("-")
+        .map((sub) => sub.charAt(0).toUpperCase() + sub.slice(1).toLowerCase())
+        .join("-"),
+    )
     .join(" ");
 };
 
@@ -146,6 +151,16 @@ export default function CampusNavbar() {
             className="w-full px-3 sm:px-5 py-2 sm:py-3 text-left hover:bg-white/10 transition"
           >
             Scan
+          </button>
+
+          <button
+            onClick={() => {
+              setOpenMenu(false);
+              router.push("/campus/profile");
+            }}
+            className="w-full px-3 sm:px-5 py-2 sm:py-3 text-left hover:bg-white/10 transition"
+          >
+            Edit Profile
           </button>
 
           <div className="border-t border-white/10 my-1" />

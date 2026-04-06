@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import { formatFullName } from "../utils/formatName.js";
+import StationScan from "../models/stationScan.model.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -57,7 +58,7 @@ export const createCampus = async (req, res) => {
       name: formatFullName(name.trim()),
       email,
       password: hashedPassword,
-      location: location || "",
+      location: location ? formatFullName(location.trim()) : "",
       createdBy: req.userId,
       logo: admin?.logo || {},
     });
@@ -96,16 +97,34 @@ export const getCampuses = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const campusesWithStudentCount = await Promise.all(
+    const today = new Date().toISOString().split("T")[0];
+
+    const campusesWithStats = await Promise.all(
       campuses.map(async (campus) => {
         const studentsCount = await Student.countDocuments({
           campus: campus._id,
         });
-        return { ...campus, students: studentsCount };
+
+        const servedCount = await StationScan.countDocuments({
+          campus: campus._id,
+          date: today,
+        });
+
+        return {
+          ...campus,
+          // Now "nech-sar" becomes "Nech-Sar"
+          name: campus.name ? formatFullName(campus.name) : "",
+          // Now "addis-ababa" becomes "Addis-Ababa"
+          location: campus.location ? formatFullName(campus.location) : "N/A",
+          students: studentsCount,
+          served: servedCount,
+        };
       }),
     );
-    res.json({ campuses: campusesWithStudentCount });
-  } catch {
+
+    res.json({ campuses: campusesWithStats });
+  } catch (err) {
+    console.error("Fetch Campuses Error:", err);
     res.status(500).json({ message: "Failed to fetch campuses" });
   }
 };
@@ -126,8 +145,107 @@ export const getCampuses = async (req, res) => {
 
 //   res.json({ campus });
 // };
-
 export const updateCampus = async (req, res) => {
+  try {
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { name, email, password, location } = req.body;
+
+    const campus = await Campus.findOne({
+      _id: req.params.id,
+      createdBy: req.userId,
+    }).select("+password");
+
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
+
+    // Update email
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.toLowerCase())) {
+        return res.status(400).json({ message: "Invalid email format." });
+      }
+      campus.email = email;
+    }
+
+    // Update name
+    if (name) {
+      const existingCampus = await Campus.findOne({
+        _id: { $ne: req.params.id },
+        createdBy: req.userId,
+        name: { $regex: `^${name.trim()}$`, $options: "i" },
+      });
+
+      if (existingCampus) {
+        return res.status(400).json({
+          message: "A campus with this name already exists",
+        });
+      }
+
+      campus.name = formatFullName(name.trim());
+    }
+
+    // Check conflicts with admin
+    if (email || name) {
+      const adminConflict = await User.findOne({
+        $or: [{ email }, { name }],
+      });
+      if (adminConflict) {
+        return res.status(400).json({
+          message: "Campus email or name cannot be the same as an admin",
+        });
+      }
+    }
+
+    // Update location
+    if (location !== undefined) {
+      // Apply formatting here as well so location is clean in the DB
+      campus.location = location ? formatFullName(location.trim()) : "";
+    }
+    // Update password (no current password needed)
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({
+          message: "Password must be at least 6 characters",
+        });
+      }
+
+      campus.password = await bcrypt.hash(
+        password,
+        Number(process.env.SALT_ROUNDS) || 10,
+      );
+    }
+
+    await campus.save();
+
+    const { password: _password, ...campusData } = campus.toObject();
+
+    res.json({
+      message: "Campus updated successfully",
+      campus: campusData,
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      if (err.keyPattern?.email) {
+        return res
+          .status(400)
+          .json({ message: "This campus email is already in use." });
+      }
+      if (err.keyPattern?.name) {
+        return res
+          .status(400)
+          .json({ message: "You already have a campus with this name." });
+      }
+    }
+
+    res.status(500).json({ message: "Failed to update campus" });
+  }
+};
+
+export const selfUpdateCampus = async (req, res) => {
   try {
     if (req.userRole !== "admin") {
       return res.status(403).json({ message: "Access denied" });
@@ -179,8 +297,11 @@ export const updateCampus = async (req, res) => {
       }
     }
 
-    if (location !== undefined) campus.location = location;
-
+    // Update location
+    if (location !== undefined) {
+      // If location exists, format it; otherwise, set to empty string
+      campus.location = location ? formatFullName(location.trim()) : "";
+    }
     if (password) {
       if (!currentPassword) {
         return res.status(400).json({

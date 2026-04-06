@@ -55,15 +55,6 @@ export default function LoginModal({
     e.preventDefault();
     setMessage("");
     setLoading(true);
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection. Please check your network.");
-      triggerShake();
-      setLoading(false);
-      return;
-    }
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -124,11 +115,13 @@ export default function LoginModal({
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
+
       if (error.name === "AbortError") {
         setMessage("Request timed out. Please try again.");
       } else {
-        setMessage("Failed to connect. Please check your internet.");
+        setMessage("Login failed. Please try again.");
       }
+
       triggerShake();
     } finally {
       setLoading(false);
@@ -264,11 +257,6 @@ export default function LoginModal({
           }
         }
 
-        .animate-shake {
-          animation: shake 0.5s;
-        }
-
-        /* Add this alongside your other keyframes */
         @keyframes fadeOut {
           from {
             opacity: 1;
@@ -280,8 +268,30 @@ export default function LoginModal({
           }
         }
 
+        .animate-shake {
+          animation: shake 0.5s;
+        }
         .animate-fadeOut {
           animation: fadeOut 0.4s forwards;
+        }
+
+        /* --- THE AUTOFILL FIX --- */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+          /* 1. This forces the text to stay white */
+          -webkit-text-fill-color: white !important;
+
+          /* 2. This stops the browser's white/yellow background from showing up */
+          transition: background-color 5000s ease-in-out 0s;
+
+          /* 3. This applies a dark shadow INSIDE the input to mimic your black/50 background */
+          box-shadow: inset 0 0 0px 1000px rgba(0, 0, 0, 0.5) !important;
+
+          /* 4. Ensures the border stays consistent with your design */
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          border-radius: 0.5rem;
         }
       `}</style>
     </div>
@@ -294,5 +304,5 @@ LoginModal.propTypes = {
   onLoginSuccess: PropTypes.func.isRequired,
   onOpenSignup: PropTypes.func.isRequired,
   onOpenForgotPassword: PropTypes.func.isRequired,
-  onRequireDeviceOtp: PropTypes.func, // optional, if sometimes not passed
+  onRequireDeviceOtp: PropTypes.func,
 };

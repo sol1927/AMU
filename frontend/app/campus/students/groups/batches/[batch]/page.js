@@ -47,10 +47,6 @@ export default function BatchStudentsPage() {
   };
 
   const fetchStudentsByBatch = async (batch, query = "", fasting = "") => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -86,12 +82,6 @@ export default function BatchStudentsPage() {
   }, [searchQuery, fastingFilter]);
 
   useEffect(() => {
-    const handleOffline = () => showToast("You are offline");
-    window.addEventListener("offline", handleOffline);
-    return () => window.removeEventListener("offline", handleOffline);
-  }, []);
-
-  useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest(".menu-button")) setOpenMenuId(null);
     };
@@ -100,11 +90,6 @@ export default function BatchStudentsPage() {
   }, []);
 
   const handlePasswordSubmit = async (enteredPassword) => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     try {
       const res = await fetch(`${url}/campus/verify-campus-password`, {
         method: "POST",
@@ -137,11 +122,6 @@ export default function BatchStudentsPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     try {
       const res = await fetch(`${url}/campus/students/${id}`, {
         method: "DELETE",
@@ -159,11 +139,6 @@ export default function BatchStudentsPage() {
   };
 
   const handleBulkDelete = async () => {
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
-
     try {
       await Promise.all(
         selectedStudents.map((id) =>
@@ -188,12 +163,7 @@ export default function BatchStudentsPage() {
 
   const handleBulkFastingUpdate = async () => {
     if (!bulkFastingType) return;
-    if (!navigator.onLine) {
-      showToast("No internet connection");
-      return;
-    }
     setSavingBulkFasting(true);
-
     try {
       const res = await fetch(`${url}/campus/students/bulk-fasting`, {
         method: "PATCH",
@@ -335,11 +305,6 @@ export default function BatchStudentsPage() {
                 <button
                   disabled={savingBulkInternship}
                   onClick={async () => {
-                    if (!navigator.onLine) {
-                      showToast("No internet connection");
-                      return;
-                    }
-
                     setSavingBulkInternship(true);
                     try {
                       const res = await fetch(
@@ -588,7 +553,6 @@ export default function BatchStudentsPage() {
           student={studentToEditData}
           onCancel={() => setShowEditModal(false)}
           onSubmit={async (updated) => {
-            if (!navigator.onLine) return "No internet connection";
             try {
               const res = await fetch(`${url}/campus/students/${updated.id}`, {
                 method: "PUT",

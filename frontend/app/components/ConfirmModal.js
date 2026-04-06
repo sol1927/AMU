@@ -90,7 +90,7 @@ export default function ConfirmModal({
 
 ConfirmModal.propTypes = {
   open: PropTypes.bool.isRequired,
-  position: PropTypes.string, // optional, since it may be unused
+  position: PropTypes.string,
   title: PropTypes.string,
   message: PropTypes.string,
   onConfirm: PropTypes.func.isRequired,

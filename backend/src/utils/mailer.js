@@ -1,21 +1,31 @@
-import SibApiV3Sdk from "sib-api-v3-sdk";
-
-const client = SibApiV3Sdk.ApiClient.instance;
-const apiKey = client.authentications["api-key"];
-apiKey.apiKey = process.env.BREVO_API_KEY;
+import nodemailer from "nodemailer";
 
 export const sendEmail = async ({ toEmail, toName, subject, htmlContent }) => {
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+  // 1. Create the transporter using your Gmail credentials
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  // 2. Define the email options
+  const mailOptions = {
+    from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
+    to: toEmail,
+    subject: subject,
+    html: htmlContent,
+  };
 
   try {
-    await apiInstance.sendTransacEmail({
-      sender: { name: "GibiGebeta", email: process.env.BREVO_EMAIL },
-      to: [{ email: toEmail, name: toName }],
-      subject,
-      htmlContent,
-    });
-    console.log("Email sent successfully to");
-  } catch {
-    console.error("Brevo API Error:");
+    // 3. Send the mail
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent successfully to ${toEmail}: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    // This will now catch "Missing credentials" or "Invalid Login"
+    console.error("❌ SMTP Error:", error.message);
+    throw error;
   }
 };

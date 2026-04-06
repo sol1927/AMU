@@ -57,17 +57,9 @@ export default function VerifyOTPModal({
       triggerShake();
       return;
     }
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection. Please check your network.");
-      triggerShake();
-      return;
-    }
-
     setLoading(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const res = await fetch(`${url}/auth/verify-otp`, {
@@ -98,10 +90,8 @@ export default function VerifyOTPModal({
       setMessageType("error");
       if (error.name === "AbortError") {
         setMessage("Request timed out. Please try again.");
-      } else if (!navigator.onLine || error instanceof TypeError) {
-        setMessage("No internet connection. Please check your network.");
       } else {
-        setMessage("Something went wrong. Please try again.");
+        setMessage("Failed to verify OTP. Please try again.");
       }
       triggerShake();
     } finally {
@@ -111,14 +101,6 @@ export default function VerifyOTPModal({
 
   const handleResend = async () => {
     if (!email) return;
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection. Please check your network.");
-      triggerShake();
-      return;
-    }
-
     setResending(true);
     setOtp("");
     const controller = new AbortController();
@@ -148,10 +130,8 @@ export default function VerifyOTPModal({
       setMessageType("error");
       if (error.name === "AbortError") {
         setMessage("Request timed out. Please try again.");
-      } else if (!navigator.onLine || error instanceof TypeError) {
-        setMessage("No internet connection. Please check your network.");
       } else {
-        setMessage("Failed to resend OTP. Please try again.");
+        setMessage("Failed to verify OTP. Please try again.");
       }
       triggerShake();
     } finally {

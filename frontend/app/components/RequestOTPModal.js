@@ -41,15 +41,6 @@ export default function RequestOTPModal({
     e.preventDefault();
     setMessage("");
     setLoading(true);
-
-    if (!navigator.onLine) {
-      setMessageType("error");
-      setMessage("No internet connection. Please check your network.");
-      triggerShake();
-      setLoading(false);
-      return;
-    }
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -81,13 +72,13 @@ export default function RequestOTPModal({
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
+
       if (error.name === "AbortError") {
         setMessage("Request timed out. Please try again.");
-      } else if (!navigator.onLine || error instanceof TypeError) {
-        setMessage("No internet connection. Please check your network.");
       } else {
-        setMessage("Something went wrong. Please try again.");
+        setMessage("Failed to request OTP. Please try again.");
       }
+
       triggerShake();
     } finally {
       setLoading(false);
@@ -211,5 +202,5 @@ RequestOTPModal.propTypes = {
   show: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onOpenLogin: PropTypes.func.isRequired,
-  onSuccess: PropTypes.func, // optional, only called sometimes
+  onSuccess: PropTypes.func,
 };

@@ -20,12 +20,6 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
-    if (!navigator.onLine) {
-      setError("No internet connection. Please try again.");
-      return;
-    }
-
     if (!name || !email || !password) {
       setError("Please fill in all required fields.");
       return;
