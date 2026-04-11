@@ -2,18 +2,25 @@
 
 import { React, useEffect, useRef, useState } from "react";
 import CampusNavbar from "@/app/components/CampusNavbar";
-import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
 
-const url = process.env.NEXT_PUBLIC_API_URL;
+const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+const getCurrentMealSession = () => {
+  const now = new Date();
+  const hour = now.getHours();
+
+  if (hour >= 6 && hour < 11) return "ቁርስ"; // Breakfast
+  if (hour >= 11 && hour < 14) return "ምሳ"; // Lunch
+  if (hour >= 17 && hour < 20) return "እራት"; // Dinner
+
+  return "ሰዓት አልቋል"; // Outside meal times
+};
 
 export default function StationScanPage() {
   const [student, setStudent] = useState(null);
   const [allowed, setAllowed] = useState(null);
   const [manualInput, setManualInput] = useState("");
-  const [showClearModal, setShowClearModal] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [shokeKey, setShokeKey] = useState(0);
 
   const { currentCampus, setStudentsLoading } = useCampus();
@@ -53,32 +60,48 @@ export default function StationScanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId }),
       });
-      const data = await res.json();
 
-      if (data.student) {
-        if (data.student.isInternship) {
-          setStudent({ name: "Internship Student ❌", studentId });
-          setAllowed(false);
-        } else {
-          setStudent(data.student);
-          setAllowed(data.allowed);
-        }
-      } else {
-        setShokeKey((prev) => prev + 1);
-        setStudent({ name: "UNKNOWN STUDENT", studentId });
-        setAllowed(false);
+      let data = null;
+      const text = await res.text();
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { message: text };
       }
-    } catch {
+
+      if (data && data.student) {
+        setStudent(data.student);
+        setAllowed(data.allowed ?? false);
+        setShokeKey((prev) => prev + 1);
+        return;
+      }
+
+      if (data && data.message) {
+        const displayName = data.message.includes("Time is up")
+          ? "Time is up / ሰዓት አልቋል"
+          : data.message;
+
+        setShokeKey((prev) => prev + 1);
+        setStudent({ name: displayName, studentId });
+        setAllowed(data.allowed ?? false);
+        return;
+      }
+
+      setShokeKey((prev) => prev + 1);
+      setStudent({ name: "Student not found", studentId });
+      setAllowed(false);
+    } catch (err) {
+      console.error("Scan failed:", err);
       showToast("Failed to scan student");
       setShokeKey((prev) => prev + 1);
-      setStudent({ name: "UNKNOWN STUDENT", studentId });
+      setStudent({ name: "Student not found", studentId });
       setAllowed(false);
     }
   };
 
   useEffect(() => {
     const handleScannerInput = (e) => {
-      if (e.target === manualInputRef.current || showClearModal) return;
+      if (e.target === manualInputRef.current) return;
 
       const now = Date.now();
       if (now - lastTimeRef.current > 50) bufferRef.current = "";
@@ -104,46 +127,12 @@ export default function StationScanPage() {
 
     window.addEventListener("keydown", handleScannerInput);
     return () => window.removeEventListener("keydown", handleScannerInput);
-  }, [showClearModal]);
+  }, []);
 
   const handleManualScan = () => {
     if (!manualInput.trim()) return;
     processScan(manualInput.trim());
     setManualInput("");
-  };
-
-  const handleClearConfirm = async (enteredPassword) => {
-    setPasswordError("");
-    try {
-      const res = await fetch(`${url}/campus/verify-campus-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ password: enteredPassword }),
-      });
-      if (!res.ok) {
-        setPasswordError("Incorrect password");
-        return;
-      }
-
-      setShowClearModal(false);
-      setShowClearModal(false);
-      setPasswordError("");
-
-      await fetch(`${url}/meal/students/clear-station`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      setStudent(null);
-      setAllowed(null);
-
-      hiddenInputRef.current?.focus();
-      setSuccessMessage("Station cleared. Students can eat again.");
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch {
-      setPasswordError("Something went wrong");
-    }
   };
 
   if (setStudentsLoading || !currentCampus) {
@@ -159,12 +148,10 @@ export default function StationScanPage() {
 
   const getCardClasses = () => {
     if (!student) return "bg-gray-100";
-    if (student.name === "UNKNOWN STUDENT")
-      return "bg-gradient-to-r from-red-500 to-red-700 text-white animate-shake shadow-lg";
-    if (student.name === "OFFLINE ❌")
-      return "bg-gradient-to-r from-gray-600 to-gray-800 text-white shadow-lg";
-    if (student.name.includes("Internship"))
+    if (student.isInternship)
       return "bg-gradient-to-r from-pink-500 to-red-600 text-white shadow-lg";
+    if (student.name === "Student not found")
+      return "bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg";
     if (allowed)
       return "bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg";
     return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold";
@@ -172,27 +159,22 @@ export default function StationScanPage() {
 
   const getStatusText = () => {
     if (!student) return "";
-    if (allowed) return "ተፈቅዷል ✅";
-    return "አልተፈቀደም ❌";
+    return allowed ? "ተፈቅዷል ✅" : "አልተፈቀደም ❌";
   };
 
   return (
     <>
       <CampusNavbar />
-      {successMessage && (
-        <div className="fixed bottom-6 right-6 bg-green-600 text-white font-bold text-center p-3 rounded-lg shadow z-50">
-          {successMessage}
-        </div>
-      )}
-      <div className="pt-24 w-full min-h-[calc(100vh-96px)] flex flex-col items-center">
-        <div className="w-full max-w-4xl flex-1 flex flex-col items-center justify-center relative">
-          {student ? (
-            <div
-              key={shokeKey}
-              className={`w-full h-full p-8 rounded-xl flex flex-col justify-center items-center text-center transition-all duration-300 ${getCardClasses()}`}
-            >
-              {student.name !== "UNKNOWN STUDENT" &&
-                student.name !== "OFFLINE ❌" && (
+      <div className="pt-24 w-full min-h-[calc(100vh-96px)] flex items-center justify-center">
+        <div className="w-full max-w-6xl flex items-center justify-center gap-12">
+          {/* Main Scan Card - Perfectly Centered */}
+          <div className="flex-1 max-w-4xl flex flex-col items-center justify-center min-h-[400px]">
+            {student ? (
+              <div
+                key={shokeKey}
+                className={`w-full max-w-2xl p-8 rounded-xl flex flex-col justify-center items-center text-center transition-all duration-300 ${getCardClasses()}`}
+              >
+                {student.name !== "Student not found" && (
                   <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white mb-6 flex items-center justify-center bg-gray-300 text-black text-center text-sm font-semibold">
                     {student.profileUrl ? (
                       <img
@@ -206,12 +188,17 @@ export default function StationScanPage() {
                   </div>
                 )}
 
-              <h3 className="mb-3 font-bold text-4xl text-center">
-                {student.name}
-              </h3>
+                <h3 className="mb-3 font-bold text-4xl text-center">
+                  {student.name}
+                </h3>
 
-              {student.name !== "UNKNOWN STUDENT" &&
-                student.name !== "OFFLINE ❌" && (
+                {student.isInternship && (
+                  <p className="mb-2 rounded-full bg-white/20 px-4 py-1 text-lg font-bold">
+                    አፓረንት
+                  </p>
+                )}
+
+                {student.name !== "Student not found" && (
                   <div className="w-full max-w-sm mt-4 text-lg grid grid-cols-2 gap-2 text-white">
                     <span className="font-semibold">ID:</span>
                     <span>{student.studentId || "..."}</span>
@@ -240,21 +227,24 @@ export default function StationScanPage() {
                     </span>
                   </div>
                 )}
-
-              <p className={`text-4xl font-bold mt-4`}>{getStatusText()}</p>
-            </div>
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 font-bold text-xl">
-              <div className="w-28 h-28 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-              Waiting for Card Scan...
-            </div>
-          )}
+                <p className="text-4xl font-bold mt-4">{getStatusText()}</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-gray-500 font-bold text-xl">
+                <div className="w-28 h-28 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                Waiting for Card Scan...
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="fixed bottom-4 inset-x-4 flex flex-col md:flex-row items-center justify-between gap-3 z-40">
           <div className="hidden md:block w-[140px]"></div>
 
-          <div className="w-full max-w-md flex gap-2 items-center bg-black/80 backdrop-blur-md p-3 md:p-4 rounded-2xl shadow-xl border border-white/20">
+          <div className="w-full max-w-md flex flex-col md:flex-row gap-2 items-center bg-black/80 backdrop-blur-md p-3 md:p-4 rounded-2xl shadow-xl border border-white/20">
+            <div className="flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white font-bold whitespace-nowrap">
+              {getCurrentMealSession()}
+            </div>
             <input
               ref={manualInputRef}
               type="text"
@@ -273,24 +263,8 @@ export default function StationScanPage() {
               Scan
             </button>
           </div>
-          <button
-            onClick={() => setShowClearModal(true)}
-            className="w-full md:w-[140px] bg-red-600/90 backdrop-blur-md text-white px-4 py-3 md:py-2 rounded-2xl md:rounded-xl font-bold shadow-lg hover:bg-red-700 transition-all border border-red-500/50"
-          >
-            Clear Station
-          </button>
+          <div className="w-full md:w-[140px]"></div>
         </div>
-
-        {showClearModal && (
-          <ConfirmCampusPasswordModal
-            onCancel={() => {
-              setShowClearModal(false);
-              setPasswordError("");
-            }}
-            onConfirm={handleClearConfirm}
-            errorMessage={passwordError}
-          />
-        )}
 
         <input
           ref={hiddenInputRef}
@@ -309,31 +283,6 @@ export default function StationScanPage() {
         </div>
       )}
 
-      {/* eslint-disable-next-line react/no-unknown-property */}
-      <style jsx global>{`
-        @keyframes shake {
-          0%,
-          100% {
-            transform: translateX(0);
-          }
-          10%,
-          30%,
-          50%,
-          70%,
-          90% {
-            transform: translateX(-10px);
-          }
-          20%,
-          40%,
-          60%,
-          80% {
-            transform: translateX(10px);
-          }
-        }
-        .animate-shake {
-          animation: shake 0.6s ease-in-out;
-        }
-      `}</style>
     </>
   );
 }

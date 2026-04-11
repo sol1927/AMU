@@ -1,9 +1,31 @@
 import StationScan from "../models/stationScan.model.js";
 import Student from "../models/student.model.js";
+import Meal from "../models/meal.model.js";
+import {
+  finalizeExpiredStationScans,
+  getCurrentMealType,
+  getCurrentSemester,
+  getCurrentYear,
+  getDayString,
+} from "../utils/mealSession.js";
 
 export const scanStudentStation = async (req, res) => {
   try {
     const { studentId } = req.body;
+
+    await finalizeExpiredStationScans(req.campus._id);
+
+    const currentMealType = getCurrentMealType();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayString = getDayString(today);
+
+    if (!currentMealType) {
+      return res.status(400).json({
+        allowed: false,
+        message: "Time is up / áˆ°á‹“á‰µ áŠ áˆá‰‹áˆ",
+      });
+    }
 
     const student = await Student.findOne({
       studentId,
@@ -24,38 +46,62 @@ export const scanStudentStation = async (req, res) => {
       });
     }
 
-    const today = new Date().toISOString().split("T")[0];
-
-    const existing = await StationScan.findOne({
+    const existingStationScan = await StationScan.findOne({
       student: student._id,
       campus: req.campus._id,
-      date: today,
+      date: todayString,
+      mealType: currentMealType,
     });
 
-    if (existing) {
+    if (existingStationScan) {
       return res.json({
         allowed: false,
-        message: "Not Allowed - Already Ate",
+        message: "Not Allowed - Already Ate This Meal",
         student,
       });
     }
 
-    await StationScan.create({
+    const stationScan = await StationScan.create({
       student: student._id,
       campus: req.campus._id,
-      date: today,
+      date: todayString,
+      mealType: currentMealType,
     });
+
+    await Meal.updateOne(
+      {
+        campus: req.campus._id,
+        mealType: currentMealType,
+        date: today,
+      },
+      {
+        $setOnInsert: {
+          campus: req.campus._id,
+          mealType: currentMealType,
+          date: today,
+          year: getCurrentYear(today),
+          semester: getCurrentSemester(today),
+        },
+        $addToSet: {
+          students: student._id,
+        },
+      },
+      { upsert: true },
+    );
 
     res.json({
       allowed: true,
       message: "Allowed to Eat",
       student,
+      mealType: currentMealType,
+      stationScanId: stationScan._id,
     });
   } catch (err) {
+    console.error("Scan error:", err);
     if (err.code === 11000) {
       return res.json({
         allowed: false,
-        message: "Not Allowed - Already Ate",
+        message: "Not Allowed - Already Ate This Meal",
       });
     }
     res.status(500).json({ message: "Scan failed" });
@@ -65,44 +111,58 @@ export const scanStudentStation = async (req, res) => {
 export const getCampusDashboardStats = async (req, res) => {
   try {
     const campusId = req.campus._id;
-    const today = new Date().toISOString().split("T")[0];
+
+    await finalizeExpiredStationScans(campusId);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const year = getCurrentYear();
+    const semester = getCurrentSemester();
 
     const totalStudents = await Student.countDocuments({ campus: campusId });
 
-    const servedStudents = await StationScan.countDocuments({
+    const todaysMeals = await Meal.find({
       campus: campusId,
       date: today,
+      year,
+      semester,
+    }).populate("students", "name");
+
+    const servedStudents = new Set();
+    const recentScans = [];
+
+    todaysMeals.forEach((meal) => {
+      const uniqueStudents = new Set();
+
+      meal.students.forEach((student) => {
+        servedStudents.add(student._id.toString());
+        uniqueStudents.add(student._id.toString());
+        recentScans.push({
+          name: student.name,
+          time: meal.createdAt,
+          mealType: meal.mealType,
+        });
+      });
+
+      meal._uniqueStudentCount = uniqueStudents.size;
     });
 
-    const recentScansRaw = await StationScan.find({
-      campus: campusId,
-      date: today,
-    })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate("student", "name");
-
-    const recentScans = recentScansRaw.map((scan) => ({
-      name: scan.student.name,
-      time: scan.createdAt,
-    }));
+    recentScans.sort((a, b) => new Date(b.time) - new Date(a.time));
+    const recentScansLimited = recentScans.slice(0, 5);
 
     res.json({
       totalStudents,
-      servedStudents,
-      pendingStudents: Math.max(totalStudents - servedStudents, 0),
-      recentScans,
+      servedStudents: servedStudents.size,
+      pendingStudents: Math.max(totalStudents - servedStudents.size, 0),
+      recentScans: recentScansLimited,
+      todaysMeals: todaysMeals.map((meal) => ({
+        mealType: meal.mealType,
+        count: meal._uniqueStudentCount ?? meal.students.length,
+      })),
     });
-  } catch {
+  } catch (err) {
+    console.error("Dashboard stats error:", err);
     res.status(500).json({ message: "Failed to fetch dashboard stats" });
-  }
-};
-
-export const clearStationData = async (req, res) => {
-  try {
-    await StationScan.deleteMany({ campus: req.campus._id });
-    res.json({ message: "Station data cleared. Students can eat again." });
-  } catch {
-    res.status(500).json({ message: "Failed to clear station" });
   }
 };

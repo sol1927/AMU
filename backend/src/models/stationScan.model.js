@@ -13,10 +13,18 @@ const stationScanSchema = new mongoose.Schema(
       required: true,
     },
     date: { type: String, required: true },
+    mealType: {
+      type: String,
+      enum: ["breakfast", "lunch", "dinner"],
+      required: true,
+    },
   },
   { timestamps: true },
 );
 
-stationScanSchema.index({ student: 1, campus: 1, date: 1 }, { unique: true });
+stationScanSchema.index(
+  { student: 1, campus: 1, date: 1, mealType: 1 },
+  { unique: true },
+);
 
 export default mongoose.model("StationScan", stationScanSchema);

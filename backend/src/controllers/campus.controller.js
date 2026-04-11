@@ -4,7 +4,6 @@ import bcrypt from "bcryptjs";
 import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import { formatFullName } from "../utils/formatName.js";
-import StationScan from "../models/stationScan.model.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -97,27 +96,17 @@ export const getCampuses = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const today = new Date().toISOString().split("T")[0];
-
     const campusesWithStats = await Promise.all(
       campuses.map(async (campus) => {
         const studentsCount = await Student.countDocuments({
           campus: campus._id,
         });
 
-        const servedCount = await StationScan.countDocuments({
-          campus: campus._id,
-          date: today,
-        });
-
         return {
           ...campus,
-          // Now "nech-sar" becomes "Nech-Sar"
           name: campus.name ? formatFullName(campus.name) : "",
-          // Now "addis-ababa" becomes "Addis-Ababa"
           location: campus.location ? formatFullName(campus.location) : "N/A",
           students: studentsCount,
-          served: servedCount,
         };
       }),
     );

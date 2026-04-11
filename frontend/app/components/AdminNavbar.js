@@ -131,6 +131,16 @@ export default function AdminNavbar() {
           <button
             onClick={() => {
               setOpenMenu(false);
+              router.push("/dashboard/meals");
+            }}
+            className="w-full px-5 py-3 text-left hover:bg-white/10 transition"
+          >
+            Meals
+          </button>
+
+          <button
+            onClick={() => {
+              setOpenMenu(false);
               router.push("/dashboard/profile");
             }}
             className="w-full px-5 py-3 text-left hover:bg-white/10 transition"

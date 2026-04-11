@@ -23,6 +23,7 @@
     "mongoose": "^9.1.4",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.12",
     "papaparse": "^5.5.3",
     "sib-api-v3-sdk": "^8.5.0",
