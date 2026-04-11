@@ -10,7 +10,7 @@ const getCurrentMealSession = () => {
   const now = new Date();
   const hour = now.getHours();
 
-  if (hour >= 6 && hour < 11) return "ቁርስ"; // Breakfast
+  if (hour >= 6 && hour < 9) return "ቁርስ"; // Breakfast
   if (hour >= 11 && hour < 14) return "ምሳ"; // Lunch
   if (hour >= 17 && hour < 20) return "እራት"; // Dinner
 

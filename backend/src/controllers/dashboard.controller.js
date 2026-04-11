@@ -8,6 +8,7 @@ import {
   getCurrentYear,
   getMealSnapshotCutoff,
   getMealSessionStatus,
+  getMealSessionWindow,
 } from "../utils/mealSession.js";
 
 export const getAdminDashboard = async (req, res) => {
@@ -111,64 +112,80 @@ export const getMeals = async (req, res) => {
       semester || getCurrentSemester(queryDate);
     const sessionStatus = getMealSessionStatus(mealType, queryDate);
     const snapshotCutoff = getMealSnapshotCutoff(mealType, queryDate);
+    const sessionWindow = getMealSessionWindow(mealType, queryDate);
+    const trackingStartAt = campus.createdAt ? new Date(campus.createdAt) : null;
+    const isBeforeSystemStart =
+      Boolean(snapshotCutoff && sessionWindow?.end && trackingStartAt) &&
+      sessionWindow.end < trackingStartAt;
+    const hasSnapshotData = Boolean(snapshotCutoff) && !isBeforeSystemStart;
+    const noDataReason = !snapshotCutoff
+      ? "upcoming"
+      : isBeforeSystemStart
+        ? "before_system_start"
+        : null;
 
     let totalStudents = null;
     let regularStudents = null;
     let internshipStudents = null;
     let fastingBreakdown = null;
+    let regularFastingBreakdown = null;
+    let internshipFastingBreakdown = null;
     let servedFastingBreakdown = null;
+    let notServedFastingBreakdown = null;
 
-    if (snapshotCutoff) {
-      const studentSnapshotQuery = {
-        campus: campusId,
-        createdAt: { $lte: snapshotCutoff },
-      };
+    const buildFastingBreakdown = (students = []) => ({
+      fasting: students.filter((student) => student.fastingType === "fasting")
+        .length,
+      sundayFasting: students.filter(
+        (student) => student.fastingType === "sunday_fasting",
+      ).length,
+      muslimFasting: students.filter(
+        (student) => student.fastingType === "muslim_fasting",
+      ).length,
+      notFasting: students.filter(
+        (student) => student.fastingType === "not_fasting",
+      ).length,
+    });
 
-      const [
-        totalCount,
-        regularCount,
-        internshipCount,
-        fastingCount,
-        sundayFastingCount,
-        muslimFastingCount,
-        notFastingCount,
-      ] = await Promise.all([
-        Student.countDocuments(studentSnapshotQuery),
-        Student.countDocuments({
-          ...studentSnapshotQuery,
-          isInternship: false,
-        }),
-        Student.countDocuments({
-          ...studentSnapshotQuery,
-          isInternship: true,
-        }),
-        Student.countDocuments({
-          ...studentSnapshotQuery,
-          fastingType: "fasting",
-        }),
-        Student.countDocuments({
-          ...studentSnapshotQuery,
-          fastingType: "sunday_fasting",
-        }),
-        Student.countDocuments({
-          ...studentSnapshotQuery,
-          fastingType: "muslim_fasting",
-        }),
-        Student.countDocuments({
-          ...studentSnapshotQuery,
-          fastingType: "not_fasting",
-        }),
-      ]);
+    const getStudentEffectiveCreatedAt = (student) => {
+      if (student.createdAt) {
+        return new Date(student.createdAt);
+      }
 
-      totalStudents = totalCount;
-      regularStudents = regularCount;
-      internshipStudents = internshipCount;
-      fastingBreakdown = {
-        fasting: fastingCount,
-        sundayFasting: sundayFastingCount,
-        muslimFasting: muslimFastingCount,
-        notFasting: notFastingCount,
-      };
+      if (student._id && typeof student._id.getTimestamp === "function") {
+        return student._id.getTimestamp();
+      }
+
+      return null;
+    };
+
+    let snapshotStudents = [];
+
+    if (hasSnapshotData) {
+      const campusStudents = await Student.find({ campus: campusId })
+        .select("_id fastingType isInternship createdAt")
+        .lean();
+
+      snapshotStudents = campusStudents.filter((student) => {
+        const effectiveCreatedAt = getStudentEffectiveCreatedAt(student);
+        return effectiveCreatedAt && effectiveCreatedAt <= snapshotCutoff;
+      });
+
+      const regularSnapshotStudents = snapshotStudents.filter(
+        (student) => !student.isInternship,
+      );
+      const internshipSnapshotStudents = snapshotStudents.filter(
+        (student) => student.isInternship,
+      );
+
+      totalStudents = snapshotStudents.length;
+      regularStudents = regularSnapshotStudents.length;
+      internshipStudents = internshipSnapshotStudents.length;
+      fastingBreakdown = buildFastingBreakdown(snapshotStudents);
+      regularFastingBreakdown = buildFastingBreakdown(regularSnapshotStudents);
+      internshipFastingBreakdown = buildFastingBreakdown(
+        internshipSnapshotStudents,
+      );
     }
 
     const meal = await Meal.findOne({
@@ -179,52 +196,41 @@ export const getMeals = async (req, res) => {
       mealType,
     });
 
-    const servedStudents = snapshotCutoff
+    const servedStudentIds = hasSnapshotData
       ? meal
-        ? (await dedupeMealStudents(meal)).length
-        : 0
+        ? await dedupeMealStudents(meal)
+        : []
+      : [];
+
+    const servedStudents = hasSnapshotData ? servedStudentIds.length : null;
+
+    const regularSnapshotStudents = snapshotStudents.filter(
+      (student) => !student.isInternship,
+    );
+
+    const servedStudentIdSet = new Set(
+      servedStudentIds.map((studentId) => studentId.toString()),
+    );
+
+    const servedSnapshotStudents = regularSnapshotStudents.filter((student) =>
+      servedStudentIdSet.has(student._id.toString()),
+    );
+
+    const notServedSnapshotStudents = regularSnapshotStudents.filter(
+      (student) => !servedStudentIdSet.has(student._id.toString()),
+    );
+
+    const notServedStudents = hasSnapshotData
+      ? notServedSnapshotStudents.length
       : null;
 
-    if (snapshotCutoff && meal && servedStudents) {
-      const servedStudentIds = await dedupeMealStudents(meal);
+    if (hasSnapshotData) {
+      servedFastingBreakdown = buildFastingBreakdown(servedSnapshotStudents);
+    }
 
-      const [
-        servedFasting,
-        servedSundayFasting,
-        servedMuslimFasting,
-        servedNotFasting,
-      ] = await Promise.all([
-        Student.countDocuments({
-          _id: { $in: servedStudentIds },
-          fastingType: "fasting",
-        }),
-        Student.countDocuments({
-          _id: { $in: servedStudentIds },
-          fastingType: "sunday_fasting",
-        }),
-        Student.countDocuments({
-          _id: { $in: servedStudentIds },
-          fastingType: "muslim_fasting",
-        }),
-        Student.countDocuments({
-          _id: { $in: servedStudentIds },
-          fastingType: "not_fasting",
-        }),
-      ]);
-
-      servedFastingBreakdown = {
-        fasting: servedFasting,
-        sundayFasting: servedSundayFasting,
-        muslimFasting: servedMuslimFasting,
-        notFasting: servedNotFasting,
-      };
-    } else if (snapshotCutoff) {
-      servedFastingBreakdown = {
-        fasting: 0,
-        sundayFasting: 0,
-        muslimFasting: 0,
-        notFasting: 0,
-      };
+    if (hasSnapshotData) {
+      notServedFastingBreakdown =
+        buildFastingBreakdown(notServedSnapshotStudents);
     }
 
     res.json({
@@ -240,13 +246,15 @@ export const getMeals = async (req, res) => {
         regularStudents,
         internshipStudents,
         fastingBreakdown,
+        regularFastingBreakdown,
+        internshipFastingBreakdown,
         servedFastingBreakdown,
+        notServedFastingBreakdown,
         servedStudents,
-        notServedStudents:
-          !snapshotCutoff || totalStudents === null || servedStudents === null
-            ? null
-            : Math.max(totalStudents - servedStudents, 0),
+        notServedStudents,
         sessionStatus,
+        hasSnapshotData,
+        noDataReason,
       },
     });
   } catch (err) {

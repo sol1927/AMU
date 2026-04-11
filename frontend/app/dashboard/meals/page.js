@@ -62,7 +62,7 @@ export default function MealsPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedMealType, setSelectedMealType] = useState("breakfast");
   const [mealSummary, setMealSummary] = useState(null);
-  const [detailMode, setDetailMode] = useState("snapshot");
+  const [detailMode, setDetailMode] = useState("total");
   const [loadingCampuses, setLoadingCampuses] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
@@ -70,6 +70,14 @@ export default function MealsPage() {
   const shouldHideCounts =
     mealSummary?.sessionStatus === "upcoming" ||
     mealSummary?.totalStudents === null;
+
+  const getEmptyStateMessage = () => {
+    if (mealSummary?.noDataReason === "before_system_start") {
+      return "No historical data is available for that session because it is before this campus started using the system.";
+    }
+
+    return "Upcoming sessions do not show total, served, or not served students yet because attendance is not known at that session time.";
+  };
 
   useEffect(() => {
     const fetchCampuses = async () => {
@@ -113,8 +121,43 @@ export default function MealsPage() {
   }, []);
 
   useEffect(() => {
-    setDetailMode("snapshot");
+    setDetailMode("total");
   }, [mealSummary]);
+
+  const getBreakdownTitle = () => {
+    switch (detailMode) {
+      case "total":
+        return "Total Students by Fasting Type";
+      case "regular":
+        return "Regular Students by Fasting Type";
+      case "internship":
+        return "Internship Students by Fasting Type";
+      case "served":
+        return "Served Students by Fasting Type";
+      case "notServed":
+        return "Not Served Students by Fasting Type";
+      default:
+        return "Students by Fasting Type";
+    }
+  };
+
+  const getActiveBreakdown = () => {
+    switch (detailMode) {
+      case "regular":
+        return mealSummary?.regularFastingBreakdown;
+      case "internship":
+        return mealSummary?.internshipFastingBreakdown;
+      case "served":
+        return mealSummary?.servedFastingBreakdown;
+      case "notServed":
+        return mealSummary?.notServedFastingBreakdown;
+      case "total":
+      default:
+        return mealSummary?.fastingBreakdown;
+    }
+  };
+
+  const activeBreakdown = getActiveBreakdown();
 
   const handleShowHistory = async () => {
     if (!selectedCampus || !selectedDate || !selectedMealType) {
@@ -293,39 +336,70 @@ export default function MealsPage() {
                   <div className="mt-6 grid gap-4">
                     {shouldHideCounts ? (
                       <div className="rounded-3xl border border-dashed border-amber-300/20 bg-amber-400/10 p-5 text-sm text-amber-100">
-                        Upcoming sessions do not show total, served, or not
-                        served students yet because attendance is not known at
-                        that session time.
+                        {getEmptyStateMessage()}
                       </div>
                     ) : (
                       <>
                         <div className="grid gap-4 sm:grid-cols-3">
-                          <div className="rounded-3xl bg-white/6 p-5 ring-1 ring-white/10">
+                          <button
+                            type="button"
+                            onClick={() => setDetailMode("total")}
+                            className={`rounded-3xl p-5 text-left ring-1 transition ${
+                              detailMode === "total"
+                                ? "bg-white/10 ring-cyan-300/40"
+                                : "bg-white/6 ring-white/10 hover:bg-white/10"
+                            }`}
+                          >
                             <p className="text-sm text-slate-300">
                               Total Students
                             </p>
                             <p className="mt-2 text-4xl font-black text-white">
                               {mealSummary.totalStudents}
                             </p>
-                          </div>
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-300/80">
+                              Click to view fasting breakdown
+                            </p>
+                          </button>
 
-                          <div className="rounded-3xl bg-sky-400/10 p-5 ring-1 ring-sky-300/20">
+                          <button
+                            type="button"
+                            onClick={() => setDetailMode("regular")}
+                            className={`rounded-3xl p-5 text-left ring-1 transition ${
+                              detailMode === "regular"
+                                ? "bg-sky-400/15 ring-sky-300/40"
+                                : "bg-sky-400/10 ring-sky-300/20 hover:bg-sky-400/15"
+                            }`}
+                          >
                             <p className="text-sm text-sky-100">
                               Regular Students
                             </p>
                             <p className="mt-2 text-3xl font-black text-sky-300">
                               {mealSummary.regularStudents}
                             </p>
-                          </div>
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-200/80">
+                              Click to view fasting breakdown
+                            </p>
+                          </button>
 
-                          <div className="rounded-3xl bg-fuchsia-400/10 p-5 ring-1 ring-fuchsia-300/20">
+                          <button
+                            type="button"
+                            onClick={() => setDetailMode("internship")}
+                            className={`rounded-3xl p-5 text-left ring-1 transition ${
+                              detailMode === "internship"
+                                ? "bg-fuchsia-400/15 ring-fuchsia-300/40"
+                                : "bg-fuchsia-400/10 ring-fuchsia-300/20 hover:bg-fuchsia-400/15"
+                            }`}
+                          >
                             <p className="text-sm text-fuchsia-100">
                               Internship Students
                             </p>
                             <p className="mt-2 text-3xl font-black text-fuchsia-300">
                               {mealSummary.internshipStudents}
                             </p>
-                          </div>
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-fuchsia-200/80">
+                              Click to view fasting breakdown
+                            </p>
+                          </button>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -350,33 +424,66 @@ export default function MealsPage() {
                           </button>
 
                           <div className="rounded-3xl bg-rose-400/10 p-5 ring-1 ring-rose-300/20">
-                            <p className="text-sm text-rose-100">
-                              Not Served Students
-                            </p>
-                            <p className="mt-2 text-3xl font-black text-rose-300">
-                              {mealSummary.notServedStudents}
-                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setDetailMode("notServed")}
+                              className={`w-full rounded-3xl p-5 text-left ring-1 transition ${
+                                detailMode === "notServed"
+                                  ? "bg-rose-400/15 ring-rose-300/40"
+                                  : "bg-rose-400/10 ring-rose-300/20 hover:bg-rose-400/15"
+                              }`}
+                            >
+                              <p className="text-sm text-rose-100">
+                                Not Served Students
+                              </p>
+                              <p className="mt-2 text-3xl font-black text-rose-300">
+                                {mealSummary.notServedStudents}
+                              </p>
+                              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-rose-200/80">
+                                Click to view fasting breakdown
+                              </p>
+                            </button>
                           </div>
                         </div>
 
                         <div className="rounded-3xl bg-white/6 p-5 ring-1 ring-white/10">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <p className="text-sm text-slate-300">
-                              {detailMode === "served"
-                                ? "Served Students by Fasting Type"
-                                : "Student Snapshot by Fasting Type"}
+                              {getBreakdownTitle()}
                             </p>
                             <div className="flex items-center gap-2 rounded-full bg-white/5 p-1">
                               <button
                                 type="button"
-                                onClick={() => setDetailMode("snapshot")}
+                                onClick={() => setDetailMode("total")}
                                 className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                                  detailMode === "snapshot"
+                                  detailMode === "total"
                                     ? "bg-cyan-400/20 text-cyan-200"
                                     : "text-slate-300 hover:bg-white/10"
                                 }`}
                               >
-                                Snapshot
+                                Total
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDetailMode("regular")}
+                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                  detailMode === "regular"
+                                    ? "bg-sky-400/20 text-sky-200"
+                                    : "text-slate-300 hover:bg-white/10"
+                                }`}
+                              >
+                                Regular
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDetailMode("internship")}
+                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                  detailMode === "internship"
+                                    ? "bg-fuchsia-400/20 text-fuchsia-200"
+                                    : "text-slate-300 hover:bg-white/10"
+                                }`}
+                              >
+                                Internship
                               </button>
                               <button
                                 type="button"
@@ -389,6 +496,17 @@ export default function MealsPage() {
                               >
                                 Served
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => setDetailMode("notServed")}
+                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                  detailMode === "notServed"
+                                    ? "bg-rose-400/20 text-rose-200"
+                                    : "text-slate-300 hover:bg-white/10"
+                                }`}
+                              >
+                                Not Served
+                              </button>
                             </div>
                           </div>
                           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -397,9 +515,7 @@ export default function MealsPage() {
                                 Fasting
                               </p>
                               <p className="mt-2 text-2xl font-black text-amber-300">
-                                {detailMode === "served"
-                                  ? mealSummary.servedFastingBreakdown?.fasting ?? 0
-                                  : mealSummary.fastingBreakdown?.fasting ?? 0}
+                                {activeBreakdown?.fasting ?? 0}
                               </p>
                             </div>
 
@@ -408,9 +524,7 @@ export default function MealsPage() {
                                 Sunday Fasting
                               </p>
                               <p className="mt-2 text-2xl font-black text-violet-300">
-                                {detailMode === "served"
-                                  ? mealSummary.servedFastingBreakdown?.sundayFasting ?? 0
-                                  : mealSummary.fastingBreakdown?.sundayFasting ?? 0}
+                                {activeBreakdown?.sundayFasting ?? 0}
                               </p>
                             </div>
 
@@ -419,9 +533,7 @@ export default function MealsPage() {
                                 Muslim Fasting
                               </p>
                               <p className="mt-2 text-2xl font-black text-emerald-300">
-                                {detailMode === "served"
-                                  ? mealSummary.servedFastingBreakdown?.muslimFasting ?? 0
-                                  : mealSummary.fastingBreakdown?.muslimFasting ?? 0}
+                                {activeBreakdown?.muslimFasting ?? 0}
                               </p>
                             </div>
 
@@ -430,9 +542,7 @@ export default function MealsPage() {
                                 Not Fasting
                               </p>
                               <p className="mt-2 text-2xl font-black text-slate-200">
-                                {detailMode === "served"
-                                  ? mealSummary.servedFastingBreakdown?.notFasting ?? 0
-                                  : mealSummary.fastingBreakdown?.notFasting ?? 0}
+                                {activeBreakdown?.notFasting ?? 0}
                               </p>
                             </div>
                           </div>

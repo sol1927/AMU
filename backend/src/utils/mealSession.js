@@ -1,7 +1,7 @@
 import StationScan from "../models/stationScan.model.js";
 
 const MEAL_WINDOWS = {
-  breakfast: { startHour: 6, endHour: 11 },
+  breakfast: { startHour: 6, endHour: 9 },
   lunch: { startHour: 11, endHour: 14 },
   dinner: { startHour: 17, endHour: 20 },
 };
