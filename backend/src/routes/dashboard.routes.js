@@ -12,7 +12,6 @@ import {
 import {
   createCampus,
   getCampuses,
-  // getCampus,
   updateCampus,
   deleteCampus,
   selfUpdateCampus,

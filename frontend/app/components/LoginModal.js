@@ -277,21 +277,13 @@ export default function LoginModal({
           animation: fadeOut 0.4s forwards;
         }
 
-        /* --- THE AUTOFILL FIX --- */
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
         input:-webkit-autofill:focus,
         input:-webkit-autofill:active {
-          /* 1. This forces the text to stay white */
           -webkit-text-fill-color: #0f172a !important;
-
-          /* 2. This stops the browser's white/yellow background from showing up */
           transition: background-color 5000s ease-in-out 0s;
-
-          /* 3. This applies a dark shadow INSIDE the input to mimic your black/50 background */
           box-shadow: inset 0 0 0px 1000px rgba(255, 255, 255, 1) !important;
-
-          /* 4. Ensures the border stays consistent with your design */
           border: 1px solid rgba(203, 213, 225, 0.95) !important;
           border-radius: 0.5rem;
         }

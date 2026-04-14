@@ -128,22 +128,6 @@ export const getCampuses = async (req, res) => {
   }
 };
 
-// export const getCampus = async (req, res) => {
-//   if (req.userRole !== "admin") {
-//     return res.status(403).json({ message: "Access denied" });
-//   }
-
-//   const campus = await Campus.findOne({
-//     _id: req.params.id,
-//     createdBy: req.userId,
-//   }).select("-password");
-
-//   if (!campus) {
-//     return res.status(404).json({ message: "Campus not found" });
-//   }
-
-//   res.json({ campus });
-// };
 export const updateCampus = async (req, res) => {
   try {
     if (req.userRole !== "admin") {
@@ -161,7 +145,6 @@ export const updateCampus = async (req, res) => {
       return res.status(404).json({ message: "Campus not found" });
     }
 
-    // Update email
     if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.toLowerCase())) {
@@ -170,7 +153,6 @@ export const updateCampus = async (req, res) => {
       campus.email = email;
     }
 
-    // Update name
     if (name) {
       const existingCampus = await Campus.findOne({
         _id: { $ne: req.params.id },
@@ -187,7 +169,6 @@ export const updateCampus = async (req, res) => {
       campus.name = formatFullName(name.trim());
     }
 
-    // Check conflicts with admin
     if (email || name) {
       const adminConflict = await User.findOne({
         $or: [{ email }, { name }],
@@ -199,12 +180,9 @@ export const updateCampus = async (req, res) => {
       }
     }
 
-    // Update location
     if (location !== undefined) {
-      // Apply formatting here as well so location is clean in the DB
       campus.location = location ? formatFullName(location.trim()) : "";
     }
-    // Update password (no current password needed)
     if (password) {
       if (password.length < 6) {
         return res.status(400).json({
@@ -297,9 +275,7 @@ export const selfUpdateCampus = async (req, res) => {
       }
     }
 
-    // Update location
     if (location !== undefined) {
-      // If location exists, format it; otherwise, set to empty string
       campus.location = location ? formatFullName(location.trim()) : "";
     }
     if (password) {

@@ -1,5 +1,6 @@
 "use client";
 import { React, createContext, useContext, useState } from "react";
+import PropTypes from "prop-types";
 
 const TempAdminContext = createContext();
 TempAdminContext.displayName = "TempAdminContext";
@@ -7,13 +8,6 @@ TempAdminContext.displayName = "TempAdminContext";
 export const TempAdminProvider = ({ children }) => {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [message, setMessage] = useState("");
-
-  const resetTempAdmin = () => {
-    setEmail("");
-    setName("");
-    setMessage("");
-  };
 
   return (
     <TempAdminContext.Provider
@@ -22,9 +16,6 @@ export const TempAdminProvider = ({ children }) => {
         setEmail,
         name,
         setName,
-        message,
-        setMessage,
-        resetTempAdmin,
       }}
     >
       {children}
@@ -38,4 +29,8 @@ export const useTempAdmin = () => {
     throw new Error("useTempAdmin must be used within TempAdminProvider");
   }
   return context;
+};
+
+TempAdminProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };

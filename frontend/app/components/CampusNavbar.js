@@ -57,9 +57,7 @@ export default function CampusNavbar() {
       }
 
       router.replace("/");
-    } catch {
-      // Keep the user on the current page if logout fails.
-    }
+      } catch {}
   };
 
   return (

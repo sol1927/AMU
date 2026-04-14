@@ -71,7 +71,7 @@ export default function VerifyDeviceOtp({
 
     setLoading(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const res = await fetch(`${url}/auth/verify-device-otp`, {

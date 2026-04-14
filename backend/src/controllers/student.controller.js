@@ -372,7 +372,6 @@ export const updateStudentPhoto = async (req, res) => {
       try {
         await cloudinary.uploader.destroy(student.profilePublicId);
       } catch {
-        // intentionally ignore errors, do not log anything
       }
     }
 
@@ -473,7 +472,6 @@ export const deleteStudent = async (req, res) => {
       try {
         await cloudinary.uploader.destroy(student.profilePublicId);
       } catch {
-        // intentionally ignore errors
       }
     }
     await StationScan.deleteMany({
@@ -511,11 +509,8 @@ export const deleteBatch = async (req, res) => {
           );
 
           if (result.result !== "ok" && result.result !== "not found") {
-            // logger.warn("Cloudinary deletion returned unexpected result", { studentId: student._id, result });
           }
         } catch {
-          // logger.error("Cloudinary deletion failed", { studentId: student._id, error: err });
-          // console.error("Cloudinary deletion failed for a student"); // no sensitive info
         }
       }
     }
@@ -565,10 +560,8 @@ export const bulkDeleteStudents = async (req, res) => {
           );
 
           if (result.result !== "ok" && result.result !== "not found") {
-            // Do nothing
           }
         } catch {
-          // Do nothing
         }
       }
     }

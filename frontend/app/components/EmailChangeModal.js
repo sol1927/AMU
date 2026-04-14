@@ -39,7 +39,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
     setIsRequesting(true);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const res = await fetch(`${url}/profile/me/email/request-otp`, {
@@ -89,7 +89,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
     setIsVerifying(true);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const res = await fetch(`${url}/profile/me/email/verify-otp`, {

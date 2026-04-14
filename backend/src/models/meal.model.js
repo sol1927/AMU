@@ -29,7 +29,6 @@ const mealSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Compound index to ensure unique meal per campus, date, mealType
 mealSchema.index({ campus: 1, date: 1, mealType: 1 }, { unique: true });
 
 export default mongoose.model("Meal", mealSchema);
