@@ -37,9 +37,16 @@ const studentSchema = new mongoose.Schema(
       default: "not_fasting",
     },
     mealStatus: {
-      breakfast: { type: Boolean, default: false },
-      lunch: { type: Boolean, default: false },
-      dinner: { type: Boolean, default: false },
+      type: {
+        breakfast: { type: Boolean, default: false },
+        lunch: { type: Boolean, default: false },
+        dinner: { type: Boolean, default: false },
+      },
+      default: () => ({
+        breakfast: false,
+        lunch: false,
+        dinner: false,
+      }),
     },
   },
   {

@@ -7,9 +7,16 @@ import {
   getCurrentSemester,
   getCurrentYear,
   getMealSnapshotCutoff,
+  getMealSchedule,
   getMealSessionStatus,
   getMealSessionWindow,
 } from "../utils/mealSession.js";
+import {
+  ensureStudentDefaults,
+  getStudentFastingType,
+  getStudentIsInternship,
+} from "../utils/studentDefaults.js";
+import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 export const getAdminDashboard = async (req, res) => {
   try {
@@ -26,6 +33,9 @@ export const getAdminDashboard = async (req, res) => {
 
     await Promise.all(
       campuses.map((campus) => finalizeExpiredStationScans(campus._id)),
+    );
+    await Promise.all(
+      campuses.map((campus) => ensureStudentDefaults(Student, { campus: campus._id })),
     );
 
     let totalStudents = 0;
@@ -72,8 +82,11 @@ export const getAdminDashboard = async (req, res) => {
       campuses: campusesWithStats,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to load dashboard" });
+    logInternalError("admin-dashboard", err);
+    sendServerError(
+      res,
+      "We could not load the dashboard right now. Please try again.",
+    );
   }
 };
 
@@ -100,6 +113,7 @@ export const getMeals = async (req, res) => {
     }
 
     await finalizeExpiredStationScans(campusId);
+    await ensureStudentDefaults(Student, { campus: campusId });
 
     const queryDate = new Date(date);
     queryDate.setHours(0, 0, 0, 0);
@@ -110,9 +124,13 @@ export const getMeals = async (req, res) => {
         : getCurrentYear(queryDate);
     const resolvedSemester =
       semester || getCurrentSemester(queryDate);
-    const sessionStatus = getMealSessionStatus(mealType, queryDate);
-    const snapshotCutoff = getMealSnapshotCutoff(mealType, queryDate);
-    const sessionWindow = getMealSessionWindow(mealType, queryDate);
+    const sessionStatus = await getMealSessionStatus(mealType, queryDate);
+    const snapshotCutoff = await getMealSnapshotCutoff(mealType, queryDate);
+    const sessionWindow = await getMealSessionWindow(mealType, queryDate);
+    const mealSchedule = await getMealSchedule();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isTodayQuery = queryDate.getTime() === today.getTime();
     const trackingStartAt = campus.createdAt ? new Date(campus.createdAt) : null;
     const isBeforeSystemStart =
       Boolean(snapshotCutoff && sessionWindow?.end && trackingStartAt) &&
@@ -134,16 +152,17 @@ export const getMeals = async (req, res) => {
     let notServedFastingBreakdown = null;
 
     const buildFastingBreakdown = (students = []) => ({
-      fasting: students.filter((student) => student.fastingType === "fasting")
-        .length,
+      fasting: students.filter(
+        (student) => getStudentFastingType(student) === "fasting",
+      ).length,
       sundayFasting: students.filter(
-        (student) => student.fastingType === "sunday_fasting",
+        (student) => getStudentFastingType(student) === "sunday_fasting",
       ).length,
       muslimFasting: students.filter(
-        (student) => student.fastingType === "muslim_fasting",
+        (student) => getStudentFastingType(student) === "muslim_fasting",
       ).length,
       notFasting: students.filter(
-        (student) => student.fastingType === "not_fasting",
+        (student) => getStudentFastingType(student) === "not_fasting",
       ).length,
     });
 
@@ -166,16 +185,18 @@ export const getMeals = async (req, res) => {
         .select("_id fastingType isInternship createdAt")
         .lean();
 
-      snapshotStudents = campusStudents.filter((student) => {
-        const effectiveCreatedAt = getStudentEffectiveCreatedAt(student);
-        return effectiveCreatedAt && effectiveCreatedAt <= snapshotCutoff;
-      });
+      snapshotStudents = isTodayQuery
+        ? campusStudents
+        : campusStudents.filter((student) => {
+            const effectiveCreatedAt = getStudentEffectiveCreatedAt(student);
+            return effectiveCreatedAt && effectiveCreatedAt <= snapshotCutoff;
+          });
 
       const regularSnapshotStudents = snapshotStudents.filter(
-        (student) => !student.isInternship,
+        (student) => !getStudentIsInternship(student),
       );
       const internshipSnapshotStudents = snapshotStudents.filter(
-        (student) => student.isInternship,
+        (student) => getStudentIsInternship(student),
       );
 
       totalStudents = snapshotStudents.length;
@@ -205,7 +226,7 @@ export const getMeals = async (req, res) => {
     const servedStudents = hasSnapshotData ? servedStudentIds.length : null;
 
     const regularSnapshotStudents = snapshotStudents.filter(
-      (student) => !student.isInternship,
+      (student) => !getStudentIsInternship(student),
     );
 
     const servedStudentIdSet = new Set(
@@ -253,13 +274,17 @@ export const getMeals = async (req, res) => {
         servedStudents,
         notServedStudents,
         sessionStatus,
+        mealSchedule,
         hasSnapshotData,
         noDataReason,
       },
     });
   } catch (err) {
-    console.error("Get meals error:", err);
-    res.status(500).json({ message: "Failed to fetch meals" });
+    logInternalError("dashboard-meals", err);
+    sendServerError(
+      res,
+      "We could not load meal history right now. Please try again.",
+    );
   }
 };
 
@@ -294,7 +319,10 @@ export const getMealFilters = async (req, res) => {
 
     res.json({ filters });
   } catch (err) {
-    console.error("Get meal filters error:", err);
-    res.status(500).json({ message: "Failed to fetch meal filters" });
+    logInternalError("dashboard-meal-filters", err);
+    sendServerError(
+      res,
+      "We could not load meal filters right now. Please try again.",
+    );
   }
 };

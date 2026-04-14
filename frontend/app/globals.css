@@ -1,1 +1,203 @@
 @import "tailwindcss";
+
+:root {
+  --app-bg: #ffffff;
+  --app-surface: rgba(255, 255, 255, 0.92);
+  --app-surface-strong: #ffffff;
+  --app-border: rgba(148, 163, 184, 0.24);
+  --app-text: #0f172a;
+  --app-text-muted: #475569;
+  --app-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+}
+
+html {
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.07), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 52%, #f8fbff 100%);
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: transparent;
+  color: var(--app-text);
+}
+
+* {
+  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+}
+
+.page-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.07), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 60%, #f8fbff 100%);
+  color: var(--app-text);
+}
+
+.surface-panel {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.surface-card {
+  background: var(--app-surface-strong);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.07);
+}
+
+.field-surface {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  color: var(--app-text);
+}
+
+.field-surface::placeholder {
+  color: #94a3b8;
+}
+
+.modal-backdrop {
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.modal-panel {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+  color: var(--app-text);
+}
+
+.modal-input {
+  background: #ffffff;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  color: var(--app-text);
+}
+
+.modal-input::placeholder {
+  color: #94a3b8;
+}
+
+.fixed.inset-0[class*="bg-black/50"],
+.fixed.inset-0[class*="bg-black/70"] {
+  background: rgba(15, 23, 42, 0.28) !important;
+  backdrop-filter: blur(10px);
+}
+
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"],
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(203, 213, 225, 0.95) !important;
+  color: var(--app-text) !important;
+}
+
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] h1,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] h2,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] h3,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] p,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] label,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] span,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] h1,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] h2,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] h3,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] p,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] label,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] span {
+  color: inherit;
+}
+
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] input,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] select,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] textarea,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] input,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] select,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] textarea {
+  background: #ffffff !important;
+  border-color: rgba(203, 213, 225, 0.95) !important;
+  color: var(--app-text) !important;
+}
+
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] input::placeholder,
+.fixed.inset-0 [class*="bg-white/10"][class*="border-white/20"] textarea::placeholder,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] input::placeholder,
+.fixed.inset-0 [class*="bg-white/20"][class*="border-white/20"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.fixed.inset-0 button[class*="bg-white/5"][class*="text-white"],
+.fixed.inset-0 button[class*="bg-white/10"][class*="text-white"],
+.fixed.inset-0 button[class*="bg-white"][class*="text-white"][class*="border-white/20"] {
+  background: rgba(248, 250, 252, 0.96) !important;
+  border-color: rgba(203, 213, 225, 0.95) !important;
+  color: var(--app-text) !important;
+}
+
+.fixed.inset-0 button[class*="bg-white/5"][class*="text-white"]:hover,
+.fixed.inset-0 button[class*="bg-white/10"][class*="text-white"]:hover,
+.fixed.inset-0 button[class*="bg-white"][class*="text-white"][class*="border-white/20"]:hover {
+  background: rgba(241, 245, 249, 0.98) !important;
+}
+
+.fixed.inset-0 [class*="bg-white/10"][class*="text-white"],
+.fixed.inset-0 [class*="bg-white/5"][class*="text-white"] {
+  color: var(--app-text) !important;
+}
+
+.app-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.06), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 62%, #f8fbff 100%);
+  color: var(--app-text);
+}
+
+.app-panel {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.app-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.app-input,
+.app-select {
+  background: #ffffff;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  color: var(--app-text);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+
+.app-input::placeholder {
+  color: #94a3b8;
+}
+
+.app-back-button {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  color: var(--app-text);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.app-primary-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.24);
+}
+
+.app-secondary-btn {
+  background: #ffffff;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  color: var(--app-text);
+}
+
+.app-toast {
+  color: #ffffff;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.18);
+}

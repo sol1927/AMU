@@ -3,6 +3,7 @@
 import { React, useState, useEffect, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import PropTypes from "prop-types";
+import { getApiMessage, getErrorMessage } from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -93,24 +94,25 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
 
       if (res.ok) {
         setMessageType("success");
-        setMessage(data.message || "Password set successfully!");
+        setMessage(
+          getApiMessage(data, "Your password has been set successfully."),
+        );
         setTimeout(() => {
           onClose();
           onOpenLogin();
         }, 1000);
       } else {
         setMessageType("error");
-        setMessage(data.message || "Failed to set password");
+        setMessage(
+          getApiMessage(data, "We could not set your password. Please try again."),
+        );
       }
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
-
-      if (error.name === "AbortError") {
-        setMessage("Request timed out. Please try again.");
-      } else {
-        setMessage("Something went wrong. Please try again.");
-      }
+      setMessage(
+        getErrorMessage(error, "We could not set your password. Please try again."),
+      );
     } finally {
       setLoading(false);
     }
@@ -120,14 +122,14 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end items-start"
+      className="modal-backdrop fixed inset-0 z-50 flex items-start justify-end"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-16 sm:mt-20 mr-4 sm:mr-6 max-h-[90vh] overflow-y-auto transition-all duration-300"
+        className="modal-panel relative mt-16 mr-4 max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl p-6 transition-all duration-300 sm:mt-20 sm:mr-6 sm:max-w-md sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold mb-3 text-center text-white">
+        <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
           Set Your Password
         </h2>
 
@@ -151,12 +153,12 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onFocus={() => setShowRules(true)}
-              className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-2.5 text-white text-lg"
+              className="absolute right-3 top-2.5 text-lg text-slate-400"
             >
               {showPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
             </button>
@@ -168,12 +170,12 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               onFocus={() => setShowRules(false)}
-              className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
             />
             <button
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-2.5 text-white text-lg"
+              className="absolute right-3 top-2.5 text-lg text-slate-400"
             >
               {showConfirm ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
             </button>
@@ -182,7 +184,7 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
           {showRules && !allValid && (
             <div
               ref={rulesRef}
-              className="mb-4 p-3 bg-white/10 border border-white/20 rounded text-sm text-white"
+              className="mb-4 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"
             >
               <p className="font-semibold mb-2">Password must include:</p>
               <ul className="space-y-1">
@@ -231,7 +233,7 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
             {loading ? "Setting..." : "Set Password"}
           </button>
 
-          <p className="mt-4 text-center text-sm text-gray-300">
+          <p className="mt-4 text-center text-sm text-slate-500">
             Remembered your password?{" "}
             <button
               type="button"

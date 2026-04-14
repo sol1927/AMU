@@ -32,22 +32,22 @@ export default function ConfirmModal({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50" />
+      <div className="modal-backdrop fixed inset-0 z-50" />
       <div
         ref={modalRef}
-        className={`fixed top-20 right-6 w-80 p-5 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl z-[60] transform transition-all duration-300
+        className={`modal-panel fixed right-6 top-20 z-[60] w-80 rounded-2xl p-5 transform transition-all duration-300
   ${shake ? "animate-shake" : "scale-100 opacity-100"} hover:shadow-3xl`}
       >
-        <h2 className="text-base font-semibold mb-2 text-white">
+        <h2 className="mb-2 text-base font-semibold text-slate-900">
           {title || "Are you sure?"}
         </h2>
         <div className="max-h-[80vh] overflow-y-auto">
-          {message && <p className="text-white/80 mb-4">{message}</p>}
+          {message && <p className="mb-4 text-slate-600">{message}</p>}
         </div>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-slate-700 transition hover:bg-slate-50"
           >
             Cancel
           </button>

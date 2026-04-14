@@ -10,6 +10,7 @@ import { IoChevronBackSharp } from "react-icons/io5";
 import AdminPasswordModal from "../../components/AdminPasswordModal";
 import EmailChangeModal from "../../components/EmailChangeModal";
 import ChangePasswordModal from "../../components/ChangePasswordModal";
+import { getApiMessage, getErrorMessage } from "../../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -96,7 +97,9 @@ export default function ProfilePage() {
 
         const dataPhoto = await resPhoto.json();
         if (!resPhoto.ok)
-          throw new Error(dataPhoto.message || "Photo upload failed");
+          throw new Error(
+            getApiMessage(dataPhoto, "We could not update the profile photo."),
+          );
 
         photoUrl = dataPhoto.photoUrl || dataPhoto.logo?.url;
         setCurrentUser((prev) => ({ ...prev, logo: { url: photoUrl } }));
@@ -113,16 +116,22 @@ export default function ProfilePage() {
       const dataProfile = await resProfile.json();
 
       if (!resProfile.ok)
-        throw new Error(dataProfile.message || "Profile update failed");
+        throw new Error(
+          getApiMessage(dataProfile, "We could not save your profile changes."),
+        );
 
       setCurrentUser((prev) => ({ ...prev, name }));
       setPhotoPreview(photoUrl);
 
-      setMessage(dataProfile.message || "Changes saved successfully");
+      setMessage(
+        getApiMessage(dataProfile, "Your changes were saved successfully."),
+      );
 
       setTimeout(() => setMessage(""), 2000);
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      setError(
+        getErrorMessage(err, "We could not save your profile changes."),
+      );
 
       setTimeout(() => setError(""), 2000);
     } finally {
@@ -142,32 +151,36 @@ export default function ProfilePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setPasswordError(data.message || "Incorrect password");
+        setPasswordError(
+          getApiMessage(data, "The password you entered is not correct."),
+        );
         return;
       }
 
       setShowAdminPasswordModal(false);
       setPasswordError("");
       setShowEmailChangeModal(true);
-    } catch {
-      setPasswordError("Something went wrong");
+    } catch (error) {
+      setPasswordError(
+        getErrorMessage(error, "We could not verify your password right now."),
+      );
     }
   };
 
   if (loading)
-    return <p className="p-6 text-gray-500">Checking authentication...</p>;
+    return <p className="page-shell p-6 pt-28 text-slate-500">Checking authentication...</p>;
 
   return (
-    <div className="min-h-screen px-6 md:px-20 py-12 pt-28 text-white flex justify-center items-center relative">
+    <div className="page-shell relative flex min-h-screen items-center justify-center px-6 py-12 pt-28 md:px-20">
       <button
         onClick={() => router.push("/dashboard")}
         title="Back to Dashboard"
-        className="fixed top-24 left-6 z-20 bg-gray-900/80 hover:bg-gray-800 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
+        className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:bg-slate-50"
       >
         <IoChevronBackSharp className="w-5 h-5" />
       </button>
 
-      <div className="w-full max-w-lg bg-white/5 border border-white/10 rounded-2xl shadow-lg p-6 backdrop-blur-md">
+      <div className="surface-panel w-full max-w-lg rounded-2xl p-6">
         <h1 className="text-2xl font-bold mb-6 text-center">Edit Profile</h1>
         <div className="flex flex-col items-center mb-6 relative">
           <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/20 shadow-lg hover:shadow-blue-500/50 transition-shadow duration-300">
@@ -181,10 +194,17 @@ export default function ProfilePage() {
                 className="object-cover w-full h-full"
               />
             ) : (
-              <div className="w-full h-full bg-gray-300 flex items-center justify-center text-white font-bold">
+              <div className="flex h-full w-full items-center justify-center bg-slate-300 font-bold text-white">
                 {capitalizeWords(currentUser?.name)?.charAt(0) || "U"}
               </div>
             )}
+          </div>
+
+          <div className="mt-4 max-w-full px-4 text-center">
+            <p className="break-words text-lg font-semibold text-slate-900">
+              {capitalizeWords(name) || capitalizeWords(currentUser?.name) || "User"}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">Admin profile</p>
           </div>
 
           <label className="absolute bottom-0 right-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-transform">
@@ -204,11 +224,11 @@ export default function ProfilePage() {
             value={capitalizeWords(name)}
             onChange={(e) => setName(e.target.value)}
             placeholder="Full Name"
-            className="w-full border border-white/20 bg-white/5 text-white rounded-xl px-4 py-2 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+            className="field-surface w-full rounded-xl px-4 py-2 placeholder-slate-400 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
           <div className="mt-6 flex flex-col gap-2">
-            <div className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2 flex items-center justify-between text-white/80 hover:bg-white/10 transition">
+            <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2 text-slate-600 transition hover:bg-slate-50">
               {" "}
               <span className="truncate">
                 {currentUser?.email || "No email"}
@@ -222,7 +242,7 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            <div className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2 flex items-center justify-between text-white/80 hover:bg-white/10 transition">
+            <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2 text-slate-600 transition hover:bg-slate-50">
               {" "}
               <span className="truncate">••••••••</span>
               <button

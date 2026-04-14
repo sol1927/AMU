@@ -3,6 +3,10 @@
 import { React, useState, useEffect, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import PropTypes from "prop-types";
+import {
+  getFriendlyMessage,
+  getRequestErrorMessage,
+} from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -81,7 +85,14 @@ export default function ChangePasswordModal({ onClose }) {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Password change failed");
+      if (!res.ok) {
+        throw new Error(
+          getFriendlyMessage(
+            data.message,
+            "We could not change your password. Please try again.",
+          ),
+        );
+      }
 
       setSuccess("Password changed successfully!");
       setCurrentPassword("");
@@ -90,15 +101,21 @@ export default function ChangePasswordModal({ onClose }) {
       setShowRules(false);
       setTimeout(() => onClose(), 2000);
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      setError(
+        err?.message ||
+          getRequestErrorMessage(
+            err,
+            "We could not change your password. Please try again.",
+          ),
+      );
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/20 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-xs animate-fadeIn">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
+      <div className="modal-panel flex w-full max-w-xs flex-col gap-4 rounded-2xl p-6 animate-fadeIn">
         {" "}
-        <h3 className="text-lg font-semibold text-center text-white">
+        <h3 className="text-center text-lg font-semibold text-slate-900">
           Change Password
         </h3>
         <div className="relative">
@@ -107,12 +124,12 @@ export default function ChangePasswordModal({ onClose }) {
             placeholder="Current password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="modal-input w-full rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           <button
             type="button"
             onClick={() => setShowCurrent(!showCurrent)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
           >
             {showCurrent ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
@@ -124,12 +141,12 @@ export default function ChangePasswordModal({ onClose }) {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             onFocus={() => setShowRules(true)}
-            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="modal-input w-full rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           <button
             type="button"
             onClick={() => setShowNew(!showNew)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
           >
             {showNew ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
@@ -140,12 +157,12 @@ export default function ChangePasswordModal({ onClose }) {
             placeholder="Confirm new password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="modal-input w-full rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           <button
             type="button"
             onClick={() => setShowConfirm(!showConfirm)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
           >
             {showConfirm ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
@@ -153,7 +170,7 @@ export default function ChangePasswordModal({ onClose }) {
         {showRules && !allValid && (
           <div
             ref={rulesRef}
-            className="bg-white/10 border border-white/20 rounded-lg p-3 text-white text-sm"
+            className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"
           >
             <p className="font-semibold mb-1">Password must include:</p>
             <ul className="space-y-1">
@@ -188,7 +205,7 @@ export default function ChangePasswordModal({ onClose }) {
         <div className="flex justify-end gap-2 mt-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-slate-700 transition hover:bg-slate-50"
           >
             Cancel
           </button>

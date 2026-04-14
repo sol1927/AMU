@@ -7,6 +7,8 @@ import jwt from "jsonwebtoken";
 import TempEmailChange from "../models/TempEmailChange.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { formatFullName } from "../utils/formatName.js";
+import streamifier from "streamifier";
+import { sendServerError } from "../utils/safeError.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -63,9 +65,21 @@ export const updateProfilePhoto = async (req, res) => {
       await cloudinary.uploader.destroy(user.logo.public_id);
     }
 
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "admins" },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        },
+      );
+
+      streamifier.createReadStream(req.file.buffer).pipe(stream);
+    });
+
     user.logo = {
-      url: req.file.path,
-      public_id: req.file.filename,
+      url: uploadResult.secure_url,
+      public_id: uploadResult.public_id,
     };
     await user.save();
 
@@ -184,7 +198,10 @@ export const verifyAdminPassword = async (req, res) => {
 
     return res.status(200).json({ message: "Password correct" });
   } catch {
-    return res.status(500).json({ message: "Server error" });
+    return sendServerError(
+      res,
+      "We could not verify the password right now. Please try again.",
+    );
   }
 };
 

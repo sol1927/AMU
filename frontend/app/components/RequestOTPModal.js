@@ -3,6 +3,7 @@
 import { React, useState, useEffect } from "react";
 import { useTempAdmin } from "../context/TempAdminContext";
 import PropTypes from "prop-types";
+import { getApiMessage, getErrorMessage } from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -59,26 +60,26 @@ export default function RequestOTPModal({
 
       if (res.ok) {
         setMessageType("success");
-        setMessage(data.message || "OTP sent successfully");
+        setMessage(
+          getApiMessage(data, "We sent the verification code to your email."),
+        );
         setTimeout(() => {
           onClose();
           if (onSuccess) onSuccess(email);
         }, 1000);
       } else {
         setMessageType("error");
-        setMessage(data.message || "Failed to send OTP");
+        setMessage(
+          getApiMessage(data, "We could not send the verification code."),
+        );
         triggerShake();
       }
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
-
-      if (error.name === "AbortError") {
-        setMessage("Request timed out. Please try again.");
-      } else {
-        setMessage("Failed to request OTP. Please try again.");
-      }
-
+      setMessage(
+        getErrorMessage(error, "We could not send the verification code."),
+      );
       triggerShake();
     } finally {
       setLoading(false);
@@ -89,19 +90,19 @@ export default function RequestOTPModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end items-start"
+      className="modal-backdrop fixed inset-0 z-50 flex items-start justify-end"
       onClick={onClose}
     >
       <div
-        className={`relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-16 sm:mt-20 mr-4 sm:mr-6 max-h-[90vh] overflow-y-auto transition-all duration-300 ${
+        className={`modal-panel relative mt-16 mr-4 max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl p-6 transition-all duration-300 sm:mt-20 sm:mr-6 sm:max-w-md sm:p-8 ${
           shake ? "animate-shake" : "animate-fadeIn"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold mb-3 text-center text-white">
+        <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
           Create Your Account
         </h2>
-        <p className="text-center text-gray-300 mb-6 text-sm">
+        <p className="mb-6 text-center text-sm text-slate-500">
           Enter your details to receive an OTP
         </p>
 
@@ -124,7 +125,7 @@ export default function RequestOTPModal({
             onChange={(e) => setName(e.target.value)}
             placeholder="Your Name"
             required
-            className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
 
           <input
@@ -133,7 +134,7 @@ export default function RequestOTPModal({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Your Email"
             required
-            className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
 
           <button
@@ -149,7 +150,7 @@ export default function RequestOTPModal({
           </button>
         </form>
 
-        <p className="text-center text-gray-300 text-sm mt-6">
+        <p className="mt-6 text-center text-sm text-slate-500">
           Already have an account?{" "}
           <button
             type="button"

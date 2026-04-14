@@ -4,18 +4,29 @@ import Meal from "../models/meal.model.js";
 import {
   finalizeExpiredStationScans,
   getCurrentMealType,
+  getDashboardMealContext,
   getCurrentSemester,
   getCurrentYear,
   getDayString,
+  getMealSnapshotCutoff,
+  getMealSchedule,
 } from "../utils/mealSession.js";
+import {
+  ensureStudentDefaults,
+  getStudentFastingType,
+  getStudentIsInternship,
+  normalizeStudent,
+} from "../utils/studentDefaults.js";
+import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 export const scanStudentStation = async (req, res) => {
   try {
     const { studentId } = req.body;
 
     await finalizeExpiredStationScans(req.campus._id);
+    await ensureStudentDefaults(Student, { campus: req.campus._id });
 
-    const currentMealType = getCurrentMealType();
+    const currentMealType = await getCurrentMealType();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayString = getDayString(today);
@@ -38,11 +49,13 @@ export const scanStudentStation = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    if (student.isInternship) {
+    const normalizedStudent = normalizeStudent(student);
+
+    if (getStudentIsInternship(normalizedStudent)) {
       return res.json({
         allowed: false,
         message: "Internship students are not allowed to scan",
-        student,
+        student: normalizedStudent,
       });
     }
 
@@ -57,7 +70,7 @@ export const scanStudentStation = async (req, res) => {
       return res.json({
         allowed: false,
         message: "Not Allowed - Already Ate This Meal",
-        student,
+        student: normalizedStudent,
       });
     }
 
@@ -92,19 +105,19 @@ export const scanStudentStation = async (req, res) => {
     res.json({
       allowed: true,
       message: "Allowed to Eat",
-      student,
+      student: normalizedStudent,
       mealType: currentMealType,
       stationScanId: stationScan._id,
     });
   } catch (err) {
-    console.error("Scan error:", err);
+    logInternalError("station-scan", err);
     if (err.code === 11000) {
       return res.json({
         allowed: false,
         message: "Not Allowed - Already Ate This Meal",
       });
     }
-    res.status(500).json({ message: "Scan failed" });
+    sendServerError(res, "We could not complete the scan. Please try again.");
   }
 };
 
@@ -113,56 +126,117 @@ export const getCampusDashboardStats = async (req, res) => {
     const campusId = req.campus._id;
 
     await finalizeExpiredStationScans(campusId);
+    await ensureStudentDefaults(Student, { campus: campusId });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const { mealType, label, targetDate } = await getDashboardMealContext(now);
+    const mealDate = new Date(targetDate);
+    mealDate.setHours(0, 0, 0, 0);
+    const snapshotCutoff = await getMealSnapshotCutoff(mealType, mealDate, now);
+    const year = getCurrentYear(mealDate);
+    const semester = getCurrentSemester(mealDate);
+    const mealSchedule = await getMealSchedule();
 
-    const year = getCurrentYear();
-    const semester = getCurrentSemester();
-
-    const totalStudents = await Student.countDocuments({ campus: campusId });
-
-    const todaysMeals = await Meal.find({
-      campus: campusId,
-      date: today,
-      year,
-      semester,
-    }).populate("students", "name");
-
-    const servedStudents = new Set();
-    const recentScans = [];
-
-    todaysMeals.forEach((meal) => {
-      const uniqueStudents = new Set();
-
-      meal.students.forEach((student) => {
-        servedStudents.add(student._id.toString());
-        uniqueStudents.add(student._id.toString());
-        recentScans.push({
-          name: student.name,
-          time: meal.createdAt,
-          mealType: meal.mealType,
-        });
-      });
-
-      meal._uniqueStudentCount = uniqueStudents.size;
+    const buildFastingBreakdown = (students = []) => ({
+      fasting: students.filter(
+        (student) => getStudentFastingType(student) === "fasting",
+      ).length,
+      sundayFasting: students.filter(
+        (student) => getStudentFastingType(student) === "sunday_fasting",
+      ).length,
+      muslimFasting: students.filter(
+        (student) => getStudentFastingType(student) === "muslim_fasting",
+      ).length,
+      notFasting: students.filter(
+        (student) => getStudentFastingType(student) === "not_fasting",
+      ).length,
     });
 
-    recentScans.sort((a, b) => new Date(b.time) - new Date(a.time));
-    const recentScansLimited = recentScans.slice(0, 5);
+    const getStudentEffectiveCreatedAt = (student) => {
+      if (student.createdAt) {
+        return new Date(student.createdAt);
+      }
+
+      if (student._id && typeof student._id.getTimestamp === "function") {
+        return student._id.getTimestamp();
+      }
+
+      return null;
+    };
+
+    const campusStudents = await Student.find({ campus: campusId })
+      .select("_id fastingType isInternship createdAt")
+      .lean();
+
+    const snapshotStudents = snapshotCutoff
+      ? campusStudents.filter((student) => {
+          const effectiveCreatedAt = getStudentEffectiveCreatedAt(student);
+          return effectiveCreatedAt && effectiveCreatedAt <= snapshotCutoff;
+        })
+      : [];
+
+    const totalStudents = snapshotStudents.length;
+    const regularStudentsList = snapshotStudents.filter(
+      (student) => !getStudentIsInternship(student),
+    );
+    const internshipStudentsList = snapshotStudents.filter((student) =>
+      getStudentIsInternship(student),
+    );
+
+    const meal = await Meal.findOne({
+      campus: campusId,
+      date: mealDate,
+      year,
+      semester,
+      mealType,
+    }).populate("students", "name");
+
+    const servedStudentIdSet = new Set(
+      (meal?.students || []).map((student) => student._id.toString()),
+    );
+    const recentScans = await StationScan.find({
+      campus: campusId,
+      date: getDayString(mealDate),
+      mealType,
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate("student", "name")
+      .lean();
+
+    const servedRegularStudentsList = regularStudentsList.filter((student) =>
+      servedStudentIdSet.has(student._id.toString()),
+    );
+    const pendingRegularStudentsList = regularStudentsList.filter(
+      (student) => !servedStudentIdSet.has(student._id.toString()),
+    );
 
     res.json({
+      mealType,
+      mealLabel: label,
+      mealSchedule,
+      mealDate,
       totalStudents,
-      servedStudents: servedStudents.size,
-      pendingStudents: Math.max(totalStudents - servedStudents.size, 0),
-      recentScans: recentScansLimited,
-      todaysMeals: todaysMeals.map((meal) => ({
-        mealType: meal.mealType,
-        count: meal._uniqueStudentCount ?? meal.students.length,
+      regularStudents: regularStudentsList.length,
+      internshipStudents: internshipStudentsList.length,
+      servedStudents: servedRegularStudentsList.length,
+      pendingStudents: pendingRegularStudentsList.length,
+      fastingBreakdown: buildFastingBreakdown(campusStudents),
+      regularFastingBreakdown: buildFastingBreakdown(regularStudentsList),
+      internshipFastingBreakdown: buildFastingBreakdown(internshipStudentsList),
+      servedFastingBreakdown: buildFastingBreakdown(servedRegularStudentsList),
+      pendingFastingBreakdown: buildFastingBreakdown(pendingRegularStudentsList),
+      recentScans: recentScans.map((scan) => ({
+        name: scan.student?.name || "Student",
+        time: scan.createdAt,
+        mealType,
       })),
     });
   } catch (err) {
-    console.error("Dashboard stats error:", err);
-    res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    logInternalError("campus-dashboard-stats", err);
+    sendServerError(
+      res,
+      "We could not load the dashboard right now. Please try again.",
+    );
   }
 };

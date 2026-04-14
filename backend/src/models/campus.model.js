@@ -47,6 +47,14 @@ const campusSchema = new mongoose.Schema(
       default: "campus",
       required: true,
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastActiveAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

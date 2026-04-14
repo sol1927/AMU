@@ -10,6 +10,10 @@ export const protectCampus = async (req, res, next) => {
     const campus = await Campus.findById(decoded.id).select("-password");
     if (!campus) return res.status(401).json({ message: "Unauthorized" });
 
+    campus.isOnline = true;
+    campus.lastActiveAt = new Date();
+    await campus.save();
+
     req.campus = campus;
     next();
   } catch {

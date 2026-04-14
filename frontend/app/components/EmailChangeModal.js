@@ -2,6 +2,10 @@
 
 import { React, useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import {
+  getFriendlyMessage,
+  getRequestErrorMessage,
+} from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -49,14 +53,25 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
       clearTimeout(timeoutId);
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.message || "Failed to send OTP");
+      if (!res.ok) {
+        throw new Error(
+          getFriendlyMessage(
+            data.message,
+            "We could not send the code. Please try again.",
+          ),
+        );
+      }
 
       setSuccess("OTP sent to your new email!");
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err.name === "AbortError")
-        setError("Request timed out. Please try again.");
-      else setError(err.message || "Something went wrong");
+      setError(
+        err?.message ||
+          getRequestErrorMessage(
+            err,
+            "We could not send the code. Please try again.",
+          ),
+      );
     } finally {
       setIsRequesting(false);
     }
@@ -88,7 +103,14 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
       clearTimeout(timeoutId);
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.message || "OTP verification failed");
+      if (!res.ok) {
+        throw new Error(
+          getFriendlyMessage(
+            data.message,
+            "We could not verify the code. Please try again.",
+          ),
+        );
+      }
 
       setSuccess("Email updated successfully!");
       setCurrentUser((prev) => ({ ...prev, email: newEmail }));
@@ -97,25 +119,29 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
       setTimeout(() => onClose(), 500);
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err.name === "AbortError")
-        setError("Request timed out. Please try again.");
-      else setError(err.message || "Something went wrong");
+      setError(
+        err?.message ||
+          getRequestErrorMessage(
+            err,
+            "We could not verify the code. Please try again.",
+          ),
+      );
     } finally {
       setIsVerifying(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-4 w-full max-w-md sm:w-96 max-h-[90vh] overflow-y-auto shadow-lg relative animate-fadeIn">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
+      <div className="modal-panel relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl p-4 shadow-lg animate-fadeIn sm:w-96">
         {" "}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-white/70 hover:text-white transition"
+          className="absolute right-3 top-3 text-slate-400 transition hover:text-slate-700"
         >
           ✕
         </button>
-        <h2 className="text-xl font-bold mb-4 text-center text-white">
+        <h2 className="mb-4 text-center text-xl font-bold text-slate-900">
           Change Email
         </h2>
         {error && (
@@ -133,7 +159,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
           placeholder="New email"
           value={newEmail}
           onChange={(e) => setNewEmail(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
+          className="modal-input mb-3 w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           autoFocus
         />
         <button
@@ -142,7 +168,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
           className={`w-full px-4 py-2 rounded-lg font-semibold text-white mb-3 transition ${
             newEmail && !isRequesting
               ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-105"
-              : "bg-white/10 cursor-not-allowed opacity-50"
+              : "bg-slate-200 cursor-not-allowed opacity-50"
           }`}
         >
           {isRequesting ? "Requesting..." : "Request OTP"}
@@ -156,7 +182,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
             if (/^\d{0,6}$/.test(value)) setOtp(value);
           }}
           maxLength={6}
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
+          className="modal-input mb-3 w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
         />
         <button
           onClick={handleVerifyOtp}
@@ -164,7 +190,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
           className={`w-full px-4 py-2 rounded-lg font-semibold text-white transition ${
             otp && !isVerifying
               ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-105"
-              : "bg-white/10 cursor-not-allowed opacity-50"
+              : "bg-slate-200 cursor-not-allowed opacity-50"
           }`}
         >
           {isVerifying ? "Verifying..." : "Verify OTP"}

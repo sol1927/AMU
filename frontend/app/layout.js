@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.className} bg-linear-to-br from-black via-gray-900 to-black text-white min-h-screen overflow-x-hidden antialiased`}
+        className={`${inter.className} min-h-screen overflow-x-hidden bg-transparent text-slate-900 antialiased`}
       >
         <UserProvider>
           <TempAdminProvider>

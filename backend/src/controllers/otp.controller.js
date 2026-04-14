@@ -7,6 +7,7 @@ import TempAdmin from "../models/TempAdmin.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import bcrypt from "bcryptjs";
 import { formatFullName } from "../utils/formatName.js";
+import { logInternalError } from "../utils/safeError.js";
 
 const getCookieOptions = (duration = 10 * 60 * 1000) => ({
   httpOnly: true,
@@ -105,7 +106,7 @@ export const requestOTP = async (req, res) => {
       .cookie("otpToken", otpToken, getCookieOptions())
       .json({ message: "OTP sent to your email. Please check your inbox." });
   } catch (error) {
-    console.error("OTP Request Error:", error);
+    logInternalError("request-otp", error);
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again later." });

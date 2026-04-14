@@ -18,30 +18,55 @@ export default function AdminDashboardPage() {
   const { currentUser } = useUser();
   const [campuses, setCampuses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshingLiveCampuses, setRefreshingLiveCampuses] = useState(false);
+
+  const fetchCampuses = async (manual = false) => {
+    try {
+      if (manual) {
+        setRefreshingLiveCampuses(true);
+      } else {
+        setLoading(true);
+      }
+
+      const res = await fetch(`${url}/dashboard/campuses`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load campuses");
+      }
+
+      const data = await res.json();
+      setCampuses(Array.isArray(data.campuses) ? data.campuses : []);
+    } catch {
+      setCampuses([]);
+    } finally {
+      setLoading(false);
+      setRefreshingLiveCampuses(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCampuses = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(`${url}/dashboard/campuses`, {
-          credentials: "include",
-        });
+    fetchCampuses();
+  }, []);
 
-        if (!res.ok) {
-          throw new Error("Failed to load campuses");
-        }
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchCampuses(true);
+    }, 15000);
 
-        const data = await res.json();
-        setCampuses(Array.isArray(data.campuses) ? data.campuses : []);
-      } catch (error) {
-        console.error("Fetch error:", error);
-        setCampuses([]);
-      } finally {
-        setLoading(false);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchCampuses(true);
       }
     };
 
-    fetchCampuses();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const dashboardFacts = useMemo(
@@ -62,18 +87,23 @@ export default function AdminDashboardPage() {
     [],
   );
 
+  const liveCampuses = useMemo(
+    () => campuses.filter((campus) => campus.isLive),
+    [campuses],
+  );
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_28%),linear-gradient(180deg,_#08111f_0%,_#0f172a_46%,_#162235_100%)] px-4 pb-10 pt-24 text-white md:px-8">
+    <div className="page-shell px-4 pb-10 pt-24 md:px-8">
       <div className="mx-auto max-w-6xl">
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-[30px] border border-white/10 bg-white/6 p-7 shadow-2xl backdrop-blur-xl md:p-9">
+          <div className="surface-panel rounded-[30px] p-7 md:p-9">
             <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
               Main Admin
             </p>
             <h1 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
               Welcome, {capitalizeWords(currentUser?.name) || "Admin"}
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
               This dashboard stays focused on navigation and campus oversight.
               Meal totals are now kept in the history page, so this space is
               lighter and easier to read.
@@ -88,42 +118,56 @@ export default function AdminDashboardPage() {
               </Link>
               <Link
                 href="/dashboard/meals"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
                 Open Meal History
               </Link>
             </div>
           </div>
 
-          <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(160deg,_rgba(8,47,73,0.9),_rgba(15,23,42,0.95))] p-7 shadow-2xl backdrop-blur-xl md:p-8">
-            <p className="text-xs uppercase tracking-[0.32em] text-cyan-300/80">
-              Live Campuses
-            </p>
+          <div className="surface-card rounded-[30px] p-7 md:p-8">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-[0.32em] text-cyan-300/80">
+                Live Campuses
+              </p>
+              <button
+                type="button"
+                onClick={() => fetchCampuses(true)}
+                disabled={refreshingLiveCampuses}
+                className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+                  refreshingLiveCampuses
+                    ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                    : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {refreshingLiveCampuses ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
             <div className="mt-5 space-y-3">
               {loading ? (
                 Array.from({ length: 3 }).map((_, index) => (
                   <div
                     key={index}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
                   >
-                    <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                   </div>
                 ))
-              ) : campuses.length > 0 ? (
-                campuses.slice(0, 4).map((campus) => (
+              ) : liveCampuses.length > 0 ? (
+                liveCampuses.slice(0, 4).map((campus) => (
                   <div
                     key={campus._id}
-                    className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
                   >
-                    <p className="font-semibold text-white">{campus.name}</p>
-                    <p className="mt-1 text-sm text-slate-300">
+                    <p className="font-semibold text-slate-900">{campus.name}</p>
+                    <p className="mt-1 text-sm text-slate-600">
                       {campus.location || "Location not set"}
                     </p>
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-5 text-sm text-slate-300">
-                  No campuses found yet.
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+                  No campuses are live right now.
                 </div>
               )}
             </div>
@@ -134,15 +178,15 @@ export default function AdminDashboardPage() {
           {dashboardFacts.map((item) => (
             <div
               key={item.title}
-              className="rounded-[28px] border border-white/10 bg-slate-950/50 p-6 shadow-xl backdrop-blur-xl"
+              className="surface-card rounded-[28px] p-6"
             >
-              <h2 className="text-xl font-bold text-white">{item.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">{item.text}</p>
+              <h2 className="text-xl font-bold text-slate-900">{item.title}</h2>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{item.text}</p>
             </div>
           ))}
         </section>
 
-        <section className="mt-8 rounded-[30px] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl md:p-8">
+        <section className="surface-panel mt-8 rounded-[30px] p-6 md:p-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/75">
@@ -154,7 +198,7 @@ export default function AdminDashboardPage() {
             </div>
             <Link
               href="/dashboard/campuses"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
             >
               Manage Campuses
             </Link>
@@ -165,36 +209,36 @@ export default function AdminDashboardPage() {
               Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-5"
+                  className="rounded-3xl border border-slate-200 bg-white p-5"
                 >
-                  <div className="h-5 w-36 animate-pulse rounded bg-white/10" />
-                  <div className="mt-3 h-4 w-24 animate-pulse rounded bg-white/10" />
+                  <div className="h-5 w-36 animate-pulse rounded bg-slate-200" />
+                  <div className="mt-3 h-4 w-24 animate-pulse rounded bg-slate-200" />
                 </div>
               ))
             ) : campuses.length > 0 ? (
               campuses.map((campus) => (
                 <div
                   key={campus._id}
-                  className="rounded-3xl border border-white/10 bg-[linear-gradient(160deg,_rgba(30,41,59,0.7),_rgba(15,23,42,0.9))] p-5 shadow-lg"
+                  className="surface-card rounded-3xl p-5"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/15 text-lg font-black text-cyan-200">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-100 text-lg font-black text-cyan-700">
                       {campus.name?.charAt(0) || "C"}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-lg font-bold text-slate-900">
                         {campus.name}
                       </h3>
-                      <p className="text-sm text-slate-300">
+                      <p className="text-sm text-slate-600">
                         {campus.location || "Location not set"}
                       </p>
                     </div>
                   </div>
-                  <p className="mt-5 text-sm text-slate-400">{campus.email}</p>
+                  <p className="mt-5 text-sm text-slate-500">{campus.email}</p>
                 </div>
               ))
             ) : (
-              <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300 md:col-span-2 xl:col-span-3">
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600 md:col-span-2 xl:col-span-3">
                 No campuses available right now.
               </div>
             )}

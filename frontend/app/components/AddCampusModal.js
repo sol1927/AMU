@@ -43,29 +43,29 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
     }
   };
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
       <form
         onSubmit={handleSubmit}
-        className="bg-white/10 border hover:shadow-purple-900/40 border-white/20 rounded-2xl shadow-lg p-6 flex flex-col gap-4 w-full max-w-xs sm:w-80 animate-fadeIn"
+        className="modal-panel animate-fadeIn flex w-full max-w-xs flex-col gap-4 rounded-2xl p-6 shadow-lg sm:w-80"
       >
         <h3 className="text-lg font-bold">Add Campus</h3>
 
         {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
 
         <input
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <input
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Location (optional)"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
         />
         <input
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -73,7 +73,7 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
-            className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -81,7 +81,7 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
           <button
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-700"
           >
             {showPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
           </button>
@@ -91,14 +91,14 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
+            className="app-secondary-btn rounded-lg px-4 py-2 transition hover:border-blue-200 hover:text-blue-700"
           >
             Cancel
           </button>
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
+            className="app-primary-btn rounded-lg px-4 py-2 font-semibold transition hover:scale-105"
           >
             Save
           </button>

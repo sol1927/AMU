@@ -7,6 +7,11 @@ import { IoChevronBackSharp } from "react-icons/io5";
 import AdminPasswordModal from "../../components/AdminPasswordModal";
 import AddCampusModal from "../../components/AddCampusModal";
 import EditCampusModal from "../../components/EditCampusModal";
+import {
+  getApiMessage,
+  getErrorMessage,
+  getFriendlyMessage,
+} from "../../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -88,7 +93,9 @@ export default function CampusesPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setAdminError(data.message || "Wrong password");
+        setAdminError(
+          getApiMessage(data, "The password you entered is not correct."),
+        );
         return;
       }
 
@@ -105,8 +112,10 @@ export default function CampusesPage() {
       }
 
       setPendingAction(null);
-    } catch {
-      setAdminError("Something went wrong");
+    } catch (error) {
+      setAdminError(
+        getErrorMessage(error, "We could not verify your password right now."),
+      );
     }
   };
 
@@ -118,7 +127,10 @@ export default function CampusesPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      showToast(data.message || "Delete failed", "error");
+      showToast(
+        getApiMessage(data, "We could not delete the campus right now."),
+        "error",
+      );
       return;
     }
 
@@ -128,17 +140,17 @@ export default function CampusesPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.18),_transparent_30%),linear-gradient(180deg,_#08111f_0%,_#111827_45%,_#18263a_100%)] px-4 pb-10 pt-24 text-white md:px-8">
+      <div className="page-shell px-4 pb-10 pt-24 md:px-8">
         <div className="mx-auto max-w-7xl">
           <button
             onClick={() => router.push("/dashboard")}
             title="Back to Dashboard"
-            className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white shadow-lg transition hover:scale-105 hover:bg-white/10"
+            className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:scale-105 hover:bg-slate-50"
           >
             <IoChevronBackSharp className="h-5 w-5" />
           </button>
 
-          <div className="rounded-[30px] border border-white/10 bg-white/6 p-6 shadow-2xl backdrop-blur-xl md:p-8">
+          <div className="surface-panel rounded-[30px] p-6 md:p-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
@@ -147,7 +159,7 @@ export default function CampusesPage() {
                 <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
                   Manage Campuses
                 </h1>
-                <p className="mt-3 max-w-3xl text-sm text-slate-300 md:text-base">
+                <p className="mt-3 max-w-3xl text-sm text-slate-600 md:text-base">
                   This page shows the current registered student count for each
                   campus at the moment the admin opens it. Meal served and
                   pending numbers are removed from here.
@@ -172,22 +184,22 @@ export default function CampusesPage() {
               Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
-                  className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl"
+                  className="surface-card rounded-[28px] p-6"
                 >
-                  <div className="h-5 w-32 animate-pulse rounded bg-white/10" />
-                  <div className="mt-4 h-4 w-24 animate-pulse rounded bg-white/10" />
-                  <div className="mt-8 h-10 w-20 animate-pulse rounded bg-white/10" />
+                  <div className="h-5 w-32 animate-pulse rounded bg-slate-200" />
+                  <div className="mt-4 h-4 w-24 animate-pulse rounded bg-slate-200" />
+                  <div className="mt-8 h-10 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
               ))
             ) : sortedCampuses.length > 0 ? (
               sortedCampuses.map((campus) => (
                 <div
                   key={campus._id}
-                  className="relative rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,_rgba(15,23,42,0.86),_rgba(30,41,59,0.7))] p-6 shadow-2xl backdrop-blur-xl transition hover:-translate-y-1 hover:border-cyan-400/30"
+                  className="surface-card relative rounded-[28px] p-6 transition hover:-translate-y-1 hover:border-cyan-300"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-cyan-400/15 text-lg font-black text-cyan-200">
+                      <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-cyan-100 text-lg font-black text-cyan-700">
                         {campus.logo?.url ? (
                           <img
                             src={campus.logo.url}
@@ -200,10 +212,10 @@ export default function CampusesPage() {
                       </div>
 
                       <div>
-                        <h2 className="text-xl font-bold text-white">
+                        <h2 className="text-xl font-bold text-slate-900">
                           {campus.name}
                         </h2>
-                        <p className="mt-1 text-sm text-slate-300">
+                        <p className="mt-1 text-sm text-slate-600">
                           {campus.location || "Location not set"}
                         </p>
                       </div>
@@ -211,20 +223,20 @@ export default function CampusesPage() {
 
                     <div className="relative">
                       <button
-                        className="menu-button rounded-xl border border-white/10 bg-white/5 p-2 transition hover:bg-white/10"
+                        className="menu-button rounded-xl border border-slate-200 bg-white p-2 transition hover:bg-slate-50"
                         onClick={() =>
                           setOpenMenuId(
                             openMenuId === campus._id ? null : campus._id,
                           )
                         }
                       >
-                        <BsThreeDotsVertical className="h-5 w-5 text-gray-300" />
+                        <BsThreeDotsVertical className="h-5 w-5 text-slate-500" />
                       </button>
 
                       {openMenuId === campus._id && !showAdminPasswordPrompt && (
-                        <div className="menu-button absolute right-0 top-full z-50 mt-2 w-28 rounded-2xl border border-white/10 bg-slate-900/95 p-1 shadow-2xl">
+                        <div className="menu-button absolute right-0 top-full z-50 mt-2 w-28 rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl">
                           <button
-                            className="block w-full rounded-xl px-3 py-2 text-left text-sm text-white transition hover:bg-white/10"
+                            className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                             onClick={() => {
                               setCampusToEdit(campus._id);
                               setPendingAction("edit");
@@ -250,26 +262,26 @@ export default function CampusesPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 rounded-3xl bg-white/6 p-5 ring-1 ring-white/10">
-                    <p className="text-sm text-slate-300">Current Students</p>
-                    <p className="mt-2 text-4xl font-black text-white">
+                  <div className="mt-6 rounded-3xl bg-slate-50 p-5 ring-1 ring-slate-200">
+                    <p className="text-sm text-slate-600">Current Students</p>
+                    <p className="mt-2 text-4xl font-black text-slate-900">
                       {campus.students ?? 0}
                     </p>
                   </div>
 
                   <div className="mt-5">
-                    <p className="text-xs uppercase tracking-[0.28em] text-slate-500">
+                    <p className="text-xs uppercase tracking-[0.28em] text-slate-400">
                       Campus Email
                     </p>
-                    <p className="mt-2 break-all text-sm text-slate-300">
+                    <p className="mt-2 break-all text-sm text-slate-600">
                       {campus.email}
                     </p>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="rounded-[28px] border border-dashed border-white/15 bg-white/5 p-8 text-center text-slate-300 md:col-span-2 xl:col-span-3">
-                <div className="text-xl font-semibold text-white">
+              <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-600 md:col-span-2 xl:col-span-3">
+                <div className="text-xl font-semibold text-slate-900">
                   No campuses yet
                 </div>
                 <div className="mt-2 text-sm text-slate-400">
@@ -315,10 +327,16 @@ export default function CampusesPage() {
                       : c,
                   ),
                 );
-                return result.message;
+                return getApiMessage(
+                  result,
+                  "The campus was updated successfully.",
+                );
               }
 
-              return result.message || "Failed to update campus";
+              return getApiMessage(
+                result,
+                "We could not update the campus right now.",
+              );
             }}
           />
         )}
@@ -328,11 +346,11 @@ export default function CampusesPage() {
             onCancel={() => setShowForm(false)}
             onSubmit={async ({ name, location, email, password }) => {
               try {
-                if (!name.trim()) throw new Error("Name is required");
-                if (!email.trim()) throw new Error("Email is required");
-                if (!password.trim()) throw new Error("Password is required");
+                if (!name.trim()) throw new Error("Please enter a campus name.");
+                if (!email.trim()) throw new Error("Please enter a campus email.");
+                if (!password.trim()) throw new Error("Please enter a password.");
                 if (password.length < 6) {
-                  throw new Error("Password must be at least 6 characters");
+                  throw new Error("Password must be at least 6 characters long.");
                 }
 
                 const res = await fetch(`${url}/dashboard/campuses`, {
@@ -344,7 +362,9 @@ export default function CampusesPage() {
 
                 const data = await res.json();
                 if (!res.ok) {
-                  throw new Error(data.message || "Failed to create campus");
+                  throw new Error(
+                    getApiMessage(data, "We could not create the campus right now."),
+                  );
                 }
 
                 setCampuses((prev) => [
@@ -353,7 +373,10 @@ export default function CampusesPage() {
                 ]);
                 setShowForm(false);
               } catch (err) {
-                return err.message;
+                return getFriendlyMessage(
+                  err?.message,
+                  "We could not create the campus right now.",
+                );
               }
             }}
           />

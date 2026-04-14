@@ -1,6 +1,7 @@
 "use client";
 import { React, useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { getApiMessage, getErrorMessage } from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -49,11 +50,18 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
 
       if (!res.ok) {
         setMessageType("error");
-        setMessage(data.message || "Request failed");
+        setMessage(
+          getApiMessage(data, "We could not send the reset link right now."),
+        );
         triggerShake();
       } else {
         setMessageType("success");
-        setMessage(data.message || "Reset link sent successfully");
+        setMessage(
+          getApiMessage(
+            data,
+            "If that email is registered, a reset link has been sent.",
+          ),
+        );
         setEmail("");
         setTimeout(() => {
           onClose();
@@ -63,11 +71,9 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
-      if (error.name === "AbortError") {
-        setMessage("Request timed out. Please try again.");
-      } else {
-        setMessage("Something went wrong. Please try again.");
-      }
+      setMessage(
+        getErrorMessage(error, "We could not send the reset link right now."),
+      );
       triggerShake();
     } finally {
       setLoading(false);
@@ -78,19 +84,19 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end items-start"
+      className="modal-backdrop fixed inset-0 z-50 flex items-start justify-end"
       onClick={onClose}
     >
       <div
-        className={`relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-20 sm:mt-24 mr-4 sm:mr-6 transition-all duration-300 ${
+        className={`modal-panel relative mt-20 mr-4 w-full max-w-sm rounded-2xl p-6 transition-all duration-300 sm:mt-24 sm:mr-6 sm:max-w-md sm:p-8 ${
           shake ? "animate-shake" : "animate-fadeIn"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold mb-3 text-center text-white">
+        <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
           Forgot Password
         </h2>
-        <p className="text-center text-gray-300 mb-6 text-sm">
+        <p className="mb-6 text-center text-sm text-slate-500">
           Enter your email to receive a password reset link
         </p>
         <p
@@ -110,7 +116,7 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
             value={email}
             required
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
 
           <button
@@ -126,7 +132,7 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
           </button>
         </form>
 
-        <p className="text-center text-gray-300 text-sm mt-6">
+        <p className="mt-6 text-center text-sm text-slate-500">
           Remembered your password?{" "}
           <button
             type="button"

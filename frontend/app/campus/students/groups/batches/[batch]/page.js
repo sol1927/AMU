@@ -1,20 +1,28 @@
 "use client";
 
-import { React, useEffect, useState, useMemo } from "react";
+import { React, useEffect, useMemo, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
-import EditStudentModal from "@/app/components/EditStudentModal";
 import { useCampus } from "@/app/context/CampusContext";
 import { usePathname, useRouter } from "next/navigation";
 import { IoChevronBackSharp } from "react-icons/io5";
+import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const getFastingLabel = (fastingType) => {
+  if (fastingType === "fasting") return "Fasting";
+  if (fastingType === "sunday_fasting") return "Sunday Fasting";
+  if (fastingType === "muslim_fasting") return "Muslim Fasting";
+  return "Not Fasting";
+};
 
 export default function BatchStudentsPage() {
   const pathname = usePathname();
   const batch = pathname.split("/").pop();
   const router = useRouter();
+  const { currentCampus, refreshCampus } = useCampus();
 
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,27 +34,21 @@ export default function BatchStudentsPage() {
   const [selectAll, setSelectAll] = useState(false);
   const [bulkFastingType, setBulkFastingType] = useState("");
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
-
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [studentToEditData, setStudentToEditData] = useState(null);
-  const [studentToDelete, setStudentToDelete] = useState(null);
-  const [passwordError, setPasswordError] = useState("");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
-
   const [bulkInternshipAction, setBulkInternshipAction] = useState("");
   const [savingBulkInternship, setSavingBulkInternship] = useState(false);
-
-  const { currentCampus, refreshCampus } = useCampus();
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [passwordError, setPasswordError] = useState("");
+  const [toast, setToast] = useState(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   };
 
-  const fetchStudentsByBatch = async (batch, query = "", fasting = "") => {
+  const fetchStudentsByBatch = async (currentBatch, query = "", fasting = "") => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -54,14 +56,21 @@ export default function BatchStudentsPage() {
       if (fasting) params.append("fastingType", fasting);
 
       const res = await fetch(
-        `${url}/campus/students/batch/${batch}?${params.toString()}`,
+        `${url}/campus/students/batch/${currentBatch}?${params.toString()}`,
         { credentials: "include" },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not load students right now."),
+        );
+      }
+
       setStudents(data.students || []);
+      setError("");
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err, "We could not load students right now."));
     } finally {
       setLoading(false);
       setInitialLoadDone(true);
@@ -78,16 +87,192 @@ export default function BatchStudentsPage() {
       setSelectedStudents([]);
       setSelectAll(false);
     }, 300);
+
     return () => clearTimeout(timer);
-  }, [searchQuery, fastingFilter]);
+  }, [batch, searchQuery, fastingFilter]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (!e.target.closest(".menu-button")) setOpenMenuId(null);
+      if (!e.target.closest(".menu-button")) {
+        setOpenMenuId(null);
+      }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const sortedStudents = useMemo(
+    () =>
+      [...students].sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    [students],
+  );
+
+  useEffect(() => {
+    setSelectAll(
+      sortedStudents.length > 0 && selectedStudents.length === sortedStudents.length,
+    );
+  }, [selectedStudents, sortedStudents]);
+
+  useEffect(() => {
+    if (selectedStudents.length === 0) {
+      setBulkFastingType("");
+      setBulkInternshipAction("");
+    }
+  }, [selectedStudents]);
+
+  const handleSelectStudent = (id) => {
+    setSelectedStudents((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
+    );
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const res = await fetch(`${url}/campus/students/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not delete the student right now."),
+        );
+      }
+
+      setStudents((prev) => prev.filter((student) => student._id !== id));
+      await refreshCampus();
+      showToast("Student deleted successfully", "success");
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not delete the student right now."),
+        "error",
+      );
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(
+        selectedStudents.map((id) =>
+          fetch(`${url}/campus/students/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          }),
+        ),
+      );
+
+      setStudents((prev) =>
+        prev.filter((student) => !selectedStudents.includes(student._id)),
+      );
+      setSelectedStudents([]);
+      setSelectAll(false);
+      await refreshCampus();
+      showToast("Selected students deleted successfully", "success");
+    } catch {
+      showToast("Bulk delete failed", "error");
+    }
+  };
+
+  const handleBulkFastingUpdate = async () => {
+    if (!bulkFastingType) return;
+
+    try {
+      setSavingBulkFasting(true);
+
+      const res = await fetch(`${url}/campus/students/bulk-fasting`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedStudents,
+          fastingType: bulkFastingType,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not update the students right now."),
+        );
+      }
+
+      setStudents((prev) =>
+        prev.map((student) =>
+          selectedStudents.includes(student._id)
+            ? { ...student, fastingType: bulkFastingType }
+            : student,
+        ),
+      );
+
+      setSelectedStudents([]);
+      setSelectAll(false);
+      setBulkFastingType("");
+      showToast("Fasting status updated successfully", "success");
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not update the students right now."),
+        "error",
+      );
+    } finally {
+      setSavingBulkFasting(false);
+    }
+  };
+
+  const handleBulkInternshipUpdate = async () => {
+    if (!bulkInternshipAction) return;
+
+    try {
+      setSavingBulkInternship(true);
+      const nextValue = bulkInternshipAction === "start";
+
+      const res = await fetch(`${url}/campus/students/bulk-internship`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedStudents,
+          isInternship: nextValue,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(
+            data,
+            "We could not update internship status right now.",
+          ),
+        );
+      }
+
+      setStudents((prev) =>
+        prev.map((student) =>
+          selectedStudents.includes(student._id)
+            ? { ...student, isInternship: nextValue }
+            : student,
+        ),
+      );
+
+      setSelectedStudents([]);
+      setSelectAll(false);
+      setBulkInternshipAction("");
+      showToast(
+        nextValue
+          ? "Students marked as internship successfully"
+          : "Students returned from internship successfully",
+        "success",
+      );
+    } catch (err) {
+      showToast(
+        getErrorMessage(
+          err,
+          "We could not update internship status right now.",
+        ),
+        "error",
+      );
+    } finally {
+      setSavingBulkInternship(false);
+    }
+  };
 
   const handlePasswordSubmit = async (enteredPassword) => {
     try {
@@ -98,8 +283,11 @@ export default function BatchStudentsPage() {
         body: JSON.stringify({ password: enteredPassword }),
       });
       const data = await res.json();
+
       if (!res.ok) {
-        setPasswordError(data.message || "Wrong password");
+        setPasswordError(
+          getApiMessage(data, "The password you entered is not correct."),
+        );
         setTimeout(() => setPasswordError(""), 2000);
         return;
       }
@@ -115,152 +303,52 @@ export default function BatchStudentsPage() {
       }
 
       setPendingAction(null);
-    } catch {
-      setPasswordError("Something went wrong");
+    } catch (error) {
+      setPasswordError(
+        getErrorMessage(error, "We could not verify your password right now."),
+      );
       setTimeout(() => setPasswordError(""), 2000);
     }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      const res = await fetch(`${url}/campus/students/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Delete failed");
-
-      setStudents((prev) => prev.filter((s) => s._id !== id));
-      await refreshCampus();
-      showToast("Student deleted successfully", "success");
-    } catch (err) {
-      showToast(err.message || "Delete failed", "error");
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    try {
-      await Promise.all(
-        selectedStudents.map((id) =>
-          fetch(`${url}/campus/students/${id}`, {
-            method: "DELETE",
-            credentials: "include",
-          }),
-        ),
-      );
-      setStudents((prev) =>
-        prev.filter((s) => !selectedStudents.includes(s._id)),
-      );
-      setSelectedStudents([]);
-      setSelectAll(false);
-      setBulkFastingType("");
-      await refreshCampus();
-      showToast("Selected students deleted successfully", "success");
-    } catch {
-      showToast("Bulk delete failed", "error");
-    }
-  };
-
-  const handleBulkFastingUpdate = async () => {
-    if (!bulkFastingType) return;
-    setSavingBulkFasting(true);
-    try {
-      const res = await fetch(`${url}/campus/students/bulk-fasting`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ids: selectedStudents,
-          fastingType: bulkFastingType,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
-      setStudents((prev) =>
-        prev.map((s) =>
-          selectedStudents.includes(s._id)
-            ? { ...s, fastingType: bulkFastingType }
-            : s,
-        ),
-      );
-
-      setSelectedStudents([]);
-      setSelectAll(false);
-      setBulkFastingType("");
-      showToast("Fasting status updated successfully", "success");
-    } catch (err) {
-      showToast(err.message || "Update failed", "error");
-    } finally {
-      setSavingBulkFasting(false);
-    }
-  };
-
-  const handleSelectStudent = (id) => {
-    setSelectedStudents((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
-    );
-  };
-
-  const sortedStudents = useMemo(() => {
-    return [...students].sort((a, b) =>
-      (a.name || "").localeCompare(b.name || ""),
-    );
-  }, [students]);
-
-  useEffect(() => {
-    setSelectAll(
-      selectedStudents.length > 0 &&
-        selectedStudents.length === sortedStudents.length,
-    );
-    if (selectedStudents.length === 0) setBulkFastingType("");
-  }, [selectedStudents, sortedStudents]);
-
   if (!currentCampus) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="page-shell flex h-screen w-full items-center justify-center">
         <div className="relative flex items-center justify-center">
-          <div className="h-14 w-14 rounded-full border-4 border-white/5"></div>
-          <div className="absolute h-14 w-14 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+          <div className="h-14 w-14 rounded-full border-4 border-slate-200"></div>
+          <div className="absolute h-14 w-14 animate-spin rounded-full border-4 border-transparent border-t-blue-600"></div>
         </div>
       </div>
     );
   }
 
-  const capitalizeName = (name) => {
-    if (!name) return "";
-    return name
-      .split(" ")
-      .map((word) => word[0]?.toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
   return (
     <>
       <CampusNavbar />
-      <div className="pt-24 h-screen text-white max-w-7xl mx-auto px-6 flex flex-col">
+      <div className="page-shell mx-auto flex h-screen max-w-7xl flex-col px-6 pt-24 text-slate-900">
         <button
           onClick={() => router.push("/campus/students/groups")}
           title="Back to Batches"
-          className="fixed top-24 left-6 z-20 bg-gray-900/80 hover:bg-gray-800 hover:cursor-pointer text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
+          className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:bg-slate-50"
         >
-          <IoChevronBackSharp className="w-5 h-5" />
+          <IoChevronBackSharp className="h-5 w-5" />
         </button>
-        <div className="flex justify-between items-center mb-4">
+
+        <div className="mb-4 flex justify-between">
           <h1 className="text-3xl font-bold">Batch {batch}</h1>
         </div>
 
-        <div className="flex gap-2 mb-4">
+        <div className="mb-4 flex gap-2">
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search students..."
-            className="flex-1 p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="field-surface flex-1 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <select
             value={fastingFilter}
             onChange={(e) => setFastingFilter(e.target.value)}
-            className="p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+            className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option className="bg-gray-900 text-white" value="">
               All Fasting Types
@@ -279,17 +367,18 @@ export default function BatchStudentsPage() {
             </option>
           </select>
         </div>
-        <div className="flex justify-between items-center mb-3 px-4">
-          <p className="text-gray-300 font-medium">
-            {sortedStudents.length}{" "}
-            {sortedStudents.length === 1 ? "student" : "students"}
+
+        <div className="mb-3 flex items-center justify-between px-4">
+          <p className="font-medium text-slate-500">
+            {sortedStudents.length} {sortedStudents.length === 1 ? "student" : "students"}
           </p>
 
           {selectedStudents.length > 0 && (
             <div className="flex items-center gap-2">
               <select
+                value={bulkInternshipAction}
                 onChange={(e) => setBulkInternshipAction(e.target.value)}
-                className="py-0.5 px-2 bg-white/5 border border-white/10 rounded-xl text-white text-center backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option className="bg-gray-900 text-white" value="">
                   Internship Status
@@ -304,72 +393,17 @@ export default function BatchStudentsPage() {
               {bulkInternshipAction && (
                 <button
                   disabled={savingBulkInternship}
-                  onClick={async () => {
-                    setSavingBulkInternship(true);
-                    try {
-                      const res = await fetch(
-                        `${url}/campus/students/bulk-internship`,
-                        {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          credentials: "include",
-                          body: JSON.stringify({
-                            ids: selectedStudents,
-                            isInternship: bulkInternshipAction === "start",
-                          }),
-                        },
-                      );
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.message);
-
-                      setStudents((prev) =>
-                        prev.map((s) =>
-                          selectedStudents.includes(s._id)
-                            ? {
-                                ...s,
-                                isInternship: bulkInternshipAction === "start",
-                              }
-                            : s,
-                        ),
-                      );
-                      setBulkInternshipAction("");
-                      setSelectedStudents([]);
-                      setSelectAll(false);
-                      showToast(
-                        `Students ${bulkInternshipAction === "start" ? "marked as internship" : "marked as not internship"} successfully`,
-                        "success",
-                      );
-                    } catch (err) {
-                      showToast(
-                        err.message || "Bulk internship status update failed",
-                        "error",
-                      );
-                    } finally {
-                      setSavingBulkInternship(false);
-                    }
-                  }}
-                  className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 disabled:opacity-50"
+                  onClick={handleBulkInternshipUpdate}
+                  className="rounded bg-yellow-500 px-3 py-1 text-sm text-white hover:bg-yellow-600 disabled:opacity-50"
                 >
                   {savingBulkInternship ? "Saving..." : "Apply"}
                 </button>
               )}
-            </div>
-          )}
-          {selectedStudents.length > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setPendingAction("bulk_delete");
-                  setShowPasswordModal(true);
-                }}
-                className="bg-red-600 text-white px-3 py-0.5 rounded text-sm hover:bg-red-700"
-              >
-                Delete ({selectedStudents.length})
-              </button>
+
               <select
                 value={bulkFastingType}
                 onChange={(e) => setBulkFastingType(e.target.value)}
-                className="py-0.5 px-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option className="bg-gray-900 text-white" value="">
                   Select Fasting
@@ -380,16 +414,10 @@ export default function BatchStudentsPage() {
                 <option className="bg-gray-900 text-white" value="not_fasting">
                   Not Fasting
                 </option>
-                <option
-                  className="bg-gray-900 text-white"
-                  value="sunday_fasting"
-                >
+                <option className="bg-gray-900 text-white" value="sunday_fasting">
                   Sunday Fasting
                 </option>
-                <option
-                  className="bg-gray-900 text-white"
-                  value="muslim_fasting"
-                >
+                <option className="bg-gray-900 text-white" value="muslim_fasting">
                   Muslim Fasting
                 </option>
               </select>
@@ -397,24 +425,33 @@ export default function BatchStudentsPage() {
                 <button
                   disabled={savingBulkFasting}
                   onClick={handleBulkFastingUpdate}
-                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                  className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700 disabled:opacity-50"
                 >
                   {savingBulkFasting ? "Saving..." : "Save"}
                 </button>
               )}
+
+              <button
+                onClick={() => {
+                  setPendingAction("bulk_delete");
+                  setShowPasswordModal(true);
+                }}
+                className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700"
+              >
+                Delete ({selectedStudents.length})
+              </button>
             </div>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
-          {loading && <p className="text-center mt-12">Loading students...</p>}
+
+        <div className="mb-4 flex-1 space-y-2 overflow-y-auto pr-1">
+          {loading && <p className="mt-12 text-center">Loading students...</p>}
           {!loading && sortedStudents.length === 0 && initialLoadDone && (
-            <p className="text-center text-gray-500 mt-12">
-              No students in this batch
-            </p>
+            <p className="mt-12 text-center text-slate-500">No students in this batch</p>
           )}
 
           {!loading && sortedStudents.length > 0 && (
-            <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
+            <div className="mb-2 flex items-center gap-4 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500">
               <span className="w-10">#</span>
               <span className="w-9"></span>
               <span className="w-[180px]">Name</span>
@@ -423,17 +460,19 @@ export default function BatchStudentsPage() {
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
               <span className="w-[120px]">Internship</span>
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={selectAll}
                   onChange={() => {
                     if (selectAll) {
                       setSelectedStudents([]);
-                    } else {
-                      setSelectedStudents(sortedStudents.map((s) => s._id));
+                      setSelectAll(false);
+                      return;
                     }
-                    setSelectAll(!selectAll);
+
+                    setSelectedStudents(sortedStudents.map((student) => student._id));
+                    setSelectAll(true);
                   }}
                 />
               </div>
@@ -443,62 +482,35 @@ export default function BatchStudentsPage() {
           {sortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-950 transition-all duration-300 relative"
+              className="relative flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 transition-all duration-300 hover:bg-slate-50 hover:shadow-lg sm:flex-row sm:items-center sm:gap-4"
             >
               <span className="w-10 font-medium text-white">{index + 1}</span>
-              <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
                 {student.profileUrl ? (
                   <img
                     src={student.profileUrl}
                     alt={student.name}
-                    className="h-full w-full object-cover rounded-full"
+                    className="h-full w-full rounded-full object-cover"
                   />
                 ) : (
-                  <span className="text-gray-600 font-semibold">
+                  <span className="font-semibold text-gray-600">
                     {student.name?.[0] || "S"}
                   </span>
                 )}
               </div>
-              <div className="relative group w-[180px]">
-                <span className="truncate font-medium block cursor-pointer">
-                  {capitalizeName(student.name)}
-                </span>
-
-                <div
-                  className="absolute left-0 -top-8 md:top-auto bottom-2 mb-2 hidden group-hover:block 
-  bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50
-  min-w-max"
-                >
-                  {capitalizeName(student.name)}
-                </div>
-              </div>
+              <span className="w-[180px] truncate font-medium">{student.name}</span>
               <span className="w-[120px] truncate">{student.studentId}</span>
-              <div className="relative group w-[120px]">
-                <span className="truncate font-medium block cursor-pointer">
-                  {student.department}
-                </span>
-
-                <div className="absolute left-0 bottom-2 mb-2 hidden group-hover:block bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">
-                  {student.department}
-                </div>
-              </div>{" "}
-              <span className="w-[80px] truncate">{batch}</span>{" "}
-              <span className="w-[140px] truncate flex items-center gap-1">
-                {student.fastingType === "not_fasting" && "Not Fasting"}
-                {student.fastingType === "fasting" && "Fasting"}
-                {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
-                {student.fastingType === "muslim_fasting" && "Muslim Fasting"}
-              </span>
+              <span className="w-[120px] truncate">{student.department}</span>
+              <span className="w-[80px] truncate">{batch}</span>
+              <span className="w-[140px] truncate">{getFastingLabel(student.fastingType)}</span>
               <span className="w-[120px]">
                 {student.isInternship ? (
-                  <span className="text-yellow-400 font-semibold">
-                    Internship
-                  </span>
+                  <span className="font-semibold text-yellow-400">Internship</span>
                 ) : (
-                  <span className="text-gray-500">—</span>
+                  <span className="text-slate-400">-</span>
                 )}
               </span>
-              <div className="ml-auto flex items-center gap-2 relative">
+              <div className="relative ml-auto flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={selectedStudents.includes(student._id)}
@@ -507,27 +519,15 @@ export default function BatchStudentsPage() {
                 <div className="relative">
                   <button
                     onClick={() =>
-                      setOpenMenuId(
-                        openMenuId === student._id ? null : student._id,
-                      )
+                      setOpenMenuId(openMenuId === student._id ? null : student._id)
                     }
                   >
-                    <BsThreeDotsVertical className="h-5 w-5 text-gray-300" />
+                    <BsThreeDotsVertical className="h-5 w-5 text-slate-500" />
                   </button>
                   {openMenuId === student._id && (
-                    <div className="menu-button absolute right-0 top-full mt-1 w-28 bg-slate-800 border border-white/10 rounded shadow z-50">
+                    <div className="menu-button absolute right-0 top-full z-50 mt-1 w-28 rounded border border-slate-200 bg-white shadow">
                       <button
-                        className="block w-full px-3 py-2 text-sm hover:bg-gray-400 hover:text-black hover:rounded"
-                        onClick={() => {
-                          setStudentToEditData(student);
-                          setShowEditModal(true);
-                          setOpenMenuId(null);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="block w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-400 hover:rounded"
+                        className="block w-full px-3 py-2 text-sm text-red-600 transition hover:rounded hover:bg-red-50"
                         onClick={() => {
                           setStudentToDelete(student._id);
                           setPendingAction("delete");
@@ -545,39 +545,8 @@ export default function BatchStudentsPage() {
           ))}
         </div>
 
-        {error && <p className="text-red-600 mt-4">{error}</p>}
+        {error && <p className="mt-4 text-red-600">{error}</p>}
       </div>
-
-      {showEditModal && studentToEditData && (
-        <EditStudentModal
-          student={studentToEditData}
-          onCancel={() => setShowEditModal(false)}
-          onSubmit={async (updated) => {
-            try {
-              const res = await fetch(`${url}/campus/students/${updated.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                  ...updated,
-                  name: capitalizeName(updated.name),
-                }),
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.message || "Update failed");
-
-              setStudents((prev) =>
-                prev.map((s) =>
-                  s._id === data.student._id ? data.student : s,
-                ),
-              );
-              setShowEditModal(false);
-            } catch (err) {
-              return err.message;
-            }
-          }}
-        />
-      )}
 
       {showPasswordModal && (
         <ConfirmCampusPasswordModal
@@ -592,7 +561,9 @@ export default function BatchStudentsPage() {
 
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}
+          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
         >
           {toast.message}
         </div>

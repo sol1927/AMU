@@ -2,6 +2,7 @@
 
 import { React, useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { getApiMessage, getErrorMessage } from "../utils/userMessage";
 
 export default function UploadStudentsModal({ onCancel, onUpload }) {
   const [file, setFile] = useState(null);
@@ -41,16 +42,22 @@ export default function UploadStudentsModal({ onCancel, onUpload }) {
       if (!data) throw new Error("Upload failed");
 
       if (data.skippedRows?.length > 0 && !data.students) {
-        setError(data.message || "Upload failed due to errors");
+        setError(
+          getApiMessage(data, "We could not upload the file. Please review it and try again."),
+        );
         return;
       }
 
       if (data.students?.length > 0) {
-        setSuccess(data.message || "Students uploaded successfully!");
+        setSuccess(
+          getApiMessage(data, "Students were uploaded successfully."),
+        );
         setFile(null);
       }
     } catch (err) {
-      setError(err.message || "Upload failed. Please check the file.");
+      setError(
+        getErrorMessage(err, "We could not upload the file. Please review it and try again."),
+      );
     } finally {
       setLoading(false);
     }

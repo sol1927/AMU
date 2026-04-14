@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { formatFullName } from "../utils/formatName.js";
+import { sendServerError } from "../utils/safeError.js";
 
 export const sendDeviceOtp = async (user, deviceId, deviceName) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -78,17 +79,25 @@ export const verifyAdminDeviceOtp = async (req, res) => {
 
     const user = await User.findOne({ email, role: "admin" });
     if (!user || !user.deviceOtp || !user.pendingDevice)
-      return res.status(400).json({ message: "Invalid request" });
+      return res.status(400).json({
+        message: "We could not verify this device. Please request a new code.",
+      });
 
     if (user.pendingDevice.deviceId !== deviceId)
-      return res.status(400).json({ message: "Device mismatch" });
+      return res.status(400).json({
+        message: "We could not verify this device. Please sign in again.",
+      });
 
     if (user.deviceOtpExpires < new Date())
-      return res.status(400).json({ message: "OTP expired" });
+      return res.status(400).json({
+        message: "Your verification code has expired. Please request a new one.",
+      });
 
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     if (hashedOtp !== user.deviceOtp)
-      return res.status(400).json({ message: "Invalid OTP" });
+      return res.status(400).json({
+        message: "The verification code is not correct. Please try again.",
+      });
 
     user.trustedDevices.push({
       ...user.pendingDevice,
@@ -105,7 +114,10 @@ export const verifyAdminDeviceOtp = async (req, res) => {
 
     res.json({ message: "Device verified. Please login again." });
   } catch {
-    res.status(500).json({ message: "Server error" });
+    sendServerError(
+      res,
+      "We could not verify the device right now. Please try again.",
+    );
   }
 };
 
@@ -121,10 +133,15 @@ export const resendDeviceOtp = async (req, res) => {
 
     const user = await User.findOne({ email, role: "admin" });
     if (!user || !user.pendingDevice)
-      return res.status(400).json({ message: "No pending device found" });
+      return res.status(400).json({
+        message:
+          "We could not find a pending device verification. Please sign in again.",
+      });
 
     if (user.pendingDevice.deviceId !== deviceId)
-      return res.status(400).json({ message: "Device mismatch" });
+      return res.status(400).json({
+        message: "We could not verify this device. Please sign in again.",
+      });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.deviceOtp = crypto.createHash("sha256").update(otp).digest("hex");
@@ -187,6 +204,9 @@ export const resendDeviceOtp = async (req, res) => {
 
     res.json({ message: "OTP resent successfully" });
   } catch {
-    res.status(500).json({ message: "Failed to resend OTP" });
+    sendServerError(
+      res,
+      "We could not resend the verification code. Please try again.",
+    );
   }
 };

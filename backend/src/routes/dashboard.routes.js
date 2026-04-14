@@ -6,6 +6,10 @@ import {
   getMealFilters,
 } from "../controllers/dashboard.controller.js";
 import {
+  getMealSchedule,
+  updateMealSchedule,
+} from "../controllers/mealSchedule.controller.js";
+import {
   createCampus,
   getCampuses,
   // getCampus,
@@ -19,6 +23,8 @@ const router = express.Router();
 router.get("/", verifyToken, getAdminDashboard);
 router.get("/meals", verifyToken, getMeals);
 router.get("/meal-filters", verifyToken, getMealFilters);
+router.get("/meal-schedule", verifyToken, getMealSchedule);
+router.put("/meal-schedule", verifyToken, updateMealSchedule);
 router.post("/campuses", verifyToken, createCampus);
 router.get("/campuses", verifyToken, getCampuses);
 router.patch("/campuses/:id", verifyToken, updateCampus);

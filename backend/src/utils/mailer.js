@@ -1,7 +1,6 @@
 import nodemailer from "nodemailer";
 
-export const sendEmail = async ({ toEmail, toName, subject, htmlContent }) => {
-  // 1. Create the transporter using your Gmail credentials
+export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -10,22 +9,16 @@ export const sendEmail = async ({ toEmail, toName, subject, htmlContent }) => {
     },
   });
 
-  // 2. Define the email options
   const mailOptions = {
     from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
     to: toEmail,
-    subject: subject,
+    subject,
     html: htmlContent,
   };
 
   try {
-    // 3. Send the mail
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent successfully to ${toEmail}: ${info.messageId}`);
-    return info;
-  } catch (error) {
-    // This will now catch "Missing credentials" or "Invalid Login"
-    console.error("❌ SMTP Error:", error.message);
-    throw error;
+    return await transporter.sendMail(mailOptions);
+  } catch {
+    throw new Error("Email delivery failed");
   }
 };

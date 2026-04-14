@@ -8,8 +8,12 @@ import ForgotPasswordModal from "./components/ForgotPasswordModal";
 import VerifyOTPModal from "./components/VerifyOTPModal";
 import SetPasswordModal from "./components/SetPasswordModal";
 import VerifyDeviceOtpModal from "./components/VerifyDeviceOtpModal";
+import { useUser } from "./context/UserContext";
+import { useCampus } from "./context/CampusContext";
 
 export default function LandingPage() {
+  const { currentUser } = useUser();
+  const { currentCampus } = useCampus();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -19,6 +23,11 @@ export default function LandingPage() {
 
   const featureRef = useRef(null);
   const [showFeatures, setShowFeatures] = useState(false);
+  const activeSession = currentCampus || currentUser;
+  const isLoggedIn = Boolean(activeSession);
+  const primaryButtonLabel = isLoggedIn ? "Logged In" : "Sign In";
+  const heroButtonLabel = isLoggedIn ? "Logged In" : "Get Started";
+  const footerButtonLabel = isLoggedIn ? "Logged In" : "Sign In Now";
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -37,8 +46,20 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const handleLoginSuccess = () => {
-    console.log("Login successful, waiting for redirect...");
+  const handleLoginSuccess = () => {};
+
+  const handlePrimaryAction = () => {
+    if (currentCampus) {
+      window.location.href = "/campus";
+      return;
+    }
+
+    if (currentUser) {
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    setShowLoginModal(true);
   };
 
   const handleLearnMore = () => {
@@ -48,83 +69,78 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen text-white overflow-x-hidden">
-      <header className="fixed top-0 left-0 w-full z-50 bg-black/60 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-8xl mx-auto px-6 py-6 flex justify-between items-center">
+    <div className="page-shell min-h-screen overflow-x-hidden text-slate-900">
+      <header className="fixed top-0 left-0 z-50 w-full border-b border-slate-200/80 bg-white/88 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[90rem] items-center justify-between px-6 py-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 relative rounded-full overflow-hidden border border-blue-500 shadow-md">
-              <Image
-                src="/logo.png"
-                alt="Logo"
-                fill
-                className="object-cover"
-              />
+            <div className="relative h-10 w-10 overflow-hidden rounded-full border border-blue-200 shadow-md">
+              <Image src="/logo.png" alt="Logo" fill className="object-cover" />
             </div>
 
-            <h1 className="text-xl font-bold">
-              Gibi<span className="text-blue-500">Gebeta</span>
+            <h1 className="text-xl font-bold text-slate-900">
+              Gibi<span className="text-blue-600">Gebeta</span>
             </h1>
           </div>
 
           <button
-            onClick={() => setShowLoginModal(true)}
-            className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition font-medium"
+            onClick={handlePrimaryAction}
+            className="app-primary-btn rounded-xl px-5 py-2.5 font-medium transition hover:-translate-y-0.5"
           >
-            Sign In
+            {primaryButtonLabel}
           </button>
         </div>
       </header>
 
-      <section className="pt-28 pb-24 px-6 md:px-20 grid md:grid-cols-2 items-center gap-12">
+      <section className="grid items-center gap-12 px-6 pb-24 pt-28 md:grid-cols-2 md:px-20">
         <div>
-          <h2 className="text-4xl md:text-5xl font-extrabold leading-tight mb-6">
+          <h2 className="mb-6 text-4xl font-extrabold leading-tight md:text-5xl">
             Smart University <br />
-            <span className="text-blue-500">Cafeteria Management</span>
+            <span className="text-blue-600">Cafeteria Management</span>
           </h2>
 
-          <p className="text-gray-300 mb-8 text-lg">
+          <p className="mb-8 text-lg text-slate-600">
             A simple and reliable ID-based meal tracking system designed to
             prevent duplicate meals and manage breakfast, lunch, and dinner
             sessions efficiently.
           </p>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <button
-              onClick={() => setShowLoginModal(true)}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold"
+              onClick={handlePrimaryAction}
+              className="app-primary-btn rounded-xl px-8 py-3 font-semibold transition hover:-translate-y-0.5"
             >
-              Get Started
+              {heroButtonLabel}
             </button>
 
             <button
               onClick={handleLearnMore}
-              className="px-8 py-3 border border-white/20 rounded-lg hover:bg-white/10 transition"
+              className="app-secondary-btn rounded-xl px-8 py-3 font-medium transition hover:border-blue-200 hover:text-blue-700"
             >
               Learn More
             </button>
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 shadow-2xl backdrop-blur-md">
-          <h4 className="text-xl font-semibold mb-4 text-blue-400">
+        <div className="app-panel rounded-[28px] p-8">
+          <h4 className="mb-4 text-xl font-semibold text-blue-600">
             How It Works
           </h4>
 
-          <div className="space-y-4 text-gray-300 text-sm">
+          <div className="space-y-4 text-sm text-slate-600">
             <div>
-              <p className="font-semibold text-white">1. Student ID Scan</p>
+              <p className="font-semibold text-slate-900">1. Student ID Scan</p>
               <p>Student scans their university ID card.</p>
             </div>
 
             <div>
-              <p className="font-semibold text-white">2. Meal Validation</p>
+              <p className="font-semibold text-slate-900">2. Meal Validation</p>
               <p>
                 System checks if the student already ate in the current session.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold text-white">
+              <p className="font-semibold text-slate-900">
                 3. Access Granted / Denied
               </p>
               <p>Duplicate scans are automatically prevented.</p>
@@ -133,131 +149,132 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="px-6 md:px-20 py-16 border-t border-white/10 border-b border-white/10">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10 text-center">
+      <section className="border-y border-slate-200/80 px-6 py-16 md:px-20">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 text-center md:grid-cols-4">
           <div>
-            <h3 className="text-3xl md:text-4xl font-bold text-blue-500">
+            <h3 className="text-3xl font-bold text-blue-600 md:text-4xl">
               ID-Based
             </h3>
-            <p className="text-gray-400 text-sm mt-2">Student Authentication</p>
-          </div>
-
-          <div>
-            <h3 className="text-3xl md:text-4xl font-bold text-green-400">
-              3 Sessions
-            </h3>
-            <p className="text-gray-400 text-sm mt-2">
-              Breakfast • Lunch • Dinner
+            <p className="mt-2 text-sm text-slate-500">
+              Student Authentication
             </p>
           </div>
+
           <div>
-            <h3 className="text-3xl md:text-4xl font-bold text-yellow-400">
-              Real-Time
+            <h3 className="text-3xl font-bold text-emerald-600 md:text-4xl">
+              3 Sessions
             </h3>
-            <p className="text-gray-400 text-sm mt-2">Duplicate Prevention</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Breakfast, Lunch, Dinner
+            </p>
           </div>
 
           <div>
-            <h3 className="text-3xl md:text-4xl font-bold text-purple-400">
+            <h3 className="text-3xl font-bold text-amber-600 md:text-4xl">
+              Real-Time
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">Duplicate Prevention</p>
+          </div>
+
+          <div>
+            <h3 className="text-3xl font-bold text-indigo-600 md:text-4xl">
               Admin
             </h3>
-            <p className="text-gray-400 text-sm mt-2">Monitoring Dashboard</p>
+            <p className="mt-2 text-sm text-slate-500">Monitoring Dashboard</p>
           </div>
         </div>
       </section>
 
       <section
         ref={featureRef}
-        className={`px-6 md:px-20 py-22 transition-all duration-1000 ${
+        className={`px-6 py-22 transition-all duration-1000 md:px-20 ${
           showFeatures
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-10"
+            ? "translate-y-0 opacity-100"
+            : "translate-y-10 opacity-0"
         }`}
       >
-        <h3 className="text-3xl font-bold text-center mb-14">
+        <h3 className="mb-14 text-center text-3xl font-bold">
           System Features
         </h3>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h4 className="text-blue-400 font-semibold mb-3">
+        <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-3">
+          <div className="app-card rounded-2xl p-6">
+            <h4 className="mb-3 font-semibold text-blue-600">
               ID-Based Authentication
             </h4>
-            <p className="text-gray-300 text-sm">
+            <p className="text-sm text-slate-600">
               Students use their university ID cards for quick and secure meal
               access.
             </p>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h4 className="text-green-400 font-semibold mb-3">
+          <div className="app-card rounded-2xl p-6">
+            <h4 className="mb-3 font-semibold text-emerald-600">
               Duplicate Meal Prevention
             </h4>
-            <p className="text-gray-300 text-sm">
+            <p className="text-sm text-slate-600">
               Automatically blocks students from eating more than once per meal
               session.
             </p>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h4 className="text-yellow-400 font-semibold mb-3">
+          <div className="app-card rounded-2xl p-6">
+            <h4 className="mb-3 font-semibold text-amber-600">
               Session Management
             </h4>
-            <p className="text-gray-300 text-sm">
+            <p className="text-sm text-slate-600">
               Separate tracking for breakfast, lunch, and dinner.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="px-6 md:px-20 py-20 bg-white/5">
-        <h3 className="text-3xl font-bold text-center mb-14">How It Works</h3>
+      <section className="px-6 py-20 md:px-20">
+        <h3 className="mb-14 text-center text-3xl font-bold">How It Works</h3>
 
-        <div className="grid md:grid-cols-3 gap-10 text-center max-w-6xl mx-auto">
-          <div>
-            <h4 className="text-xl font-semibold mb-3 text-blue-400">
+        <div className="mx-auto grid max-w-6xl gap-10 text-center md:grid-cols-3">
+          <div className="app-card rounded-2xl p-8">
+            <h4 className="mb-3 text-xl font-semibold text-blue-600">
               1. Register
             </h4>
-            <p className="text-gray-300 text-sm">
-              Add students with ID and fingerprint.
-            </p>
+            <p className="text-sm text-slate-600">Add students with ID.</p>
           </div>
 
-          <div>
-            <h4 className="text-xl font-semibold mb-3 text-green-400">
+          <div className="app-card rounded-2xl p-8">
+            <h4 className="mb-3 text-xl font-semibold text-emerald-600">
               2. Scan
             </h4>
-            <p className="text-gray-300 text-sm">
-              Students scan fingerprint during meal session.
+            <p className="text-sm text-slate-600">
+              Students scan their id during meal session.
             </p>
           </div>
 
-          <div>
-            <h4 className="text-xl font-semibold mb-3 text-yellow-400">
+          <div className="app-card rounded-2xl p-8">
+            <h4 className="mb-3 text-xl font-semibold text-amber-600">
               3. Monitor
             </h4>
-            <p className="text-gray-300 text-sm">
+            <p className="text-sm text-slate-600">
               Admin monitors meals in real-time dashboard.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="px-6 md:px-20 py-20 text-center">
-        <h3 className="text-3xl font-bold mb-6">
+      <section className="px-6 py-20 text-center md:px-20">
+        <h3 className="mb-6 text-3xl font-bold">
           Ready to Upgrade Your Cafeteria?
         </h3>
 
         <button
-          onClick={() => setShowLoginModal(true)}
-          className="px-10 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg"
+          onClick={handlePrimaryAction}
+          className="app-primary-btn rounded-xl px-10 py-4 text-lg font-semibold transition hover:-translate-y-0.5"
         >
-          Sign In Now
+          {footerButtonLabel}
         </button>
       </section>
 
-      <footer className="border-t border-white/10 py-6 text-center text-gray-400 text-sm">
-        © {new Date().getFullYear()} GibiGebeta. All rights reserved.
+      <footer className="border-t border-slate-200 py-6 text-center text-sm text-slate-500">
+        © {new Date().getFullYear()} GibiGebeta. All rights reserved.{" "}
       </footer>
 
       <LoginModal

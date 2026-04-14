@@ -7,6 +7,10 @@ import { useTempAdmin } from "../context/TempAdminContext";
 import { useUser } from "../context/UserContext";
 import { useCampus } from "../context/CampusContext";
 import PropTypes from "prop-types";
+import {
+  getFriendlyMessage,
+  getRequestErrorMessage,
+} from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -43,6 +47,7 @@ export default function LoginModal({
       setEmail("");
       setPassword("");
       setMessage("");
+      setIsExiting(false);
     }
   }, [show]);
 
@@ -76,7 +81,12 @@ export default function LoginModal({
 
       if (!res.ok) {
         setMessageType("error");
-        setMessage(data.message || "Login failed");
+        setMessage(
+          getFriendlyMessage(
+            data.message,
+            "We could not sign you in. Please try again.",
+          ),
+        );
         triggerShake();
         return;
       }
@@ -104,22 +114,14 @@ export default function LoginModal({
         if (data.role === "admin") router.push("/dashboard");
         else if (data.role === "campus") router.push("/campus");
       }, 400);
-
-      onLoginSuccess?.(data.user);
-
-      if (data.role === "admin") {
-        router.push("/dashboard");
-      } else if (data.role === "campus") {
-        router.push("/campus");
-      }
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
 
       if (error.name === "AbortError") {
-        setMessage("Request timed out. Please try again.");
+        setMessage(getRequestErrorMessage(error));
       } else {
-        setMessage("Login failed. Please try again.");
+        setMessage("We could not sign you in. Please try again.");
       }
 
       triggerShake();
@@ -132,17 +134,17 @@ export default function LoginModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end items-start"
+      className="modal-backdrop fixed inset-0 z-50 flex items-start justify-end"
       onClick={onClose}
     >
       <div
-        className={`relative w-full max-w-sm sm:max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 mt-16 sm:mt-20 mr-4 sm:mr-6 transition-all duration-300 ${isExiting ? "animate-fadeOut" : shake ? "animate-shake" : "animate-fadeIn"}`}
+        className={`modal-panel relative mt-16 mr-4 w-full max-w-sm rounded-2xl p-6 transition-all duration-300 sm:mt-20 sm:mr-6 sm:max-w-md sm:p-8 ${isExiting ? "animate-fadeOut" : shake ? "animate-shake" : "animate-fadeIn"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold mb-3 text-center text-white">
+        <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
           Welcome Back
         </h2>
-        <p className="text-center text-gray-300 mb-6 text-sm">
+        <p className="mb-6 text-center text-sm text-slate-500">
           Sign in to access your account
         </p>
 
@@ -165,7 +167,7 @@ export default function LoginModal({
             value={email}
             required
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
 
           <div className="relative">
@@ -175,12 +177,12 @@ export default function LoginModal({
               value={password}
               required
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              className="modal-input w-full rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
             >
               {showPassword ? (
                 <AiOutlineEyeInvisible size={20} />
@@ -197,7 +199,7 @@ export default function LoginModal({
                 onClose();
                 onOpenForgotPassword();
               }}
-              className="text-xs text-gray-300 hover:text-white"
+              className="text-xs text-slate-500 hover:text-slate-900"
             >
               Forgot password?
             </button>
@@ -216,7 +218,7 @@ export default function LoginModal({
           </button>
         </form>
 
-        <p className="text-center text-gray-300 text-sm mt-6">
+        <p className="mt-6 text-center text-sm text-slate-500">
           Don&apos;t have an account?{" "}
           <button
             type="button"
@@ -281,16 +283,16 @@ export default function LoginModal({
         input:-webkit-autofill:focus,
         input:-webkit-autofill:active {
           /* 1. This forces the text to stay white */
-          -webkit-text-fill-color: white !important;
+          -webkit-text-fill-color: #0f172a !important;
 
           /* 2. This stops the browser's white/yellow background from showing up */
           transition: background-color 5000s ease-in-out 0s;
 
           /* 3. This applies a dark shadow INSIDE the input to mimic your black/50 background */
-          box-shadow: inset 0 0 0px 1000px rgba(0, 0, 0, 0.5) !important;
+          box-shadow: inset 0 0 0px 1000px rgba(255, 255, 255, 1) !important;
 
           /* 4. Ensures the border stays consistent with your design */
-          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          border: 1px solid rgba(203, 213, 225, 0.95) !important;
           border-radius: 0.5rem;
         }
       `}</style>

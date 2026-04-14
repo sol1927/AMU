@@ -3,6 +3,7 @@
 import { React, useState, useEffect } from "react";
 import { useTempAdmin } from "../context/TempAdminContext";
 import PropTypes from "prop-types";
+import { getApiMessage, getErrorMessage } from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -86,7 +87,9 @@ export default function VerifyDeviceOtp({
 
       if (!res.ok) {
         setMessageType("error");
-        setMessage(data.message || "OTP verification failed");
+        setMessage(
+          getApiMessage(data, "We could not verify this device. Please try again."),
+        );
         triggerShake();
         return;
       }
@@ -99,13 +102,10 @@ export default function VerifyDeviceOtp({
         onSuccess?.();
       }, 800);
     } catch (error) {
-      if (error.name === "AbortError") {
-        setMessageType("error");
-        setMessage("Request timed out. Please try again.");
-      } else {
-        setMessageType("error");
-        setMessage("Failed to verify OTP. Please try again.");
-      }
+      setMessageType("error");
+      setMessage(
+        getErrorMessage(error, "We could not verify this device. Please try again."),
+      );
       triggerShake();
     } finally {
       setLoading(false);
@@ -129,7 +129,9 @@ export default function VerifyDeviceOtp({
 
       if (!res.ok) {
         setMessageType("error");
-        setMessage(data.message || "Failed to resend OTP");
+        setMessage(
+          getApiMessage(data, "We could not resend the verification code."),
+        );
         triggerShake();
         return;
       }
@@ -138,13 +140,10 @@ export default function VerifyDeviceOtp({
       setMessage("OTP resent successfully. Check your email.");
       setOtp("");
     } catch (error) {
-      if (error.name === "AbortError") {
-        setMessageType("error");
-        setMessage("Request timed out. Please try again.");
-      } else {
-        setMessageType("error");
-        setMessage("Failed to verify OTP. Please try again.");
-      }
+      setMessageType("error");
+      setMessage(
+        getErrorMessage(error, "We could not resend the verification code."),
+      );
       triggerShake();
     } finally {
       setResending(false);
@@ -155,21 +154,21 @@ export default function VerifyDeviceOtp({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end items-start"
+      className="modal-backdrop fixed inset-0 z-50 flex items-start justify-end"
       onClick={onClose}
     >
       <div
-        className={`relative w-full max-w-md bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-8 mt-20 mr-6 transition-all duration-300 ${
+        className={`modal-panel relative mt-20 mr-6 w-full max-w-md rounded-2xl p-8 transition-all duration-300 ${
           shake ? "animate-shake" : "animate-fadeIn"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold mb-3 text-center text-white">
+        <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
           Verify New Device
         </h2>
 
         {email && (
-          <p className="text-center text-gray-300 mb-6 text-sm">
+          <p className="mb-6 text-center text-sm text-slate-500">
             Enter the 6-digit OTP sent to{" "}
             <span className="font-semibold">{maskEmail(email)}</span>
           </p>
@@ -195,7 +194,7 @@ export default function VerifyDeviceOtp({
               setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
             }
             placeholder="6-digit OTP"
-            className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="modal-input w-full rounded-lg px-4 py-2 text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
 
           <button

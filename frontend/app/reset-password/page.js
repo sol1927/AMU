@@ -3,6 +3,7 @@
 import { React, useEffect, useState, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useSearchParams, useRouter } from "next/navigation";
+import { getApiMessage, getErrorMessage } from "../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -88,22 +89,28 @@ function ResetPasswordContent() {
 
       if (!res.ok) {
         setMessageType("error");
-        setMessage(data.message || "Reset failed");
+        setMessage(
+          getApiMessage(data, "We could not reset your password. Please try again."),
+        );
         triggerShake();
         setLoading(false);
         return;
       }
 
       setMessageType("success");
-      setMessage(data.message || "Password reset successful");
+      setMessage(
+        getApiMessage(data, "Your password has been reset successfully."),
+      );
       setLoading(false);
 
       setTimeout(() => {
         router.push("/");
       }, 1500);
-    } catch {
+    } catch (error) {
       setMessageType("error");
-      setMessage("Connection error. Please try again.");
+      setMessage(
+        getErrorMessage(error, "We could not reset your password. Please try again."),
+      );
       triggerShake();
       setLoading(false);
     }
@@ -111,7 +118,7 @@ function ResetPasswordContent() {
 
   if (!token || !email) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <div className="page-shell flex min-h-screen items-center justify-center p-4">
         <p className="text-red-600 text-center text-lg font-semibold">
           Invalid or expired reset link
         </p>
@@ -120,14 +127,14 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-">
+    <div className="page-shell flex min-h-screen items-center justify-center p-4">
       <form
         onSubmit={handleSubmit}
-        className={`bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl shadow-xl p-8 w-full max-w-md transition-all duration-300 ${
+        className={`modal-panel w-full max-w-md rounded-2xl p-8 transition-all duration-300 ${
           shake ? "animate-shake" : "animate-fadeIn"
         }`}
       >
-        <h2 className="text-2xl font-bold mb-6 text-center text-white">
+        <h2 className="mb-6 text-center text-2xl font-bold text-slate-900">
           Reset Your Password
         </h2>
 
@@ -150,12 +157,12 @@ function ResetPasswordContent() {
             onChange={(e) => setNewPassword(e.target.value)}
             onFocus={() => setShowRules(true)}
             required
-            className="w-full p-3 border border-white/20 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/5 text-white placeholder-gray-400"
+            className="modal-input w-full rounded border p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-3 text-gray-400 hover:text-white"
+            className="absolute right-3 top-3 text-slate-400 hover:text-slate-700"
           >
             {showPassword ? (
               <AiOutlineEyeInvisible size={20} />
@@ -168,7 +175,7 @@ function ResetPasswordContent() {
         {showRules && !allValid && (
           <div
             ref={rulesRef}
-            className="mb-4 p-3 bg-white/10 border border-white/20 rounded text-sm text-white"
+            className="mb-4 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"
           >
             <p className="font-semibold mb-2">Password must include:</p>
             <ul className="space-y-1">
@@ -204,12 +211,12 @@ function ResetPasswordContent() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             onFocus={() => setShowRules(false)}
             required
-            className="w-full p-3 border border-white/20 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/5 text-white placeholder-gray-400"
+            className="modal-input w-full rounded border p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             type="button"
             onClick={() => setShowConfirm(!showConfirm)}
-            className="absolute right-3 top-3 text-gray-400 hover:text-white"
+            className="absolute right-3 top-3 text-slate-400 hover:text-slate-700"
           >
             {showConfirm ? (
               <AiOutlineEyeInvisible size={20} />
@@ -237,10 +244,10 @@ export default function ResetPasswordPage(props) {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen w-full items-center justify-center">
+        <div className="page-shell flex h-screen w-full items-center justify-center">
           <div className="relative flex items-center justify-center">
-            <div className="h-12 w-12 rounded-full border-4 border-white/10"></div>
-            <div className="absolute h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+            <div className="h-12 w-12 rounded-full border-4 border-slate-200"></div>
+            <div className="absolute h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-blue-600"></div>
           </div>
         </div>
       }

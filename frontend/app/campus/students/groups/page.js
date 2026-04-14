@@ -6,6 +6,7 @@ import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
 import { IoChevronBackSharp } from "react-icons/io5";
+import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -34,11 +35,16 @@ export default function CampusStudentGroupsPage() {
         credentials: "include",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to fetch batches");
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not load batches right now."),
+        );
+      }
       setBatches(data.batches || []);
     } catch (err) {
-      setError(err.message);
-      showToast(err.message);
+      const message = getErrorMessage(err, "We could not load batches right now.");
+      setError(message);
+      showToast(message);
     } finally {
       setLoading(false);
     }
@@ -58,7 +64,9 @@ export default function CampusStudentGroupsPage() {
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) {
-        setPasswordError(verifyData.message || "Wrong password");
+        setPasswordError(
+          getApiMessage(verifyData, "The password you entered is not correct."),
+        );
         return;
       }
 
@@ -67,7 +75,11 @@ export default function CampusStudentGroupsPage() {
         credentials: "include",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to delete batch");
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not delete the batch right now."),
+        );
+      }
 
       setBatches((prev) => prev.filter((b) => b !== batchToDelete));
       setBatchToDelete(null);
@@ -76,8 +88,12 @@ export default function CampusStudentGroupsPage() {
       await refreshCampus();
       showToast("Batch deleted successfully", "success");
     } catch (err) {
-      setPasswordError(err.message || "Failed to delete batch");
-      showToast(err.message || "Failed to delete batch");
+      const message = getErrorMessage(
+        err,
+        "We could not delete the batch right now.",
+      );
+      setPasswordError(message);
+      showToast(message);
     }
   };
 
@@ -90,28 +106,28 @@ export default function CampusStudentGroupsPage() {
   return (
     <>
       <CampusNavbar />
-      <div className="min-h-screen text-white pt-20 md:pt-28 px-4 sm:px-6 md:px-20 pb-12">
+      <div className="page-shell min-h-screen px-4 pb-12 pt-20 sm:px-6 md:px-20 md:pt-28">
         {" "}
         <button
           onClick={() => router.push("/campus/students")}
           title="Back to Students"
-          className="fixed top-24 left-6 z-20 bg-gray-900/80 hover:bg-gray-800 hover:cursor-pointer text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
+          className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:cursor-pointer hover:bg-slate-50"
         >
           <IoChevronBackSharp className="w-5 h-5" />
         </button>
         <section className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
             Student Groups at{" "}
-            <span className="text-yellow-400">{currentCampus.name}</span>
+            <span className="text-blue-600">{currentCampus.name}</span>
           </h1>
-          <p className="text-gray-300 text-lg md:text-xl">
+          <p className="text-lg text-slate-600 md:text-xl">
             Manage batches and student groups easily 👥
           </p>
         </section>
         <div className="max-w-4xl mx-auto mb-8 flex justify-end">
           <button
             onClick={fetchBatches}
-            className="bg-gray-600 text-white px-6 py-3 rounded-xl hover:bg-gray-700 shadow-lg transition"
+            className="app-primary-btn rounded-xl px-6 py-3 shadow-lg transition hover:-translate-y-0.5"
           >
             Refresh Batches
           </button>
@@ -122,7 +138,7 @@ export default function CampusStudentGroupsPage() {
           )}
 
           {!loading && batches.length === 0 && (
-            <p className="text-gray-400 col-span-full text-center">
+            <p className="col-span-full text-center text-slate-500">
               No batches found
             </p>
           )}
@@ -130,7 +146,7 @@ export default function CampusStudentGroupsPage() {
             batches.map((batch) => (
               <div
                 key={batch}
-                className="bg-gradient-to-tr from-indigo-600/40 to-indigo-500/20 border border-white/10 rounded-2xl p-6 shadow-lg hover:scale-105 transition-transform flex flex-col justify-between"
+                className="surface-card flex flex-col justify-between rounded-2xl p-6 transition-transform hover:-translate-y-1"
               >
                 <h3 className="text-xl font-bold mb-4">{batch}</h3>
                 <div className="flex gap-2 mt-auto">
@@ -138,7 +154,7 @@ export default function CampusStudentGroupsPage() {
                     onClick={() =>
                       router.push(`/campus/students/groups/batches/${batch}`)
                     }
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+                    className="flex-1 rounded bg-emerald-600 px-4 py-2 text-white transition hover:bg-emerald-700"
                   >
                     View Students
                   </button>
@@ -170,7 +186,7 @@ export default function CampusStudentGroupsPage() {
       )}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 px-4 py-2 rounded-xl text-white shadow-lg transition ${
+          className={`app-toast fixed bottom-6 right-6 rounded-xl px-4 py-2 transition ${
             toast.type === "error" ? "bg-red-600" : "bg-green-600"
           }`}
         >

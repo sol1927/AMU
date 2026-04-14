@@ -74,7 +74,14 @@ export const login = async (req, res) => {
     const cookieName = role === "admin" ? "accessToken" : "campusToken";
     res.cookie(cookieName, token, getCookieOptions());
 
-    const { password: pwd, ...userData } = user._doc || user.toObject();
+    if (role === "campus") {
+      user.isOnline = true;
+      user.lastActiveAt = new Date();
+      await user.save();
+    }
+
+    const userData = user._doc || user.toObject();
+    delete userData.password;
 
     res.json({
       message: `Successfully logged in as ${role}`,

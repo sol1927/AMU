@@ -5,6 +5,11 @@ import { formatFullName } from "../utils/formatName.js";
 import streamifier from "streamifier";
 import Papa from "papaparse";
 import XLSX from "xlsx";
+import {
+  ensureStudentDefaults,
+  normalizeStudent,
+} from "../utils/studentDefaults.js";
+import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 const parseBatch = (input) => {
   const batch = Number(input);
@@ -21,6 +26,8 @@ export const getCampusStudents = async (req, res) => {
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
+
+    await ensureStudentDefaults(Student, { campus: campus._id });
 
     const query = {
       campus: campus._id,
@@ -52,7 +59,7 @@ export const getCampusStudents = async (req, res) => {
     const totalStudents = await Student.countDocuments({ campus: campus._id });
 
     res.json({
-      students,
+      students: students.map((student) => normalizeStudent(student)),
       totalStudents,
     });
   } catch {
@@ -123,7 +130,8 @@ export const addStudent = async (req, res) => {
 
     res.status(201).json({ message: "Student added", student });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    logInternalError("add-student", error);
+    sendServerError(res, "We could not add the student. Please try again.");
   }
 };
 
@@ -294,8 +302,11 @@ export const bulkUploadStudents = async (req, res) => {
       skippedRows: alreadyInDb.length > 0 ? alreadyInDb : undefined,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to upload students" });
+    logInternalError("bulk-upload-students", err);
+    sendServerError(
+      res,
+      "We could not upload the student file. Please try again.",
+    );
   }
 };
 
@@ -413,6 +424,8 @@ export const getStudentsByBatch = async (req, res) => {
       return res.status(400).json({ message: "Batch must be a number" });
     }
 
+    await ensureStudentDefaults(Student, { campus: campus._id, batch: batchNum });
+
     const query = {
       campus: campus._id,
       batch: batchNum,
@@ -439,7 +452,7 @@ export const getStudentsByBatch = async (req, res) => {
         "name studentId batch department profileUrl fastingType isInternship",
       );
 
-    res.json({ students });
+    res.json({ students: students.map((student) => normalizeStudent(student)) });
   } catch {
     res.status(500).json({ message: "Failed to fetch students" });
   }

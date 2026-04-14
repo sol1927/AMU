@@ -7,6 +7,7 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import adminProfileRoutes from "./routes/adminProfile.routes.js";
 import campusRoutes from "./routes/campus.route.js";
 import stationScanRoutes from "./routes/stationScan.routes.js";
+import { handleNotFound, handleUnhandledError } from "./utils/safeError.js";
 
 const app = express();
 
@@ -32,6 +33,9 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/profile", adminProfileRoutes);
 app.use("/api/campus", campusRoutes);
 app.use("/api/meal", stationScanRoutes);
+
+app.use(handleNotFound);
+app.use(handleUnhandledError);
 
 setInterval(clearExpiredResetTokens, 3600000);
 clearExpiredResetTokens();

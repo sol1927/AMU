@@ -7,14 +7,14 @@ import { useCampus } from "../../context/CampusContext";
 import { IoChevronBackSharp } from "react-icons/io5";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import CampusNavbar from "../../components/CampusNavbar";
+import { getApiMessage, getErrorMessage } from "../../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CampusProfilePage() {
   const router = useRouter();
-  const { currentCampus, setCurrentCampus } = useCampus();
+  const { currentCampus, setCurrentCampus, loading: campusLoading } = useCampus();
 
-  const [loading, setLoading] = useState(true);
   const [savingChanges, setSavingChanges] = useState(false);
 
   const [name, setName] = useState("");
@@ -35,9 +35,14 @@ export default function CampusProfilePage() {
       setName(currentCampus.name || "");
       setLocation(currentCampus.location || "");
       setEmail(currentCampus.email || "");
-      setLoading(false);
     }
   }, [currentCampus]);
+
+  useEffect(() => {
+    if (!campusLoading && !currentCampus) {
+      router.replace("/");
+    }
+  }, [campusLoading, currentCampus, router]);
 
   const handleSaveChanges = async (e) => {
     e.preventDefault();
@@ -74,7 +79,7 @@ export default function CampusProfilePage() {
       }
 
       const resProfile = await fetch(
-        `${url}/dashboard/campuses/selfUpdate/${currentCampus._id}`,
+        `${url}/campus/profile`,
         {
           method: "PATCH",
           credentials: "include",
@@ -86,11 +91,18 @@ export default function CampusProfilePage() {
       const dataProfile = await resProfile.json();
 
       if (!resProfile.ok) {
-        throw new Error(dataProfile.message || "Update failed");
+        throw new Error(
+          getApiMessage(dataProfile, "We could not save your campus changes."),
+        );
       }
 
       setCurrentCampus(dataProfile.campus);
-      setMessage("Profile updated successfully!");
+      setName(dataProfile.campus?.name || "");
+      setLocation(dataProfile.campus?.location || "");
+      setEmail(dataProfile.campus?.email || "");
+      setMessage(
+        getApiMessage(dataProfile, "Profile updated successfully!"),
+      );
 
       setCurrentPassword("");
       setNewPassword("");
@@ -98,32 +110,34 @@ export default function CampusProfilePage() {
 
       setTimeout(() => setMessage(""), 2000);
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      setError(
+        getErrorMessage(err, "We could not save your campus changes."),
+      );
       setTimeout(() => setError(""), 2000);
     } finally {
       setSavingChanges(false);
     }
   };
 
-  if (loading) {
+  if (campusLoading || !currentCampus) {
     return (
-      <div className="min-h-screen bg-black text-gray-500 p-10">Loading...</div>
+      <div className="page-shell p-10 pt-28 text-slate-500">Loading...</div>
     );
   }
 
   return (
-    <div className="h-screen overflow-hidden text-white flex flex-col">
+    <div className="page-shell flex h-screen flex-col overflow-hidden">
       <CampusNavbar />
 
       <main className="flex-1 flex items-center justify-center p-4 pt-20">
         <button
           onClick={() => router.push("/campus")}
-          className="fixed top-24 left-6 z-20 bg-white/5 hover:bg-white/10 text-white p-2 rounded-full transition-all"
+          className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-2 text-slate-700 transition-all hover:bg-slate-50"
         >
           <IoChevronBackSharp size={20} />
         </button>
 
-        <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md shadow-2xl scale-95 sm:scale-100">
+        <div className="surface-panel w-full max-w-md scale-95 rounded-2xl p-5 sm:scale-100">
           <div className="flex flex-col items-center mb-4">
             <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-500 shadow-lg mb-2">
               {currentCampus?.logo?.url ? (
@@ -140,44 +154,49 @@ export default function CampusProfilePage() {
                 </div>
               )}
             </div>
-            <h2 className="text-lg font-bold">Campus Profile</h2>
+            <div className="mt-2 max-w-full px-4 text-center">
+              <h2 className="break-words text-lg font-bold text-slate-900">
+                {name || currentCampus?.name || "Campus"}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">Campus profile</p>
+            </div>
           </div>
 
           <form onSubmit={handleSaveChanges} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 sm:col-span-1">
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider ml-1">
+                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
                   Name
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="field-surface w-full rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider ml-1">
+                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
                   Location
                 </label>
                 <input
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="field-surface w-full rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[10px] text-gray-400 uppercase tracking-wider ml-1">
+              <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
                 Email
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm"
+                className="field-surface w-full rounded-lg px-3 py-1.5 text-sm"
               />
             </div>
 
@@ -191,12 +210,12 @@ export default function CampusProfilePage() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-white/5 border border-yellow-500/20 rounded-lg px-3 py-1.5 text-sm pr-10 outline-none focus:border-yellow-500/50"
+                  className="w-full rounded-lg border border-yellow-200 bg-white px-3 py-1.5 pr-10 text-sm text-slate-900 outline-none focus:border-yellow-500/50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPass(!showCurrentPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
                 >
                   {showCurrentPass ? (
                     <AiOutlineEyeInvisible size={16} />
@@ -209,7 +228,7 @@ export default function CampusProfilePage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider ml-1">
+                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
                   New Password
                 </label>
                 <div className="relative">
@@ -218,12 +237,12 @@ export default function CampusProfilePage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm pr-8"
+                    className="field-surface w-full rounded-lg px-3 py-1.5 pr-8 text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
                   >
                     {showNewPass ? (
                       <AiOutlineEyeInvisible size={14} />
@@ -234,7 +253,7 @@ export default function CampusProfilePage() {
                 </div>
               </div>
               <div>
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider ml-1">
+                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
                   Confirm Password
                 </label>
                 <div className="relative">
@@ -243,12 +262,12 @@ export default function CampusProfilePage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm pr-8"
+                    className="field-surface w-full rounded-lg px-3 py-1.5 pr-8 text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPass(!showConfirmPass)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
                   >
                     {showConfirmPass ? (
                       <AiOutlineEyeInvisible size={14} />

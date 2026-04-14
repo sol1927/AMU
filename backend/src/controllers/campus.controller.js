@@ -4,9 +4,11 @@ import bcrypt from "bcryptjs";
 import Student from "../models/student.model.js";
 import cloudinary from "../config/cloudinary.js";
 import { formatFullName } from "../utils/formatName.js";
+import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
+const LIVE_CAMPUS_WINDOW_MS = 5 * 60 * 1000;
 
 export const createCampus = async (req, res) => {
   try {
@@ -62,7 +64,8 @@ export const createCampus = async (req, res) => {
       logo: admin?.logo || {},
     });
 
-    const { password: _password, ...campusData } = campus.toObject();
+    const campusData = campus.toObject();
+    delete campusData.password;
 
     res.status(201).json({
       message: "Campus created successfully",
@@ -102,19 +105,26 @@ export const getCampuses = async (req, res) => {
           campus: campus._id,
         });
 
+        const isLive =
+          Boolean(campus.isOnline) &&
+          Boolean(campus.lastActiveAt) &&
+          Date.now() - new Date(campus.lastActiveAt).getTime() <=
+            LIVE_CAMPUS_WINDOW_MS;
+
         return {
           ...campus,
           name: campus.name ? formatFullName(campus.name) : "",
           location: campus.location ? formatFullName(campus.location) : "N/A",
           students: studentsCount,
+          isLive,
         };
       }),
     );
 
     res.json({ campuses: campusesWithStats });
   } catch (err) {
-    console.error("Fetch Campuses Error:", err);
-    res.status(500).json({ message: "Failed to fetch campuses" });
+    logInternalError("fetch-campuses", err);
+    sendServerError(res, "We could not load campuses right now. Please try again.");
   }
 };
 
@@ -210,7 +220,8 @@ export const updateCampus = async (req, res) => {
 
     await campus.save();
 
-    const { password: _password, ...campusData } = campus.toObject();
+    const campusData = campus.toObject();
+    delete campusData.password;
 
     res.json({
       message: "Campus updated successfully",
@@ -326,7 +337,8 @@ export const selfUpdateCampus = async (req, res) => {
 
     await campus.save();
 
-    const { password: _password, ...campusData } = campus.toObject();
+    const campusData = campus.toObject();
+    delete campusData.password;
 
     res.json({
       message: "Campus updated successfully",
@@ -451,13 +463,152 @@ export const verifyCampusPassword = async (req, res) => {
 
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    logInternalError("verify-campus-password", err);
+    return sendServerError(
+      res,
+      "We could not verify the password right now. Please try again.",
+    );
+  }
+};
+
+export const updateCampusProfile = async (req, res) => {
+  try {
+    const { name, email, password, currentPassword, location } = req.body;
+
+    const campus = await Campus.findById(req.campus._id).select("+password");
+
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
+
+    if (email) {
+      const normalizedEmail = email.toLowerCase().trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({ message: "Invalid email format." });
+      }
+
+      const existingCampus = await Campus.findOne({
+        _id: { $ne: campus._id },
+        email: normalizedEmail,
+      });
+      if (existingCampus) {
+        return res.status(400).json({
+          message: "This campus email is already in use.",
+        });
+      }
+
+      const adminConflict = await User.findOne({ email: normalizedEmail });
+      if (adminConflict) {
+        return res.status(400).json({
+          message: "This email is already being used by an admin.",
+        });
+      }
+
+      campus.email = normalizedEmail;
+    }
+
+    if (name) {
+      const normalizedName = formatFullName(name.trim());
+
+      const existingCampusName = await Campus.findOne({
+        _id: { $ne: campus._id },
+        name: { $regex: `^${normalizedName}$`, $options: "i" },
+      });
+
+      if (existingCampusName) {
+        return res.status(400).json({
+          message: "A campus with this name already exists.",
+        });
+      }
+
+      const adminConflict = await User.findOne({ name: normalizedName });
+      if (adminConflict) {
+        return res.status(400).json({
+          message: "This name is already being used by an admin.",
+        });
+      }
+
+      campus.name = normalizedName;
+    }
+
+    if (location !== undefined) {
+      campus.location = location ? formatFullName(location.trim()) : "";
+    }
+
+    if (password) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          message: "Current password is required to set a new password.",
+        });
+      }
+
+      const match = await bcrypt.compare(currentPassword, campus.password);
+      if (!match) {
+        return res.status(400).json({
+          message: "Current password is incorrect.",
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({
+          message: "New password must be at least 6 characters.",
+        });
+      }
+
+      const sameAsCurrent = await bcrypt.compare(password, campus.password);
+      if (sameAsCurrent) {
+        return res.status(400).json({
+          message: "New password cannot be the same as your current password.",
+        });
+      }
+
+      campus.password = await bcrypt.hash(
+        password,
+        Number(process.env.SALT_ROUNDS) || 10,
+      );
+    }
+
+    await campus.save();
+
+    const campusData = campus.toObject();
+    delete campusData.password;
+
+    res.json({
+      message: "Campus profile updated successfully.",
+      campus: campusData,
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      if (err.keyPattern?.email) {
+        return res.status(400).json({
+          message: "This campus email is already in use.",
+        });
+      }
+      if (err.keyPattern?.name) {
+        return res.status(400).json({
+          message: "A campus with this name already exists.",
+        });
+      }
+    }
+
+    logInternalError("update-campus-profile", err);
+    sendServerError(
+      res,
+      "We could not save your campus changes right now. Please try again.",
+    );
   }
 };
 
 export const logoutCampus = (req, res) => {
-  res
-    .cookie("campusToken", "", { httpOnly: true, expires: new Date(0) })
-    .json({ message: "Logged out" });
+  Campus.findByIdAndUpdate(req.campus?._id, {
+    $set: { isOnline: false, lastActiveAt: null },
+  })
+    .catch(() => null)
+    .finally(() => {
+      res
+        .cookie("campusToken", "", { httpOnly: true, expires: new Date(0) })
+        .json({ message: "Logged out" });
+    });
 };

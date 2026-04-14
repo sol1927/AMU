@@ -1,42 +1,45 @@
 "use client";
 
-import { React, useEffect, useState, useMemo } from "react";
+import { React, useEffect, useMemo, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import CampusNavbar from "@/app/components/CampusNavbar";
-import AddStudentModal from "@/app/components/AddStudentModal";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
-import EditStudentModal from "@/app/components/EditStudentModal";
 import { useCampus } from "@/app/context/CampusContext";
 import { useRouter } from "next/navigation";
 import { IoChevronBackSharp } from "react-icons/io5";
-import UploadStudentsModal from "@/app/components/UploadStudentsModal";
+import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const getFastingLabel = (fastingType) => {
+  if (fastingType === "fasting") return "Fasting";
+  if (fastingType === "sunday_fasting") return "Sunday Fasting";
+  if (fastingType === "muslim_fasting") return "Muslim Fasting";
+  return "Not Fasting";
+};
 
 export default function CampusStudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const router = useRouter();
-
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [studentToDelete, setStudentToDelete] = useState(null);
-  const [passwordError, setPasswordError] = useState("");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [studentToEditData, setStudentToEditData] = useState(null);
-  const { currentCampus, refreshCampus } = useCampus();
   const [fastingFilter, setFastingFilter] = useState("");
+  const [openMenuId, setOpenMenuId] = useState(null);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkFastingType, setBulkFastingType] = useState("");
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
+  const [bulkInternshipAction, setBulkInternshipAction] = useState("");
+  const [savingBulkInternship, setSavingBulkInternship] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [passwordError, setPasswordError] = useState("");
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const router = useRouter();
+  const { currentCampus, refreshCampus } = useCampus();
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -56,10 +59,16 @@ export default function CampusStudentsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not load students right now."),
+        );
+      }
+
       setStudents(data.students || []);
+      setError("");
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err, "We could not load students right now."));
     } finally {
       setLoading(false);
       setInitialLoadDone(true);
@@ -67,16 +76,12 @@ export default function CampusStudentsPage() {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      await fetchStudents();
-    };
-    fetchData();
+    fetchStudents();
   }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchStudents(searchQuery, fastingFilter);
-
       setSelectedStudents([]);
       setSelectAll(false);
     }, 300);
@@ -90,12 +95,36 @@ export default function CampusStudentsPage() {
         setOpenMenuId(null);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const filteredAndSortedStudents = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+
+    return students
+      .filter(
+        (student) =>
+          student.name?.toLowerCase().includes(q) ||
+          student.studentId?.toLowerCase().includes(q) ||
+          student.department?.toLowerCase().includes(q) ||
+          student.batch?.toString().toLowerCase().includes(q),
+      )
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [students, searchQuery]);
+
+  useEffect(() => {
+    setSelectAll(
+      filteredAndSortedStudents.length > 0 &&
+        selectedStudents.length === filteredAndSortedStudents.length,
+    );
+  }, [filteredAndSortedStudents, selectedStudents]);
+
   useEffect(() => {
     if (selectedStudents.length === 0) {
       setBulkFastingType("");
+      setBulkInternshipAction("");
     }
   }, [selectedStudents]);
 
@@ -108,10 +137,37 @@ export default function CampusStudentsPage() {
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedStudents([]);
-    } else {
-      setSelectedStudents(filteredAndSortedStudents.map((s) => s._id));
+      setSelectAll(false);
+      return;
     }
-    setSelectAll(!selectAll);
+
+    setSelectedStudents(filteredAndSortedStudents.map((student) => student._id));
+    setSelectAll(true);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const res = await fetch(`${url}/campus/students/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not delete the student right now."),
+        );
+      }
+
+      setStudents((prev) => prev.filter((student) => student._id !== id));
+      await refreshCampus();
+      showToast("Student deleted successfully", "success");
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not delete the student right now."),
+        "error",
+      );
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -126,17 +182,117 @@ export default function CampusStudentsPage() {
       );
 
       setStudents((prev) =>
-        prev.filter((s) => !selectedStudents.includes(s._id)),
+        prev.filter((student) => !selectedStudents.includes(student._id)),
+      );
+      setSelectedStudents([]);
+      setSelectAll(false);
+      await refreshCampus();
+      showToast("Selected students deleted successfully", "success");
+    } catch {
+      showToast("Bulk delete failed", "error");
+    }
+  };
+
+  const handleBulkFastingUpdate = async () => {
+    if (!bulkFastingType) return;
+
+    try {
+      setSavingBulkFasting(true);
+
+      const res = await fetch(`${url}/campus/students/bulk-fasting`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedStudents,
+          fastingType: bulkFastingType,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(data, "We could not update the students right now."),
+        );
+      }
+
+      setStudents((prev) =>
+        prev.map((student) =>
+          selectedStudents.includes(student._id)
+            ? { ...student, fastingType: bulkFastingType }
+            : student,
+        ),
       );
 
       setSelectedStudents([]);
       setSelectAll(false);
+      setBulkFastingType("");
+      showToast("Fasting status updated successfully", "success");
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not update the students right now."),
+        "error",
+      );
+    } finally {
+      setSavingBulkFasting(false);
+    }
+  };
 
-      await refreshCampus();
+  const handleBulkInternshipUpdate = async () => {
+    if (!bulkInternshipAction) return;
 
-      showToast("Selected students deleted successfully", "success");
-    } catch {
-      showToast("Bulk delete failed", "error");
+    try {
+      setSavingBulkInternship(true);
+
+      const nextValue = bulkInternshipAction === "start";
+
+      const res = await fetch(`${url}/campus/students/bulk-internship`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedStudents,
+          isInternship: nextValue,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(
+            data,
+            "We could not update internship status right now.",
+          ),
+        );
+      }
+
+      setStudents((prev) =>
+        prev.map((student) =>
+          selectedStudents.includes(student._id)
+            ? { ...student, isInternship: nextValue }
+            : student,
+        ),
+      );
+
+      setSelectedStudents([]);
+      setSelectAll(false);
+      setBulkInternshipAction("");
+      showToast(
+        nextValue
+          ? "Students marked as internship successfully"
+          : "Students returned from internship successfully",
+        "success",
+      );
+    } catch (err) {
+      showToast(
+        getErrorMessage(
+          err,
+          "We could not update internship status right now.",
+        ),
+        "error",
+      );
+    } finally {
+      setSavingBulkInternship(false);
     }
   };
 
@@ -152,8 +308,9 @@ export default function CampusStudentsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setPasswordError(data.message || "Wrong password");
-
+        setPasswordError(
+          getApiMessage(data, "The password you entered is not correct."),
+        );
         setTimeout(() => setPasswordError(""), 2000);
         return;
       }
@@ -164,250 +321,162 @@ export default function CampusStudentsPage() {
       if (pendingAction === "delete" && studentToDelete) {
         await handleDelete(studentToDelete);
         setStudentToDelete(null);
-      } else if (pendingAction === "edit" && studentToEditData) {
-        setShowEditModal(true);
       } else if (pendingAction === "bulk_delete") {
         await handleBulkDelete();
       }
 
       setPendingAction(null);
-    } catch {
-      setPasswordError("Something went wrong");
-
+    } catch (error) {
+      setPasswordError(
+        getErrorMessage(error, "We could not verify your password right now."),
+      );
       setTimeout(() => setPasswordError(""), 2000);
     }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      const res = await fetch(`${url}/campus/students/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Delete failed");
-
-      setStudents((prev) => prev.filter((s) => s._id !== id));
-      showToast("Student deleted successfully", "success");
-
-      await refreshCampus();
-    } catch (err) {
-      showToast(err.message || "Delete failed", "error");
-    }
-  };
-
-  const filteredAndSortedStudents = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-
-    return students
-      .filter(
-        (s) =>
-          s.name?.toLowerCase().includes(q) ||
-          s.studentId?.toLowerCase().includes(q) ||
-          s.department?.toLowerCase().includes(q) ||
-          s.batch?.toString().toLowerCase().includes(q),
-      )
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  }, [students, searchQuery]);
-  useEffect(() => {
-    if (
-      filteredAndSortedStudents.length > 0 &&
-      selectedStudents.length === filteredAndSortedStudents.length
-    ) {
-      setSelectAll(true);
-    } else {
-      setSelectAll(false);
-    }
-  }, [selectedStudents, filteredAndSortedStudents]);
-
   if (!currentCampus) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="page-shell flex h-screen w-full items-center justify-center">
         <div className="relative flex items-center justify-center">
-          <div className="h-14 w-14 rounded-full border-4 border-white/5"></div>
-          <div className="absolute h-14 w-14 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+          <div className="h-14 w-14 rounded-full border-4 border-slate-200"></div>
+          <div className="absolute h-14 w-14 animate-spin rounded-full border-4 border-transparent border-t-blue-600"></div>
         </div>
       </div>
     );
   }
 
-  const capitalizeName = (name) => {
-    if (!name) return "";
-    return name
-      .split(" ")
-      .map((word) => word[0]?.toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
   return (
     <>
       <CampusNavbar />
-      <div className="pt-24 md:pt-24 h-screen text-white max-w-7xl mx-auto px-6 flex flex-col">
+      <div className="page-shell mx-auto flex h-screen max-w-7xl flex-col px-6 pt-24 text-slate-900">
         <button
           onClick={() => router.push("/campus")}
           title="Back to Campus"
-          className="fixed top-20 md:top-24 left-4 md:left-6 z-20 bg-gray-900/80 hover:bg-gray-800 hover:cursor-pointer text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
+          className="fixed left-4 top-20 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:bg-slate-50 md:left-6 md:top-24"
         >
-          <IoChevronBackSharp className="w-5 h-5" />
+          <IoChevronBackSharp className="h-5 w-5" />
         </button>
+
         <div>
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h1 className="text-3xl font-bold w-full sm:w-auto">Students</h1>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h1 className="w-full text-3xl font-bold sm:w-auto">Students</h1>
             <button
               onClick={() => router.push("/campus/students/groups")}
-              className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-700"
             >
               Batch
             </button>
-
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600 hover:cursor-pointer text-white px-5 py-2 rounded-2xl hover:bg-indigo-900 transition"
-            >
-              + Add Student
-            </button>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-green-600 hover:cursor-pointer text-white px-5 py-2 rounded-2xl hover:bg-green-800 transition"
-            >
-              Upload Students
-            </button>
           </div>
 
-          <div className="flex gap-2 mb-4">
+          <div className="mb-4 flex gap-2">
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search students..."
-              className="flex-1 p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field-surface flex-1 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <select
               value={fastingFilter}
               onChange={(e) => setFastingFilter(e.target.value)}
-              className="p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+              className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option className="bg-gray-900 text-white" value="">
+              <option value="">
                 All Fasting Types
               </option>
-              <option className="bg-gray-900 text-white" value="fasting">
+              <option value="fasting">
                 Fasting
               </option>
-              <option className="bg-gray-900 text-white" value="not_fasting">
+              <option value="not_fasting">
                 Not Fasting
               </option>
-              <option className="bg-gray-900 text-white" value="sunday_fasting">
+              <option value="sunday_fasting">
                 Sunday Fasting
               </option>
-              <option className="bg-gray-900 text-white" value="muslim_fasting">
+              <option value="muslim_fasting">
                 Muslim Fasting
               </option>
             </select>
           </div>
 
-          <div className="flex justify-between items-center mb-3 px-4">
-            <p className="text-gray-300 font-medium">
-              {students.length} {students.length === 1 ? "student" : "students"}
+          <div className="mb-3 flex items-center justify-between px-4">
+            <p className="font-medium text-slate-500">
+              {filteredAndSortedStudents.length}{" "}
+              {filteredAndSortedStudents.length === 1 ? "student" : "students"}
             </p>
 
             {selectedStudents.length > 0 && (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setPendingAction("bulk_delete");
-                    setShowPasswordModal(true);
-                  }}
-                  className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                <select
+                  value={bulkInternshipAction}
+                  onChange={(e) => setBulkInternshipAction(e.target.value)}
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  Delete ({selectedStudents.length})
-                </button>
+                  <option value="">
+                    Internship Status
+                  </option>
+                  <option value="start">
+                    Send to Internship
+                  </option>
+                  <option value="return">
+                    Return from Internship
+                  </option>
+                </select>
+                {bulkInternshipAction && (
+                  <button
+                    disabled={savingBulkInternship}
+                    onClick={handleBulkInternshipUpdate}
+                    className="rounded bg-yellow-500 px-3 py-1 text-sm text-white hover:bg-yellow-600 disabled:opacity-50"
+                  >
+                    {savingBulkInternship ? "Saving..." : "Apply"}
+                  </button>
+                )}
 
                 <select
                   value={bulkFastingType}
                   onChange={(e) => setBulkFastingType(e.target.value)}
-                  className="p-2 bg-white/5 border border-white/10 rounded-xl text-white backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option className="bg-gray-900 text-white" value="">
+                  <option value="">
                     Select Fasting
                   </option>
-                  <option className="bg-gray-900 text-white" value="fasting">
+                  <option value="fasting">
                     Fasting
                   </option>
-                  <option
-                    className="bg-gray-900 text-white"
-                    value="not_fasting"
-                  >
+                  <option value="not_fasting">
                     Not Fasting
                   </option>
-                  <option
-                    className="bg-gray-900 text-white"
-                    value="sunday_fasting"
-                  >
+                  <option value="sunday_fasting">
                     Sunday Fasting
                   </option>
-                  <option
-                    className="bg-gray-900 text-white"
-                    value="muslim_fasting"
-                  >
+                  <option value="muslim_fasting">
                     Muslim Fasting
                   </option>
                 </select>
                 {bulkFastingType && (
                   <button
                     disabled={savingBulkFasting}
-                    onClick={async () => {
-                      try {
-                        setSavingBulkFasting(true);
-
-                        const res = await fetch(
-                          `${url}/campus/students/bulk-fasting`,
-                          {
-                            method: "PATCH",
-                            credentials: "include",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              ids: selectedStudents,
-                              fastingType: bulkFastingType,
-                            }),
-                          },
-                        );
-
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.message);
-
-                        setStudents((prev) =>
-                          prev.map((s) =>
-                            selectedStudents.includes(s._id)
-                              ? { ...s, fastingType: bulkFastingType }
-                              : s,
-                          ),
-                        );
-
-                        setSelectedStudents([]);
-                        setSelectAll(false);
-                        setBulkFastingType("");
-                        showToast(
-                          "Fasting status updated successfully",
-                          "success",
-                        );
-                      } catch (err) {
-                        showToast(err.message || "Update failed", "error");
-                      } finally {
-                        setSavingBulkFasting(false);
-                      }
-                    }}
-                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                    onClick={handleBulkFastingUpdate}
+                    className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700 disabled:opacity-50"
                   >
                     {savingBulkFasting ? "Saving..." : "Save"}
                   </button>
                 )}
+
+                <button
+                  onClick={() => {
+                    setPendingAction("bulk_delete");
+                    setShowPasswordModal(true);
+                  }}
+                  className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700"
+                >
+                  Delete ({selectedStudents.length})
+                </button>
               </div>
             )}
           </div>
 
-          {loading && <p className="text-center mt-12">Loading students...</p>}
-
           {!loading && filteredAndSortedStudents.length > 0 && (
-            <div className="flex items-center gap-4 text-gray-400 text-sm font-medium px-4 py-3 mb-2 bg-white/5 rounded border border-white/10">
+            <div className="mb-2 flex items-center gap-4 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500">
               <span className="w-10">#</span>
               <span className="w-9"></span>
               <span className="w-[180px]">Name</span>
@@ -416,7 +485,7 @@ export default function CampusStudentsPage() {
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
               <span className="w-[100px]">Internship</span>
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={selectAll}
@@ -426,66 +495,48 @@ export default function CampusStudentsPage() {
             </div>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
+
+        <div className="mb-4 flex-1 space-y-2 overflow-y-auto pr-1">
+          {loading && <p className="mt-12 text-center">Loading students...</p>}
+
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex flex-wrap items-center gap-2 md:gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 ..."
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm"
             >
-              <span className="w-10 font-medium text-white">{index + 1}</span>
-              <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+              <span className="w-10 font-medium text-slate-900">{index + 1}</span>
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
                 {student.profileUrl ? (
                   <img
                     src={student.profileUrl}
                     alt={student.name}
-                    className="h-full w-full object-cover rounded-full"
+                    className="h-full w-full rounded-full object-cover"
                   />
                 ) : (
-                  <span className="text-gray-600 font-semibold">
+                  <span className="font-semibold text-gray-600">
                     {student.name?.[0] || "S"}
                   </span>
                 )}
               </div>
-              <div className="relative group w-[180px]">
-                <span className="truncate font-medium block cursor-pointer">
-                  {capitalizeName(student.name)}
-                </span>
-
-                <div
-                  className="absolute left-0 -top-8 md:top-auto bottom-2 mb-2 hidden group-hover:block 
-      bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50
-      min-w-max"
-                >
-                  {student.name}
-                </div>
-              </div>
+              <span className="w-[180px] truncate font-medium">
+                {student.name}
+              </span>
               <span className="w-[120px] truncate">{student.studentId}</span>
-              <div className="relative group w-[120px]">
-                <span className="truncate font-medium block cursor-pointer">
-                  {student.department}
-                </span>
-
-                <div className="absolute left-0 bottom-2 mb-2 hidden group-hover:block bg-black text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">
-                  {student.department}
-                </div>
-              </div>{" "}
+              <span className="w-[120px] truncate">{student.department}</span>
               <span className="w-[80px] truncate">{student.batch}</span>
               <span className="w-[140px] truncate">
-                {student.fastingType === "not_fasting" && "Not Fasting"}
-                {student.fastingType === "fasting" && "Fasting"}
-                {student.fastingType === "sunday_fasting" && "Sunday Fasting"}
-                {student.fastingType === "muslim_fasting" && "Muslim Fasting"}
+                {getFastingLabel(student.fastingType)}
               </span>
-              <span className="w-[120px]">
+              <span className="w-[100px]">
                 {student.isInternship ? (
-                  <span className="text-yellow-400 font-semibold">
+                  <span className="font-semibold text-yellow-400">
                     Internship
                   </span>
                 ) : (
-                  <span className="text-gray-500">—</span>
+                  <span className="text-slate-400">-</span>
                 )}
               </span>
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={selectedStudents.includes(student._id)}
@@ -493,33 +544,20 @@ export default function CampusStudentsPage() {
                 />
                 <div className="relative">
                   <button
-                    className="hover:bg-white/10 p-1 rounded"
+                    className="rounded p-1 transition hover:bg-slate-100"
                     onClick={() =>
                       setOpenMenuId(
                         openMenuId === student._id ? null : student._id,
                       )
                     }
                   >
-                    <BsThreeDotsVertical className="h-5 w-5 text-gray-300" />
+                    <BsThreeDotsVertical className="h-5 w-5 text-slate-500" />
                   </button>
 
                   {openMenuId === student._id && (
-                    <div className="menu-button absolute right-0 top-full mt-1 w-28 bg-slate-800 border border-white/10 rounded shadow z-50">
+                    <div className="menu-button absolute right-0 top-full z-50 mt-1 w-28 rounded border border-slate-200 bg-white shadow">
                       <button
-                        className="block w-full px-3 py-2 text-sm hover:bg-gray-400 hover:text-black hover:rounded"
-                        onClick={() => {
-                          const studentData = students.find(
-                            (s) => s._id === student._id,
-                          );
-                          setStudentToEditData(studentData);
-                          setShowEditModal(true);
-                          setOpenMenuId(null);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="block w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-400 hover:rounded"
+                        className="block w-full px-3 py-2 text-sm text-red-600 transition hover:rounded hover:bg-red-50"
                         onClick={() => {
                           setStudentToDelete(student._id);
                           setPendingAction("delete");
@@ -536,127 +574,14 @@ export default function CampusStudentsPage() {
             </div>
           ))}
 
-          {!loading &&
-            initialLoadDone &&
-            filteredAndSortedStudents.length === 0 && (
-              <p className="text-center text-gray-500 mt-12">
-                Student not found
-              </p>
-            )}
+          {!loading && initialLoadDone && filteredAndSortedStudents.length === 0 && (
+            <p className="mt-12 text-center text-slate-500">Student not found</p>
+          )}
         </div>
 
-        {error && <p className="text-red-600 mt-4">{error}</p>}
+        {error && <p className="mt-4 text-red-600">{error}</p>}
       </div>
-      {showAddModal && (
-        <AddStudentModal
-          onCancel={() => setShowAddModal(false)}
-          onSubmit={async ({
-            name,
-            studentId,
-            department,
-            batch,
-            fastingType,
-            photo,
-          }) => {
-            try {
-              if (!name.trim()) throw new Error("Name is required");
-              if (!studentId.trim()) throw new Error("Student ID is required");
-              if (!department.trim()) throw new Error("Department is required");
-              if (!batch.trim()) throw new Error("Batch is required");
 
-              const formData = new FormData();
-              formData.append("name", capitalizeName(name));
-              formData.append("studentId", studentId);
-              formData.append("department", department);
-              formData.append("batch", batch);
-              formData.append("fastingType", fastingType);
-
-              if (photo) {
-                formData.append("photo", photo);
-              }
-
-              const res = await fetch(`${url}/campus/students`, {
-                method: "POST",
-                credentials: "include",
-                body: formData,
-              });
-
-              const data = await res.json();
-              if (!res.ok)
-                throw new Error(data.message || "Failed to add student");
-
-              setStudents((prev) => [...prev, data.student]);
-
-              return null;
-            } catch (err) {
-              return err.message;
-            }
-          }}
-        />
-      )}
-      {showEditModal && studentToEditData && (
-        <EditStudentModal
-          student={studentToEditData}
-          onCancel={() => setShowEditModal(false)}
-          onSubmit={async ({
-            id,
-            name,
-            studentId,
-            department,
-            batch,
-            photo,
-            fastingType,
-          }) => {
-            try {
-              const resText = await fetch(`${url}/campus/students/${id}`, {
-                method: "PUT",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  name: capitalizeName(name),
-                  studentId,
-                  department,
-                  batch,
-                  fastingType,
-                }),
-              });
-              const dataText = await resText.json();
-              if (!resText.ok)
-                throw new Error(dataText.message || "Update failed");
-
-              let updatedStudent = dataText.student;
-              if (photo) {
-                const formData = new FormData();
-                formData.append("photo", photo);
-                const resPhoto = await fetch(
-                  `${url}/campus/students/${id}/photo`,
-                  {
-                    method: "PUT",
-                    credentials: "include",
-                    body: formData,
-                  },
-                );
-                const dataPhoto = await resPhoto.json();
-                if (!resPhoto.ok)
-                  throw new Error(dataPhoto.message || "Photo update failed");
-                updatedStudent = {
-                  ...updatedStudent,
-                  profileUrl: dataPhoto.profileUrl,
-                };
-              }
-              setStudents((prev) =>
-                prev.map((s) =>
-                  s._id === updatedStudent._id ? updatedStudent : s,
-                ),
-              );
-
-              return null;
-            } catch (err) {
-              return err.message;
-            }
-          }}
-        />
-      )}
       {showPasswordModal && (
         <ConfirmCampusPasswordModal
           onCancel={() => {
@@ -667,47 +592,16 @@ export default function CampusStudentsPage() {
           errorMessage={passwordError}
         />
       )}
-      {showUploadModal && (
-        <UploadStudentsModal
-          onCancel={() => setShowUploadModal(false)}
-          onUpload={async (file) => {
-            try {
-              const formData = new FormData();
-              formData.append("file", file);
 
-              const res = await fetch(`${url}/campus/students/upload`, {
-                method: "POST",
-                credentials: "include",
-                body: formData,
-              });
-
-              const data = await res.json();
-
-              if (!res.ok) return data;
-              if (!data.students || data.students.length === 0) {
-                return {
-                  message: "No students were uploaded. Check the file.",
-                };
-              }
-
-              if (data.students?.length > 0) {
-                setStudents((prev) => [...prev, ...data.students]);
-              }
-              return data;
-            } catch (err) {
-              return { message: err.message || "Upload failed" };
-            }
-          }}
-        />
-      )}
       {toast && (
         <div
-          className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 px-4 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300
-    ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}
+          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
         >
           {toast.message}
         </div>
-      )}{" "}
+      )}
     </>
   );
 }

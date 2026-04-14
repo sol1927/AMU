@@ -3,12 +3,10 @@ import {
   logoutCampus,
   getCampusDashboard,
   verifyCampusPassword,
+  updateCampusProfile,
 } from "../controllers/campus.controller.js";
 import {
   getCampusStudents,
-  addStudent,
-  updateStudent,
-  updateStudentPhoto,
   deleteStudent,
   getCampusBatches,
   getStudentsByBatch,
@@ -17,44 +15,16 @@ import {
   bulkUpdateFasting,
   toggleInternshipStudent,
   bulkToggleInternshipStudents,
-  bulkUploadStudents,
 } from "../controllers/student.controller.js";
 import { protectCampus } from "../middlewares/campusAuth.js";
-import upload from "../middlewares/upload.js";
-import excelUpload from "../middlewares/excelUpload.js";
 
 const router = express.Router();
 
-router.post("/logout", logoutCampus);
+router.post("/logout", protectCampus, logoutCampus);
 router.get("/dashboard", protectCampus, getCampusDashboard);
-router.post("/students", protectCampus, (req, res, next) => {
-  upload.single("photo")(req, res, (err) => {
-    if (err) {
-      const message =
-        err.code === "LIMIT_FILE_SIZE"
-          ? "📸 Photo is too big! Please keep it under 5MB."
-          : "🚫 Invalid file type. Use JPG, PNG, or WebP.";
-      return res.status(400).json({ message });
-    }
-    addStudent(req, res, next);
-  });
-});
-
-router.post("/students/upload", protectCampus, (req, res) => {
-  excelUpload.single("file")(req, res, (err) => {
-    if (err) {
-      const message =
-        err.code === "LIMIT_FILE_SIZE"
-          ? "📄 File is too big! Max 5MB."
-          : "🚫 Invalid file type. Use CSV, XLS, or XLSX.";
-      return res.status(400).json({ message });
-    }
-    bulkUploadStudents(req, res);
-  });
-});
+router.patch("/profile", protectCampus, updateCampusProfile);
 router.get("/students", protectCampus, getCampusStudents);
 router.post("/verify-campus-password", protectCampus, verifyCampusPassword);
-router.put("/students/:id", protectCampus, updateStudent);
 router.delete("/students/:id", protectCampus, deleteStudent);
 router.get("/students/batches", protectCampus, getCampusBatches);
 router.get("/students/batch/:batch", protectCampus, getStudentsByBatch);
@@ -71,17 +41,5 @@ router.patch(
   protectCampus,
   bulkToggleInternshipStudents,
 );
-router.put("/students/:id/photo", protectCampus, (req, res, next) => {
-  upload.single("photo")(req, res, (err) => {
-    if (err) {
-      const message =
-        err.code === "LIMIT_FILE_SIZE"
-          ? "📸 Photo is too big! Please keep it under 2MB."
-          : "🚫 Invalid file type. Use JPG, PNG, or WebP.";
-      return res.status(400).json({ message });
-    }
-    updateStudentPhoto(req, res, next);
-  });
-});
 
 export default router;

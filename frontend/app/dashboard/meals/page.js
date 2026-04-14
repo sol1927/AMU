@@ -46,13 +46,13 @@ const getStatusLabel = (status) => {
 const getStatusClasses = (status) => {
   switch (status) {
     case "active":
-      return "border-emerald-300/30 bg-emerald-400/15 text-emerald-200";
+      return "border-emerald-300/50 bg-emerald-50 text-emerald-700";
     case "completed":
-      return "border-cyan-300/20 bg-cyan-400/10 text-cyan-100";
+      return "border-cyan-300/50 bg-cyan-50 text-cyan-700";
     case "upcoming":
-      return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+      return "border-amber-300/50 bg-amber-50 text-amber-700";
     default:
-      return "border-white/15 bg-white/10 text-white";
+      return "border-slate-200 bg-white text-slate-700";
   }
 };
 
@@ -66,6 +66,7 @@ export default function MealsPage() {
   const [loadingCampuses, setLoadingCampuses] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
+  const [mealSchedule, setMealSchedule] = useState(null);
 
   const shouldHideCounts =
     mealSummary?.sessionStatus === "upcoming" ||
@@ -98,8 +99,7 @@ export default function MealsPage() {
         if (campusList.length > 0) {
           setSelectedCampus(campusList[0]._id);
         }
-      } catch (err) {
-        console.error("Error fetching campuses:", err);
+      } catch {
         setError("Failed to load campuses");
       } finally {
         setLoadingCampuses(false);
@@ -118,6 +118,28 @@ export default function MealsPage() {
       .split("T")[0];
 
     setSelectedDate(formattedToday);
+  }, []);
+
+  useEffect(() => {
+    const fetchMealSchedule = async () => {
+      try {
+        const res = await fetch(`${url}/dashboard/meal-schedule`, {
+          credentials: "include",
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error("Failed to load meal schedule");
+        }
+
+        setMealSchedule(data.schedule || null);
+      } catch {
+        setMealSchedule(null);
+      }
+    };
+
+    fetchMealSchedule();
   }, []);
 
   useEffect(() => {
@@ -191,8 +213,8 @@ export default function MealsPage() {
 
       const data = await res.json();
       setMealSummary(data.summary || null);
-    } catch (err) {
-      console.error("Error fetching meal summary:", err);
+      setMealSchedule(data.summary?.mealSchedule || null);
+    } catch {
       setError("Failed to fetch meal summary");
     } finally {
       setLoadingSummary(false);
@@ -202,16 +224,16 @@ export default function MealsPage() {
   return (
     <>
       <AdminNavbar />
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.16),_transparent_35%),linear-gradient(180deg,_#0f172a_0%,_#111827_42%,_#172033_100%)] px-4 pb-10 pt-24 text-white md:px-8">
+      <div className="page-shell px-4 pb-10 pt-24 md:px-8">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-8 rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl md:p-8">
+          <div className="surface-panel mb-8 rounded-[28px] p-6 md:p-8">
             <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
               Dashboard Meals
             </p>
             <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
               Session Meal History
             </h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-300 md:text-base">
+            <p className="mt-3 max-w-3xl text-sm text-slate-600 md:text-base">
               Check one campus, one date, and one session to see how many
               students were available, served, and not served without listing
               individual students.
@@ -219,22 +241,22 @@ export default function MealsPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-[28px] border border-white/10 bg-slate-950/55 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="surface-card rounded-[28px] p-6">
               <h2 className="text-xl font-bold">Filters</h2>
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-2 text-sm text-slate-500">
                 Select the campus, date, and meal session you want to review.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-200">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
                     Campus
                   </span>
                   <select
                     value={selectedCampus}
                     onChange={(e) => setSelectedCampus(e.target.value)}
                     disabled={loadingCampuses}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                    className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
                   >
                     {campuses.map((campus) => (
                       <option
@@ -249,19 +271,19 @@ export default function MealsPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-200">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
                     Date
                   </span>
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                    className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
                   />
                 </label>
 
                 <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-slate-200">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
                     Session
                   </span>
                   <div className="grid gap-3 sm:grid-cols-3">
@@ -273,19 +295,17 @@ export default function MealsPage() {
                           key={mealType}
                           type="button"
                           onClick={() => setSelectedMealType(mealType)}
-                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                            className={`rounded-2xl border px-4 py-3 text-left transition ${
                             active
-                              ? "border-cyan-400 bg-cyan-400/15 text-cyan-200"
-                              : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
+                              ? "border-cyan-400 bg-cyan-50 text-cyan-700"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                           }`}
                         >
                           <div className="text-sm font-semibold">
                             {getMealLabel(mealType)}
                           </div>
                           <div className="mt-1 text-xs opacity-80">
-                            {mealType === "breakfast" && "06:00 - 09:00"}
-                            {mealType === "lunch" && "11:00 - 14:00"}
-                            {mealType === "dinner" && "17:00 - 20:00"}
+                            {mealSchedule?.[mealType]?.label || "--:-- - --:--"}
                           </div>
                         </button>
                       );
@@ -303,13 +323,13 @@ export default function MealsPage() {
               </button>
 
               {error && (
-                <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,_rgba(8,47,73,0.88),_rgba(15,23,42,0.88))] p-6 shadow-2xl backdrop-blur-xl">
+            <div className="surface-panel rounded-[28px] p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-cyan-300/80">
                 Snapshot
               </p>
@@ -320,7 +340,7 @@ export default function MealsPage() {
                     {mealSummary.campusName}
                   </h2>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <p className="text-sm text-slate-300">
+                    <p className="text-sm text-slate-600">
                       {formatDate(mealSummary.date)} •{" "}
                       {getMealLabel(mealSummary.mealType)}
                     </p>
@@ -335,7 +355,7 @@ export default function MealsPage() {
 
                   <div className="mt-6 grid gap-4">
                     {shouldHideCounts ? (
-                      <div className="rounded-3xl border border-dashed border-amber-300/20 bg-amber-400/10 p-5 text-sm text-amber-100">
+                      <div className="rounded-3xl border border-dashed border-amber-300/40 bg-amber-50 p-5 text-sm text-amber-700">
                         {getEmptyStateMessage()}
                       </div>
                     ) : (
@@ -346,17 +366,17 @@ export default function MealsPage() {
                             onClick={() => setDetailMode("total")}
                             className={`rounded-3xl p-5 text-left ring-1 transition ${
                               detailMode === "total"
-                                ? "bg-white/10 ring-cyan-300/40"
-                                : "bg-white/6 ring-white/10 hover:bg-white/10"
+                                ? "bg-cyan-50 ring-cyan-300/50"
+                                : "bg-white ring-slate-200 hover:bg-slate-50"
                             }`}
                           >
-                            <p className="text-sm text-slate-300">
+                            <p className="text-sm text-slate-600">
                               Total Students
                             </p>
-                            <p className="mt-2 text-4xl font-black text-white">
+                            <p className="mt-2 text-4xl font-black text-slate-900">
                               {mealSummary.totalStudents}
                             </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-300/80">
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                               Click to view fasting breakdown
                             </p>
                           </button>
@@ -366,17 +386,17 @@ export default function MealsPage() {
                             onClick={() => setDetailMode("regular")}
                             className={`rounded-3xl p-5 text-left ring-1 transition ${
                               detailMode === "regular"
-                                ? "bg-sky-400/15 ring-sky-300/40"
-                                : "bg-sky-400/10 ring-sky-300/20 hover:bg-sky-400/15"
+                                ? "bg-sky-50 ring-sky-300/50"
+                                : "bg-sky-50/60 ring-sky-200 hover:bg-sky-50"
                             }`}
                           >
-                            <p className="text-sm text-sky-100">
+                            <p className="text-sm text-sky-700">
                               Regular Students
                             </p>
-                            <p className="mt-2 text-3xl font-black text-sky-300">
+                            <p className="mt-2 text-3xl font-black text-sky-800">
                               {mealSummary.regularStudents}
                             </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-200/80">
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-600">
                               Click to view fasting breakdown
                             </p>
                           </button>
@@ -386,17 +406,17 @@ export default function MealsPage() {
                             onClick={() => setDetailMode("internship")}
                             className={`rounded-3xl p-5 text-left ring-1 transition ${
                               detailMode === "internship"
-                                ? "bg-fuchsia-400/15 ring-fuchsia-300/40"
-                                : "bg-fuchsia-400/10 ring-fuchsia-300/20 hover:bg-fuchsia-400/15"
+                                ? "bg-fuchsia-50 ring-fuchsia-300/50"
+                                : "bg-fuchsia-50/70 ring-fuchsia-200 hover:bg-fuchsia-50"
                             }`}
                           >
-                            <p className="text-sm text-fuchsia-100">
+                            <p className="text-sm text-fuchsia-700">
                               Internship Students
                             </p>
-                            <p className="mt-2 text-3xl font-black text-fuchsia-300">
+                            <p className="mt-2 text-3xl font-black text-fuchsia-800">
                               {mealSummary.internshipStudents}
                             </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-fuchsia-200/80">
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-fuchsia-600">
                               Click to view fasting breakdown
                             </p>
                           </button>
@@ -408,57 +428,57 @@ export default function MealsPage() {
                             onClick={() => setDetailMode("served")}
                             className={`rounded-3xl p-5 text-left ring-1 transition ${
                               detailMode === "served"
-                                ? "bg-emerald-400/15 ring-emerald-300/40"
-                                : "bg-emerald-400/10 ring-emerald-300/20 hover:bg-emerald-400/15"
+                                ? "bg-emerald-50 ring-emerald-300/50"
+                                : "bg-emerald-50/70 ring-emerald-200 hover:bg-emerald-50"
                             }`}
                           >
-                            <p className="text-sm text-emerald-100">
+                            <p className="text-sm text-emerald-700">
                               Served Students
                             </p>
-                            <p className="mt-2 text-3xl font-black text-emerald-300">
+                            <p className="mt-2 text-3xl font-black text-emerald-800">
                               {mealSummary.servedStudents}
                             </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-emerald-200/80">
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-emerald-600">
                               Click to view fasting breakdown
                             </p>
                           </button>
 
-                          <div className="rounded-3xl bg-rose-400/10 p-5 ring-1 ring-rose-300/20">
+                          <div className="rounded-3xl bg-rose-50 p-5 ring-1 ring-rose-200">
                             <button
                               type="button"
                               onClick={() => setDetailMode("notServed")}
                               className={`w-full rounded-3xl p-5 text-left ring-1 transition ${
                                 detailMode === "notServed"
-                                  ? "bg-rose-400/15 ring-rose-300/40"
-                                  : "bg-rose-400/10 ring-rose-300/20 hover:bg-rose-400/15"
+                                  ? "bg-rose-50 ring-rose-300/50"
+                                  : "bg-rose-50/70 ring-rose-200 hover:bg-rose-50"
                               }`}
                             >
-                              <p className="text-sm text-rose-100">
+                              <p className="text-sm text-rose-700">
                                 Not Served Students
                               </p>
-                              <p className="mt-2 text-3xl font-black text-rose-300">
+                              <p className="mt-2 text-3xl font-black text-rose-800">
                                 {mealSummary.notServedStudents}
                               </p>
-                              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-rose-200/80">
+                              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-rose-600">
                                 Click to view fasting breakdown
                               </p>
                             </button>
                           </div>
                         </div>
 
-                        <div className="rounded-3xl bg-white/6 p-5 ring-1 ring-white/10">
+                        <div className="rounded-3xl bg-slate-50 p-5 ring-1 ring-slate-200">
                           <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-sm text-slate-300">
+                            <p className="text-sm text-slate-600">
                               {getBreakdownTitle()}
                             </p>
-                            <div className="flex items-center gap-2 rounded-full bg-white/5 p-1">
+                            <div className="flex items-center gap-2 rounded-full bg-white p-1 ring-1 ring-slate-200">
                               <button
                                 type="button"
                                 onClick={() => setDetailMode("total")}
                                 className={`rounded-full px-3 py-1 text-xs font-bold transition ${
                                   detailMode === "total"
-                                    ? "bg-cyan-400/20 text-cyan-200"
-                                    : "text-slate-300 hover:bg-white/10"
+                                    ? "bg-cyan-100 text-cyan-700"
+                                    : "text-slate-600 hover:bg-slate-100"
                                 }`}
                               >
                                 Total
@@ -468,8 +488,8 @@ export default function MealsPage() {
                                 onClick={() => setDetailMode("regular")}
                                 className={`rounded-full px-3 py-1 text-xs font-bold transition ${
                                   detailMode === "regular"
-                                    ? "bg-sky-400/20 text-sky-200"
-                                    : "text-slate-300 hover:bg-white/10"
+                                    ? "bg-sky-100 text-sky-700"
+                                    : "text-slate-600 hover:bg-slate-100"
                                 }`}
                               >
                                 Regular
@@ -479,8 +499,8 @@ export default function MealsPage() {
                                 onClick={() => setDetailMode("internship")}
                                 className={`rounded-full px-3 py-1 text-xs font-bold transition ${
                                   detailMode === "internship"
-                                    ? "bg-fuchsia-400/20 text-fuchsia-200"
-                                    : "text-slate-300 hover:bg-white/10"
+                                    ? "bg-fuchsia-100 text-fuchsia-700"
+                                    : "text-slate-600 hover:bg-slate-100"
                                 }`}
                               >
                                 Internship
@@ -490,8 +510,8 @@ export default function MealsPage() {
                                 onClick={() => setDetailMode("served")}
                                 className={`rounded-full px-3 py-1 text-xs font-bold transition ${
                                   detailMode === "served"
-                                    ? "bg-emerald-400/20 text-emerald-200"
-                                    : "text-slate-300 hover:bg-white/10"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "text-slate-600 hover:bg-slate-100"
                                 }`}
                               >
                                 Served
@@ -501,8 +521,8 @@ export default function MealsPage() {
                                 onClick={() => setDetailMode("notServed")}
                                 className={`rounded-full px-3 py-1 text-xs font-bold transition ${
                                   detailMode === "notServed"
-                                    ? "bg-rose-400/20 text-rose-200"
-                                    : "text-slate-300 hover:bg-white/10"
+                                    ? "bg-rose-100 text-rose-700"
+                                    : "text-slate-600 hover:bg-slate-100"
                                 }`}
                               >
                                 Not Served
@@ -510,38 +530,38 @@ export default function MealsPage() {
                             </div>
                           </div>
                           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="rounded-2xl bg-amber-400/10 p-4 ring-1 ring-amber-300/20">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-amber-100">
+                            <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
                                 Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-amber-300">
+                              <p className="mt-2 text-2xl font-black text-amber-800">
                                 {activeBreakdown?.fasting ?? 0}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-violet-400/10 p-4 ring-1 ring-violet-300/20">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-violet-100">
+                            <div className="rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
                                 Sunday Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-violet-300">
+                              <p className="mt-2 text-2xl font-black text-violet-800">
                                 {activeBreakdown?.sundayFasting ?? 0}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-emerald-400/10 p-4 ring-1 ring-emerald-300/20">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-100">
+                            <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
                                 Muslim Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-emerald-300">
+                              <p className="mt-2 text-2xl font-black text-emerald-800">
                                 {activeBreakdown?.muslimFasting ?? 0}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-slate-400/10 p-4 ring-1 ring-slate-300/20">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-100">
+                            <div className="rounded-2xl bg-slate-100 p-4 ring-1 ring-slate-200">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
                                 Not Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-slate-200">
+                              <p className="mt-2 text-2xl font-black text-slate-900">
                                 {activeBreakdown?.notFasting ?? 0}
                               </p>
                             </div>
@@ -552,7 +572,7 @@ export default function MealsPage() {
                   </div>
                 </>
               ) : (
-                <div className="mt-6 rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300">
+                <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
                   Pick a campus, date, and session, then load the summary to see
                   meal history for that exact selection.
                 </div>
