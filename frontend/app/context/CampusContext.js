@@ -1,5 +1,13 @@
 "use client";
-import { React, createContext, useContext, useState, useEffect } from "react";
+import {
+  React,
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import PropTypes from "prop-types";
 
 const CampusContext = createContext();
 CampusContext.displayName = "CampusContext";
@@ -10,7 +18,7 @@ export const CampusProvider = ({ children }) => {
   const [currentCampus, setCurrentCampus] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchCampus = async () => {
+  const fetchCampus = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${url}/campus/dashboard`, {
@@ -30,11 +38,11 @@ export const CampusProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCampus();
-  }, []);
+  }, [fetchCampus]);
 
   return (
     <CampusContext.Provider
@@ -51,3 +59,7 @@ export const CampusProvider = ({ children }) => {
 };
 
 export const useCampus = () => useContext(CampusContext);
+
+CampusProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};

@@ -120,6 +120,10 @@ export default function LoginModal({
 
       if (error.name === "AbortError") {
         setMessage(getRequestErrorMessage(error));
+      } else if (error instanceof TypeError) {
+        setMessage(
+          "The server is unreachable right now. Please check the connection and try again.",
+        );
       } else {
         setMessage("We could not sign you in. Please try again.");
       }

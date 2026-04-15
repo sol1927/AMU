@@ -53,7 +53,7 @@ export const getRequestErrorMessage = (
   fallback = "Something went wrong. Please try again.",
 ) => {
   if (error?.name === "AbortError") {
-    return "The request took too long. Please try again.";
+    return "The server is taking too long to respond. Please try again in a moment.";
   }
 
   return fallback;

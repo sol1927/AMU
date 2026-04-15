@@ -12,8 +12,8 @@ import { useUser } from "./context/UserContext";
 import { useCampus } from "./context/CampusContext";
 
 export default function LandingPage() {
-  const { currentUser } = useUser();
-  const { currentCampus } = useCampus();
+  const { currentUser, refreshUser } = useUser();
+  const { currentCampus, refreshCampus } = useCampus();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -23,11 +23,26 @@ export default function LandingPage() {
 
   const featureRef = useRef(null);
   const [showFeatures, setShowFeatures] = useState(false);
-  const activeSession = currentCampus || currentUser;
-  const isLoggedIn = Boolean(activeSession);
-  const primaryButtonLabel = isLoggedIn ? "Logged In" : "Sign In";
-  const heroButtonLabel = isLoggedIn ? "Logged In" : "Get Started";
-  const footerButtonLabel = isLoggedIn ? "Logged In" : "Sign In Now";
+  const primaryButtonLabel = currentCampus
+    ? "Open Campus"
+    : currentUser
+      ? "Open Dashboard"
+      : "Sign In";
+  const heroButtonLabel = currentCampus
+    ? "Open Campus"
+    : currentUser
+      ? "Open Dashboard"
+      : "Get Started";
+  const footerButtonLabel = currentCampus
+    ? "Open Campus"
+    : currentUser
+      ? "Open Dashboard"
+      : "Sign In Now";
+
+  useEffect(() => {
+    refreshUser();
+    refreshCampus();
+  }, [refreshUser, refreshCampus]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

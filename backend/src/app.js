@@ -8,6 +8,7 @@ import adminProfileRoutes from "./routes/adminProfile.routes.js";
 import campusRoutes from "./routes/campus.route.js";
 import stationScanRoutes from "./routes/stationScan.routes.js";
 import { handleNotFound, handleUnhandledError } from "./utils/safeError.js";
+import { requireDatabaseConnection } from "./middlewares/dbReady.middleware.js";
 
 const app = express();
 
@@ -27,6 +28,8 @@ app.use((req, res, next) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
   next();
 });
+
+app.use("/api", requireDatabaseConnection);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
