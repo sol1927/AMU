@@ -4,7 +4,7 @@ const stationScanSchema = new mongoose.Schema(
   {
     student: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
+      ref: "CafeStudent",
       required: true,
     },
     campus: {

@@ -4,7 +4,6 @@ import { React, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useCampus } from "../../context/CampusContext";
-import { IoChevronBackSharp } from "react-icons/io5";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import CampusNavbar from "../../components/CampusNavbar";
 import { getApiMessage, getErrorMessage } from "../../utils/userMessage";
@@ -130,13 +129,6 @@ export default function CampusProfilePage() {
       <CampusNavbar />
 
       <main className="flex-1 flex items-center justify-center p-4 pt-20">
-        <button
-          onClick={() => router.push("/campus")}
-          className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-2 text-slate-700 transition-all hover:bg-slate-50"
-        >
-          <IoChevronBackSharp size={20} />
-        </button>
-
         <div className="surface-panel w-full max-w-md scale-95 rounded-2xl p-5 sm:scale-100">
           <div className="flex flex-col items-center mb-4">
             <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-500 shadow-lg mb-2">

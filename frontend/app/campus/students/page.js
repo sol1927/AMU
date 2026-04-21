@@ -6,7 +6,6 @@ import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
 import { useRouter } from "next/navigation";
-import { IoChevronBackSharp } from "react-icons/io5";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -37,6 +36,7 @@ export default function CampusStudentsPage() {
   const [passwordError, setPasswordError] = useState("");
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [refreshingStudents, setRefreshingStudents] = useState(false);
 
   const router = useRouter();
   const { currentCampus, refreshCampus } = useCampus();
@@ -72,6 +72,16 @@ export default function CampusStudentsPage() {
     } finally {
       setLoading(false);
       setInitialLoadDone(true);
+    }
+  };
+
+  const handleRefreshStudents = async () => {
+    try {
+      setRefreshingStudents(true);
+      await fetchStudents(searchQuery, fastingFilter);
+      showToast("Student list refreshed", "success");
+    } finally {
+      setRefreshingStudents(false);
     }
   };
 
@@ -349,23 +359,28 @@ export default function CampusStudentsPage() {
     <>
       <CampusNavbar />
       <div className="page-shell mx-auto flex h-screen max-w-7xl flex-col px-6 pt-24 text-slate-900">
-        <button
-          onClick={() => router.push("/campus")}
-          title="Back to Campus"
-          className="fixed left-4 top-20 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:bg-slate-50 md:left-6 md:top-24"
-        >
-          <IoChevronBackSharp className="h-5 w-5" />
-        </button>
-
         <div>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h1 className="w-full text-3xl font-bold sm:w-auto">Students</h1>
-            <button
-              onClick={() => router.push("/campus/students/groups")}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-700"
-            >
-              Batch
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRefreshStudents}
+                disabled={refreshingStudents}
+                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
+                  refreshingStudents
+                    ? "cursor-not-allowed bg-slate-400"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                {refreshingStudents ? "Refreshing..." : "Refresh"}
+              </button>
+              <button
+                onClick={() => router.push("/campus/students/groups")}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-700"
+              >
+                Batch
+              </button>
+            </div>
           </div>
 
           <div className="mb-4 flex gap-2">

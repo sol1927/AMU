@@ -37,7 +37,9 @@ export default function AdminDashboardPage() {
       }
 
       const data = await res.json();
-      setCampuses(Array.isArray(data.campuses) ? data.campuses : []);
+      const campusList = Array.isArray(data.campuses) ? data.campuses : [];
+      campusList.sort((a, b) => a.name.localeCompare(b.name));
+      setCampuses(campusList);
     } catch {
       setCampuses([]);
     } finally {
@@ -159,7 +161,12 @@ export default function AdminDashboardPage() {
                     key={campus._id}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
                   >
-                    <p className="font-semibold text-slate-900">{campus.name}</p>
+                    <p className="font-semibold text-slate-900">
+                      {campus.name}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600">
+                      Campus ID {campus.campusId ?? "Not set"}
+                    </p>
                     <p className="mt-1 text-sm text-slate-600">
                       {campus.location || "Location not set"}
                     </p>
@@ -176,12 +183,11 @@ export default function AdminDashboardPage() {
 
         <section className="mt-8 grid gap-6 md:grid-cols-3">
           {dashboardFacts.map((item) => (
-            <div
-              key={item.title}
-              className="surface-card rounded-[28px] p-6"
-            >
+            <div key={item.title} className="surface-card rounded-[28px] p-6">
               <h2 className="text-xl font-bold text-slate-900">{item.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{item.text}</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                {item.text}
+              </p>
             </div>
           ))}
         </section>
@@ -217,10 +223,7 @@ export default function AdminDashboardPage() {
               ))
             ) : campuses.length > 0 ? (
               campuses.map((campus) => (
-                <div
-                  key={campus._id}
-                  className="surface-card rounded-3xl p-5"
-                >
+                <div key={campus._id} className="surface-card rounded-3xl p-5">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-100 text-lg font-black text-cyan-700">
                       {campus.name?.charAt(0) || "C"}
@@ -229,6 +232,9 @@ export default function AdminDashboardPage() {
                       <h3 className="text-lg font-bold text-slate-900">
                         {campus.name}
                       </h3>
+                      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600">
+                        Campus ID {campus.campusId ?? "Not set"}
+                      </p>
                       <p className="text-sm text-slate-600">
                         {campus.location || "Location not set"}
                       </p>

@@ -21,7 +21,7 @@ const mealCards = [
     key: "lunch",
     title: "Lunch",
     description:
-      "Use this range to control the lunch session for all campuses.",
+      "Use this range to control the lunch session for the selected campus.",
     accent: "from-cyan-500 to-blue-600",
   },
   {
@@ -34,6 +34,9 @@ const mealCards = [
 
 export default function TimeControllerPage() {
   const [schedule, setSchedule] = useState(defaultSchedule);
+  const [campuses, setCampuses] = useState([]);
+  const [selectedCampus, setSelectedCampus] = useState(null);
+  const [loadingCampuses, setLoadingCampuses] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -64,11 +67,52 @@ export default function TimeControllerPage() {
   }, [error]);
 
   useEffect(() => {
-    const fetchSchedule = async () => {
+    const fetchCampuses = async () => {
+      setLoadingCampuses(true);
       try {
-        const res = await fetch(`${url}/dashboard/meal-schedule`, {
+        const res = await fetch(`${url}/dashboard/campuses`, {
           credentials: "include",
         });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to load campuses");
+        }
+
+        if (Array.isArray(data.campuses)) {
+          const sortedCampuses = [...data.campuses].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          );
+
+          setCampuses(sortedCampuses);
+          if (sortedCampuses.length > 0) {
+            setSelectedCampus(sortedCampuses[0]._id);
+          }
+        } else {
+          throw new Error("Invalid campuses data");
+        }
+      } catch (err) {
+        setError(err.message || "Failed to load campuses");
+      } finally {
+        setLoadingCampuses(false);
+      }
+    };
+
+    fetchCampuses();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCampus) return;
+
+    const fetchSchedule = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `${url}/dashboard/meal-schedule/${selectedCampus}`,
+          {
+            credentials: "include",
+          },
+        );
         const data = await res.json();
 
         if (!res.ok) {
@@ -84,7 +128,7 @@ export default function TimeControllerPage() {
     };
 
     fetchSchedule();
-  }, []);
+  }, [selectedCampus]);
 
   const handleChange = (mealType, field, value) => {
     setSchedule((prev) => ({
@@ -118,12 +162,15 @@ export default function TimeControllerPage() {
         },
       };
 
-      const res = await fetch(`${url}/dashboard/meal-schedule`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `${url}/dashboard/meal-schedule/${selectedCampus}`,
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -150,11 +197,37 @@ export default function TimeControllerPage() {
             Meal Time Controller
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-slate-600 md:text-base">
-            Set the breakfast, lunch, and dinner times here. Campus scanning,
-            dashboard session status, and meal history all use this saved
-            schedule.
+            Set the breakfast, lunch, and dinner times for the selected campus.
+            Campus scanning, dashboard session status, and meal history all use
+            this saved schedule.
           </p>
         </section>
+
+        <div className="mt-8">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">
+              Select Campus
+            </span>
+            <select
+              value={selectedCampus || ""}
+              onChange={(e) => setSelectedCampus(e.target.value)}
+              className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
+              disabled={loadingCampuses || loading || saving}
+            >
+              {loadingCampuses ? (
+                <option>Loading campuses...</option>
+              ) : Array.isArray(campuses) && campuses.length > 0 ? (
+                campuses.map((campus) => (
+                  <option key={campus._id} value={campus._id}>
+                    {campus.name}
+                  </option>
+                ))
+              ) : (
+                <option>No campuses available</option>
+              )}
+            </select>
+          </label>
+        </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
@@ -182,7 +255,9 @@ export default function TimeControllerPage() {
                       }
                       className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
                       required
-                      disabled={loading || saving}
+                      disabled={
+                        loadingCampuses || loading || saving || !selectedCampus
+                      }
                     />
                   </label>
 
@@ -198,7 +273,9 @@ export default function TimeControllerPage() {
                       }
                       className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
                       required
-                      disabled={loading || saving}
+                      disabled={
+                        loadingCampuses || loading || saving || !selectedCampus
+                      }
                     />
                   </label>
                 </div>
@@ -225,7 +302,7 @@ export default function TimeControllerPage() {
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={loading || saving}
+              disabled={loadingCampuses || loading || saving || !selectedCampus}
               className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving

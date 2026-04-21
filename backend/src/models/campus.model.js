@@ -3,6 +3,11 @@ import bcrypt from "bcryptjs";
 
 const campusSchema = new mongoose.Schema(
   {
+    campusId: {
+      type: Number,
+      unique: true,
+      sparse: true,
+    },
     name: {
       type: String,
       required: true,

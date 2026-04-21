@@ -1,21 +1,23 @@
 import Campus from "../models/campus.model.js";
-import Student from "../models/student.model.js";
+import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
 import {
   dedupeMealStudents,
-  finalizeExpiredStationScans,
   getCurrentSemester,
   getCurrentYear,
   getMealSnapshotCutoff,
-  getMealSchedule,
+  getMealScheduleAt,
   getMealSessionStatus,
   getMealSessionWindow,
 } from "../utils/mealSession.js";
 import {
-  ensureStudentDefaults,
   getStudentFastingType,
   getStudentIsInternship,
 } from "../utils/studentDefaults.js";
+import {
+  getStudentCampusQuery,
+  getStudentCampusSyncQuery,
+} from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 export const getAdminDashboard = async (req, res) => {
@@ -31,21 +33,14 @@ export const getAdminDashboard = async (req, res) => {
 
     const campuses = await Campus.find({ createdBy: req.userId }).lean();
 
-    await Promise.all(
-      campuses.map((campus) => finalizeExpiredStationScans(campus._id)),
-    );
-    await Promise.all(
-      campuses.map((campus) => ensureStudentDefaults(Student, { campus: campus._id })),
-    );
-
     let totalStudents = 0;
     let totalServed = 0;
 
     const campusesWithStats = await Promise.all(
       campuses.map(async (campus) => {
-        const studentsCount = await Student.countDocuments({
-          campus: campus._id,
-        });
+        const studentsCount = await CafeStudent.countDocuments(
+          getStudentCampusSyncQuery(campus),
+        );
 
         const todaysMeals = await Meal.find({
           campus: campus._id,
@@ -112,8 +107,7 @@ export const getMeals = async (req, res) => {
       return res.status(404).json({ message: "Campus not found" });
     }
 
-    await finalizeExpiredStationScans(campusId);
-    await ensureStudentDefaults(Student, { campus: campusId });
+    const studentCampusQuery = getStudentCampusQuery(campus);
 
     const queryDate = new Date(date);
     queryDate.setHours(0, 0, 0, 0);
@@ -122,12 +116,34 @@ export const getMeals = async (req, res) => {
       year && !Number.isNaN(Number(year))
         ? Number(year)
         : getCurrentYear(queryDate);
-    const resolvedSemester =
-      semester || getCurrentSemester(queryDate);
-    const sessionStatus = await getMealSessionStatus(mealType, queryDate);
-    const snapshotCutoff = await getMealSnapshotCutoff(mealType, queryDate);
-    const sessionWindow = await getMealSessionWindow(mealType, queryDate);
-    const mealSchedule = await getMealSchedule();
+    const resolvedSemester = semester || getCurrentSemester(queryDate);
+    const meal = await Meal.findOne({
+      campus: campusId,
+      year: resolvedYear,
+      semester: resolvedSemester,
+      date: queryDate,
+      mealType,
+    });
+    const mealSchedule = await getMealScheduleAt(campusId, queryDate);
+    const sessionStatus = await getMealSessionStatus(
+      campusId,
+      mealType,
+      queryDate,
+    );
+    const snapshotCutoff = await getMealSnapshotCutoff(
+      campusId,
+      mealType,
+      queryDate,
+    );
+    const sessionWindow = meal?.appliedWindow
+      ? (() => {
+          const dayText = queryDate.toISOString().split("T")[0];
+          return {
+            start: new Date(`${dayText}T${meal.appliedWindow.start}:00`),
+            end: new Date(`${dayText}T${meal.appliedWindow.end}:00`),
+          };
+        })()
+      : await getMealSessionWindow(campusId, mealType, queryDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isTodayQuery = queryDate.getTime() === today.getTime();
@@ -181,7 +197,7 @@ export const getMeals = async (req, res) => {
     let snapshotStudents = [];
 
     if (hasSnapshotData) {
-      const campusStudents = await Student.find({ campus: campusId })
+      const campusStudents = await CafeStudent.find(studentCampusQuery)
         .select("_id fastingType isInternship createdAt")
         .lean();
 
@@ -208,14 +224,6 @@ export const getMeals = async (req, res) => {
         internshipSnapshotStudents,
       );
     }
-
-    const meal = await Meal.findOne({
-      campus: campusId,
-      year: resolvedYear,
-      semester: resolvedSemester,
-      date: queryDate,
-      mealType,
-    });
 
     const servedStudentIds = hasSnapshotData
       ? meal
@@ -256,7 +264,7 @@ export const getMeals = async (req, res) => {
 
     res.json({
       summary: {
-        campusId: campus._id,
+        campusId: campus.campusId,
         campusName: campus.name,
         date: queryDate,
         mealType,
@@ -275,6 +283,8 @@ export const getMeals = async (req, res) => {
         notServedStudents,
         sessionStatus,
         mealSchedule,
+        appliedMealWindow:
+          meal?.appliedWindow || mealSchedule?.[mealType] || null,
         hasSnapshotData,
         noDataReason,
       },

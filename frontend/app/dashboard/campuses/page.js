@@ -3,7 +3,6 @@
 import { React, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { IoChevronBackSharp } from "react-icons/io5";
 import AdminPasswordModal from "../../components/AdminPasswordModal";
 import AddCampusModal from "../../components/AddCampusModal";
 import EditCampusModal from "../../components/EditCampusModal";
@@ -28,6 +27,7 @@ export default function CampusesPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [syncingCampusId, setSyncingCampusId] = useState(null);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -65,7 +65,9 @@ export default function CampusesPage() {
         }
 
         const data = await res.json();
-        setCampuses(Array.isArray(data.campuses) ? data.campuses : []);
+        const campusList = Array.isArray(data.campuses) ? data.campuses : [];
+        campusList.sort((a, b) => a.name.localeCompare(b.name));
+        setCampuses(campusList);
       } catch {
         showToast("Failed to load campuses", "error");
       } finally {
@@ -138,18 +140,52 @@ export default function CampusesPage() {
     showToast("Campus deleted");
   };
 
+  const handleSyncCampusStudents = async (id) => {
+    try {
+      setSyncingCampusId(id);
+
+      const res = await fetch(`${url}/dashboard/campuses/${id}/sync-students`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(
+          getApiMessage(data, "We could not fetch cafe students right now."),
+          "error",
+        );
+        return;
+      }
+
+      setCampuses((prev) =>
+        prev.map((campus) =>
+          campus._id === id
+            ? {
+                ...campus,
+                students: (campus.students ?? 0) + (data.syncedCount ?? 0),
+              }
+            : campus,
+        ),
+      );
+      showToast(
+        getApiMessage(data, "Cafe students fetched successfully."),
+        "success",
+      );
+    } catch (error) {
+      showToast(
+        getErrorMessage(error, "We could not fetch cafe students right now."),
+        "error",
+      );
+    } finally {
+      setSyncingCampusId(null);
+    }
+  };
+
   return (
     <>
       <div className="page-shell px-4 pb-10 pt-24 md:px-8">
         <div className="mx-auto max-w-7xl">
-          <button
-            onClick={() => router.push("/dashboard")}
-            title="Back to Dashboard"
-            className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:scale-105 hover:bg-slate-50"
-          >
-            <IoChevronBackSharp className="h-5 w-5" />
-          </button>
-
           <div className="surface-panel rounded-[30px] p-6 md:p-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
@@ -182,10 +218,7 @@ export default function CampusesPage() {
           <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {loading ? (
               Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="surface-card rounded-[28px] p-6"
-                >
+                <div key={index} className="surface-card rounded-[28px] p-6">
                   <div className="h-5 w-32 animate-pulse rounded bg-slate-200" />
                   <div className="mt-4 h-4 w-24 animate-pulse rounded bg-slate-200" />
                   <div className="mt-8 h-10 w-20 animate-pulse rounded bg-slate-200" />
@@ -215,6 +248,9 @@ export default function CampusesPage() {
                         <h2 className="text-xl font-bold text-slate-900">
                           {campus.name}
                         </h2>
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600">
+                          Campus ID {campus.campusId ?? "Not set"}
+                        </p>
                         <p className="mt-1 text-sm text-slate-600">
                           {campus.location || "Location not set"}
                         </p>
@@ -233,32 +269,33 @@ export default function CampusesPage() {
                         <BsThreeDotsVertical className="h-5 w-5 text-slate-500" />
                       </button>
 
-                      {openMenuId === campus._id && !showAdminPasswordPrompt && (
-                        <div className="menu-button absolute right-0 top-full z-50 mt-2 w-28 rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl">
-                          <button
-                            className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
-                            onClick={() => {
-                              setCampusToEdit(campus._id);
-                              setPendingAction("edit");
-                              setShowAdminPasswordPrompt(true);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="block w-full rounded-xl px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-500/10"
-                            onClick={() => {
-                              setCampusToDelete(campus._id);
-                              setPendingAction("delete");
-                              setShowAdminPasswordPrompt(true);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                      {openMenuId === campus._id &&
+                        !showAdminPasswordPrompt && (
+                          <div className="menu-button absolute right-0 top-full z-50 mt-2 w-28 rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl">
+                            <button
+                              className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                              onClick={() => {
+                                setCampusToEdit(campus._id);
+                                setPendingAction("edit");
+                                setShowAdminPasswordPrompt(true);
+                                setOpenMenuId(null);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="block w-full rounded-xl px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-500/10"
+                              onClick={() => {
+                                setCampusToDelete(campus._id);
+                                setPendingAction("delete");
+                                setShowAdminPasswordPrompt(true);
+                                setOpenMenuId(null);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -267,6 +304,20 @@ export default function CampusesPage() {
                     <p className="mt-2 text-4xl font-black text-slate-900">
                       {campus.students ?? 0}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => handleSyncCampusStudents(campus._id)}
+                      disabled={syncingCampusId === campus._id}
+                      className={`mt-4 inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-bold text-white transition ${
+                        syncingCampusId === campus._id
+                          ? "cursor-not-allowed bg-slate-400"
+                          : "bg-emerald-600 hover:bg-emerald-700"
+                      }`}
+                    >
+                      {syncingCampusId === campus._id
+                        ? "Fetching..."
+                        : "Fetch Cafe Students"}
+                    </button>
                   </div>
 
                   <div className="mt-5">
@@ -344,26 +395,43 @@ export default function CampusesPage() {
         {showForm && (
           <AddCampusModal
             onCancel={() => setShowForm(false)}
-            onSubmit={async ({ name, location, email, password }) => {
+            onSubmit={async ({ campusId, name, location, email, password }) => {
               try {
-                if (!name.trim()) throw new Error("Please enter a campus name.");
-                if (!email.trim()) throw new Error("Please enter a campus email.");
-                if (!password.trim()) throw new Error("Please enter a password.");
+                if (!String(campusId || "").trim()) {
+                  throw new Error("Please enter a campus ID.");
+                }
+                if (!name.trim())
+                  throw new Error("Please enter a campus name.");
+                if (!email.trim())
+                  throw new Error("Please enter a campus email.");
+                if (!password.trim())
+                  throw new Error("Please enter a password.");
                 if (password.length < 6) {
-                  throw new Error("Password must be at least 6 characters long.");
+                  throw new Error(
+                    "Password must be at least 6 characters long.",
+                  );
                 }
 
                 const res = await fetch(`${url}/dashboard/campuses`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   credentials: "include",
-                  body: JSON.stringify({ name, location, email, password }),
+                  body: JSON.stringify({
+                    campusId,
+                    name,
+                    location,
+                    email,
+                    password,
+                  }),
                 });
 
                 const data = await res.json();
                 if (!res.ok) {
                   throw new Error(
-                    getApiMessage(data, "We could not create the campus right now."),
+                    getApiMessage(
+                      data,
+                      "We could not create the campus right now.",
+                    ),
                   );
                 }
 

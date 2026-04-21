@@ -1,5 +1,6 @@
 import StationScan from "../models/stationScan.model.js";
 import MealSchedule from "../models/mealSchedule.model.js";
+import MealScheduleHistory from "../models/mealScheduleHistory.model.js";
 
 export const DEFAULT_MEAL_SCHEDULE = {
   breakfast: { start: "06:00", end: "09:00" },
@@ -13,7 +14,6 @@ export const MEAL_LABELS = {
   dinner: "እራት",
 };
 
-const DEFAULT_KEY = "default";
 const MEAL_ORDER = ["breakfast", "lunch", "dinner"];
 
 const parseTimeToMinutes = (value) => {
@@ -43,6 +43,8 @@ const getMinutesFromDate = (currentDate = new Date()) =>
   currentDate.getHours() * 60 + currentDate.getMinutes();
 
 export const formatTimeLabel = (value) => value || "--:--";
+export const getMealWindowLabel = (mealWindow = {}) =>
+  `${formatTimeLabel(mealWindow.start)} - ${formatTimeLabel(mealWindow.end)}`;
 
 export const formatMealScheduleForResponse = (schedule = DEFAULT_MEAL_SCHEDULE) =>
   MEAL_ORDER.reduce((accumulator, mealType) => {
@@ -51,7 +53,7 @@ export const formatMealScheduleForResponse = (schedule = DEFAULT_MEAL_SCHEDULE) 
     accumulator[mealType] = {
       start: mealWindow.start,
       end: mealWindow.end,
-      label: `${formatTimeLabel(mealWindow.start)} - ${formatTimeLabel(mealWindow.end)}`,
+      label: getMealWindowLabel(mealWindow),
     };
 
     return accumulator;
@@ -91,23 +93,71 @@ export const validateMealScheduleInput = (payload = {}) => {
   return null;
 };
 
-export const getMealSchedule = async () => {
-  let schedule = await MealSchedule.findOne({ key: DEFAULT_KEY }).lean();
-
-  if (!schedule) {
-    schedule = (
-      await MealSchedule.create({
-        key: DEFAULT_KEY,
-        ...DEFAULT_MEAL_SCHEDULE,
-      })
-    ).toObject();
+export const getMealSchedule = async (campusId) => {
+  if (!campusId) {
+    return formatMealScheduleForResponse(DEFAULT_MEAL_SCHEDULE);
   }
 
-  return formatMealScheduleForResponse(schedule);
+  const schedule = await MealSchedule.findOne({ campusId }).lean();
+  return formatMealScheduleForResponse(schedule || DEFAULT_MEAL_SCHEDULE);
 };
 
-export const getCurrentMealType = async (currentDate = new Date()) => {
-  const schedule = await getMealSchedule();
+export const ensureMealScheduleHistory = async (
+  campusId,
+  schedule,
+  effectiveFrom = new Date(),
+) => {
+  if (!campusId || !schedule) {
+    return;
+  }
+
+  const existingHistory = await MealScheduleHistory.findOne({ campusId }).lean();
+  if (existingHistory) {
+    return;
+  }
+
+  await MealScheduleHistory.create({
+    campusId,
+    effectiveFrom,
+    breakfast: {
+      start: schedule.breakfast.start,
+      end: schedule.breakfast.end,
+    },
+    lunch: {
+      start: schedule.lunch.start,
+      end: schedule.lunch.end,
+    },
+    dinner: {
+      start: schedule.dinner.start,
+      end: schedule.dinner.end,
+    },
+  });
+};
+
+export const getMealScheduleAt = async (
+  campusId,
+  referenceDate = new Date(),
+) => {
+  if (!campusId) {
+    return formatMealScheduleForResponse(DEFAULT_MEAL_SCHEDULE);
+  }
+
+  const historyEntry = await MealScheduleHistory.findOne({
+    campusId,
+    effectiveFrom: { $lte: referenceDate },
+  })
+    .sort({ effectiveFrom: -1 })
+    .lean();
+
+  if (historyEntry) {
+    return formatMealScheduleForResponse(historyEntry);
+  }
+
+  return getMealSchedule(campusId);
+};
+
+export const getCurrentMealType = async (campusId, currentDate = new Date()) => {
+  const schedule = await getMealScheduleAt(campusId, currentDate);
   const currentMinutes = getMinutesFromDate(currentDate);
 
   for (const mealType of MEAL_ORDER) {
@@ -125,8 +175,11 @@ export const getCurrentMealType = async (currentDate = new Date()) => {
 
 export const getMealLabel = (mealType) => MEAL_LABELS[mealType] || mealType;
 
-export const getDashboardMealContext = async (currentDate = new Date()) => {
-  const schedule = await getMealSchedule();
+export const getDashboardMealContext = async (
+  campusId,
+  currentDate = new Date(),
+) => {
+  const schedule = await getMealScheduleAt(campusId, currentDate);
   const current = new Date(currentDate);
   const currentMinutes = getMinutesFromDate(current);
 
@@ -235,25 +288,37 @@ export const getMealSessionWindowSync = (mealType, targetDate, schedule) => {
 };
 
 export const getMealSessionStatus = async (
+  campusId,
   mealType,
   targetDate,
   currentDate = new Date(),
 ) => {
-  const schedule = await getMealSchedule();
+  const targetDayString =
+    typeof targetDate === "string" ? targetDate : getDayString(targetDate);
+  const currentDayString = getDayString(currentDate);
+  const scheduleReferenceDate =
+    targetDayString === currentDayString ? currentDate : targetDate;
+  const schedule = await getMealScheduleAt(campusId, scheduleReferenceDate);
   return getMealSessionStatusSync(mealType, targetDate, schedule, currentDate);
 };
 
-export const getMealSessionWindow = async (mealType, targetDate) => {
-  const schedule = await getMealSchedule();
+export const getMealSessionWindow = async (campusId, mealType, targetDate) => {
+  const schedule = await getMealScheduleAt(campusId, targetDate);
   return getMealSessionWindowSync(mealType, targetDate, schedule);
 };
 
 export const getMealSnapshotCutoff = async (
+  campusId,
   mealType,
   targetDate,
   currentDate = new Date(),
 ) => {
-  const schedule = await getMealSchedule();
+  const targetDayString =
+    typeof targetDate === "string" ? targetDate : getDayString(targetDate);
+  const currentDayString = getDayString(currentDate);
+  const scheduleReferenceDate =
+    targetDayString === currentDayString ? currentDate : targetDate;
+  const schedule = await getMealScheduleAt(campusId, scheduleReferenceDate);
   const status = getMealSessionStatusSync(
     mealType,
     targetDate,
@@ -281,7 +346,7 @@ export const finalizeExpiredStationScans = async (
   campusId,
   currentDate = new Date(),
 ) => {
-  const schedule = await getMealSchedule();
+  const schedule = await getMealScheduleAt(campusId, currentDate);
   const stationScans = await StationScan.find({ campus: campusId })
     .select("_id date mealType")
     .lean();

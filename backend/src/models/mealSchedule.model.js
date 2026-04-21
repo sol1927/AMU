@@ -20,9 +20,13 @@ const mealScheduleSchema = new mongoose.Schema(
   {
     key: {
       type: String,
+      trim: true,
+    },
+    campusId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Campus",
       required: true,
       unique: true,
-      default: "default",
     },
     breakfast: {
       type: mealTimeRangeSchema,

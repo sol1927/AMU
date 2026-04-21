@@ -68,6 +68,18 @@ export default function MealsPage() {
   const [error, setError] = useState("");
   const [mealSchedule, setMealSchedule] = useState(null);
 
+  useEffect(() => {
+    if (!error) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setError("");
+    }, 3500);
+
+    return () => clearTimeout(timer);
+  }, [error]);
+
   const shouldHideCounts =
     mealSummary?.sessionStatus === "upcoming" ||
     mealSummary?.totalStudents === null;
@@ -94,6 +106,7 @@ export default function MealsPage() {
 
         const data = await res.json();
         const campusList = Array.isArray(data.campuses) ? data.campuses : [];
+        campusList.sort((a, b) => a.name.localeCompare(b.name));
         setCampuses(campusList);
 
         if (campusList.length > 0) {
@@ -122,10 +135,18 @@ export default function MealsPage() {
 
   useEffect(() => {
     const fetchMealSchedule = async () => {
+      if (!selectedCampus) {
+        setMealSchedule(null);
+        return;
+      }
+
       try {
-        const res = await fetch(`${url}/dashboard/meal-schedule`, {
-          credentials: "include",
-        });
+        const res = await fetch(
+          `${url}/dashboard/meal-schedule/${selectedCampus}`,
+          {
+            credentials: "include",
+          },
+        );
 
         const data = await res.json();
 
@@ -140,7 +161,7 @@ export default function MealsPage() {
     };
 
     fetchMealSchedule();
-  }, []);
+  }, [selectedCampus]);
 
   useEffect(() => {
     setDetailMode("total");
@@ -183,7 +204,7 @@ export default function MealsPage() {
 
   const handleShowHistory = async () => {
     if (!selectedCampus || !selectedDate || !selectedMealType) {
-      setError("Please select campus, date, and session");
+      setError("Please choose a campus, date, and meal session first.");
       return;
     }
 
@@ -208,14 +229,20 @@ export default function MealsPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to fetch meal summary");
+        const data = await res.json().catch(() => null);
+        throw new Error(
+          data?.message ||
+            "We could not load that meal summary right now. Please try again.",
+        );
       }
 
       const data = await res.json();
       setMealSummary(data.summary || null);
-      setMealSchedule(data.summary?.mealSchedule || null);
-    } catch {
-      setError("Failed to fetch meal summary");
+    } catch (err) {
+      setError(
+        err.message ||
+          "We could not load that meal summary right now. Please try again.",
+      );
     } finally {
       setLoadingSummary(false);
     }
@@ -295,7 +322,7 @@ export default function MealsPage() {
                           key={mealType}
                           type="button"
                           onClick={() => setSelectedMealType(mealType)}
-                            className={`rounded-2xl border px-4 py-3 text-left transition ${
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${
                             active
                               ? "border-cyan-400 bg-cyan-50 text-cyan-700"
                               : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
@@ -350,6 +377,12 @@ export default function MealsPage() {
                       )}`}
                     >
                       {getStatusLabel(mealSummary.sessionStatus)}
+                    </span>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
+                    Applied time:{" "}
+                    <span className="font-bold">
+                      {mealSummary.appliedMealWindow?.label || "--:-- - --:--"}
                     </span>
                   </div>
 

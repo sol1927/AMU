@@ -5,8 +5,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
-import { usePathname, useRouter } from "next/navigation";
-import { IoChevronBackSharp } from "react-icons/io5";
+import { usePathname } from "next/navigation";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -21,7 +20,6 @@ const getFastingLabel = (fastingType) => {
 export default function BatchStudentsPage() {
   const pathname = usePathname();
   const batch = pathname.split("/").pop();
-  const router = useRouter();
   const { currentCampus, refreshCampus } = useCampus();
 
   const [students, setStudents] = useState([]);
@@ -326,14 +324,6 @@ export default function BatchStudentsPage() {
     <>
       <CampusNavbar />
       <div className="page-shell mx-auto flex h-screen max-w-7xl flex-col px-6 pt-24 text-slate-900">
-        <button
-          onClick={() => router.push("/campus/students/groups")}
-          title="Back to Batches"
-          className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:bg-slate-50"
-        >
-          <IoChevronBackSharp className="h-5 w-5" />
-        </button>
-
         <div className="mb-4 flex justify-between">
           <h1 className="text-3xl font-bold">Batch {batch}</h1>
         </div>

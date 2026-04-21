@@ -1,5 +1,5 @@
 import StationScan from "../models/stationScan.model.js";
-import Student from "../models/student.model.js";
+import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
 import {
   finalizeExpiredStationScans,
@@ -10,13 +10,14 @@ import {
   getDayString,
   getMealSnapshotCutoff,
   getMealSchedule,
+  getMealWindowLabel,
 } from "../utils/mealSession.js";
 import {
-  ensureStudentDefaults,
   getStudentFastingType,
   getStudentIsInternship,
   normalizeStudent,
 } from "../utils/studentDefaults.js";
+import { getStudentCampusQuery } from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 export const scanStudentStation = async (req, res) => {
@@ -24,9 +25,9 @@ export const scanStudentStation = async (req, res) => {
     const { studentId } = req.body;
 
     await finalizeExpiredStationScans(req.campus._id);
-    await ensureStudentDefaults(Student, { campus: req.campus._id });
+    const studentCampusQuery = getStudentCampusQuery(req.campus);
 
-    const currentMealType = await getCurrentMealType();
+    const currentMealType = await getCurrentMealType(req.campus._id);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayString = getDayString(today);
@@ -38,9 +39,9 @@ export const scanStudentStation = async (req, res) => {
       });
     }
 
-    const student = await Student.findOne({
+    const student = await CafeStudent.findOne({
       studentId,
-      campus: req.campus._id,
+      ...studentCampusQuery,
     }).select(
       "name studentId department batch fastingType profileUrl isInternship",
     );
@@ -74,6 +75,9 @@ export const scanStudentStation = async (req, res) => {
       });
     }
 
+    const mealSchedule = await getMealSchedule(req.campus._id);
+    const appliedWindow = mealSchedule[currentMealType];
+
     const stationScan = await StationScan.create({
       student: student._id,
       campus: req.campus._id,
@@ -94,6 +98,11 @@ export const scanStudentStation = async (req, res) => {
           date: today,
           year: getCurrentYear(today),
           semester: getCurrentSemester(today),
+          appliedWindow: {
+            start: appliedWindow.start,
+            end: appliedWindow.end,
+            label: getMealWindowLabel(appliedWindow),
+          },
         },
         $addToSet: {
           students: student._id,
@@ -125,17 +134,24 @@ export const getCampusDashboardStats = async (req, res) => {
   try {
     const campusId = req.campus._id;
 
-    await finalizeExpiredStationScans(campusId);
-    await ensureStudentDefaults(Student, { campus: campusId });
+    const studentCampusQuery = getStudentCampusQuery(req.campus);
 
     const now = new Date();
-    const { mealType, label, targetDate } = await getDashboardMealContext(now);
+    const { mealType, label, targetDate } = await getDashboardMealContext(
+      campusId,
+      now,
+    );
     const mealDate = new Date(targetDate);
     mealDate.setHours(0, 0, 0, 0);
-    const snapshotCutoff = await getMealSnapshotCutoff(mealType, mealDate, now);
+    const snapshotCutoff = await getMealSnapshotCutoff(
+      campusId,
+      mealType,
+      mealDate,
+      now,
+    );
     const year = getCurrentYear(mealDate);
     const semester = getCurrentSemester(mealDate);
-    const mealSchedule = await getMealSchedule();
+    const mealSchedule = await getMealSchedule(campusId);
 
     const buildFastingBreakdown = (students = []) => ({
       fasting: students.filter(
@@ -164,7 +180,7 @@ export const getCampusDashboardStats = async (req, res) => {
       return null;
     };
 
-    const campusStudents = await Student.find({ campus: campusId })
+    const campusStudents = await CafeStudent.find(studentCampusQuery)
       .select("_id fastingType isInternship createdAt")
       .lean();
 

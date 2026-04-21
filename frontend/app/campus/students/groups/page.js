@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
-import { IoChevronBackSharp } from "react-icons/io5";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -107,14 +106,6 @@ export default function CampusStudentGroupsPage() {
     <>
       <CampusNavbar />
       <div className="page-shell min-h-screen px-4 pb-12 pt-20 sm:px-6 md:px-20 md:pt-28">
-        {" "}
-        <button
-          onClick={() => router.push("/campus/students")}
-          title="Back to Students"
-          className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:cursor-pointer hover:bg-slate-50"
-        >
-          <IoChevronBackSharp className="w-5 h-5" />
-        </button>
         <section className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
             Student Groups at{" "}

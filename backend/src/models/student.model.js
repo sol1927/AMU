@@ -25,10 +25,16 @@ const studentSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    campus: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Campus",
+    campusId: {
+      type: Number,
       required: true,
+      index: true,
+    },
+    cafe: {
+      type: Number,
+      enum: [-1, 0, 1],
+      default: 0,
+      index: true,
     },
     isInternship: { type: Boolean, default: false },
     fastingType: {

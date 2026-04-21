@@ -22,7 +22,9 @@ export default function DashboardLayout({ children }) {
         });
 
         if (!res.ok) {
-          router.replace("/");
+          if (res.status === 401 || res.status === 403) {
+            router.replace("/");
+          }
           return;
         }
 

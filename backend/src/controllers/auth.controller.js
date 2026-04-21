@@ -7,7 +7,7 @@ import Campus from "../models/campus.model.js";
 const getCookieOptions = (duration = 24 * 60 * 60 * 1000) => ({
   httpOnly: true,
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  secure: true,
+  secure: process.env.NODE_ENV === "production",
   maxAge: duration,
   priority: "high",
 });

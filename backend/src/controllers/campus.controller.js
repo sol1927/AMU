@@ -1,9 +1,13 @@
 import Campus from "../models/campus.model.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
-import Student from "../models/student.model.js";
+import CafeStudent from "../models/cafeStudent.model.js";
 import cloudinary from "../config/cloudinary.js";
 import { formatFullName } from "../utils/formatName.js";
+import {
+  getStudentCampusSyncQuery,
+  parseCampusId,
+} from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 const MAX_ATTEMPTS = 5;
@@ -16,11 +20,18 @@ export const createCampus = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { name, email, password, location } = req.body;
+    const { campusId, name, email, password, location } = req.body;
+    const parsedCampusId = parseCampusId(campusId);
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email.toLowerCase())) {
       return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    if (parsedCampusId === null) {
+      return res.status(400).json({
+        message: "Campus ID is required and must be a positive whole number.",
+      });
     }
 
     if (!password || password.length < 6) {
@@ -36,6 +47,13 @@ export const createCampus = async (req, res) => {
     if (existingCampus) {
       return res.status(400).json({
         message: "A campus with this name already exists",
+      });
+    }
+
+    const existingCampusId = await Campus.findOne({ campusId: parsedCampusId });
+    if (existingCampusId) {
+      return res.status(400).json({
+        message: "This campus ID is already in use.",
       });
     }
 
@@ -56,6 +74,7 @@ export const createCampus = async (req, res) => {
     const admin = await User.findById(req.userId).select("logo");
 
     const campus = await Campus.create({
+      campusId: parsedCampusId,
       name: formatFullName(name.trim()),
       email,
       password: hashedPassword,
@@ -83,6 +102,11 @@ export const createCampus = async (req, res) => {
           message: "You already have a campus with this name.",
         });
       }
+      if (err.keyPattern?.campusId) {
+        return res.status(400).json({
+          message: "This campus ID is already in use.",
+        });
+      }
     }
     res.status(500).json({ message: "Failed to create campus" });
   }
@@ -101,9 +125,9 @@ export const getCampuses = async (req, res) => {
 
     const campusesWithStats = await Promise.all(
       campuses.map(async (campus) => {
-        const studentsCount = await Student.countDocuments({
-          campus: campus._id,
-        });
+        const studentsCount = await CafeStudent.countDocuments(
+          getStudentCampusSyncQuery(campus),
+        );
 
         const isLive =
           Boolean(campus.isOnline) &&
@@ -134,7 +158,7 @@ export const updateCampus = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { name, email, password, location } = req.body;
+    const { campusId, name, email, password, location } = req.body;
 
     const campus = await Campus.findOne({
       _id: req.params.id,
@@ -143,6 +167,31 @@ export const updateCampus = async (req, res) => {
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
+    }
+
+    const previousCampusId = campus.campusId;
+
+    if (campusId !== undefined) {
+      const parsedCampusId = parseCampusId(campusId);
+
+      if (parsedCampusId === null) {
+        return res.status(400).json({
+          message: "Campus ID must be a positive whole number.",
+        });
+      }
+
+      const existingCampusId = await Campus.findOne({
+        _id: { $ne: req.params.id },
+        campusId: parsedCampusId,
+      });
+
+      if (existingCampusId) {
+        return res.status(400).json({
+          message: "This campus ID is already in use.",
+        });
+      }
+
+      campus.campusId = parsedCampusId;
     }
 
     if (email) {
@@ -198,6 +247,15 @@ export const updateCampus = async (req, res) => {
 
     await campus.save();
 
+    if (campusId !== undefined) {
+      await CafeStudent.updateMany(
+        getStudentCampusSyncQuery(campus, previousCampusId),
+        {
+          $set: { campusId: campus.campusId },
+        },
+      );
+    }
+
     const campusData = campus.toObject();
     delete campusData.password;
 
@@ -216,6 +274,11 @@ export const updateCampus = async (req, res) => {
         return res
           .status(400)
           .json({ message: "You already have a campus with this name." });
+      }
+      if (err.keyPattern?.campusId) {
+        return res
+          .status(400)
+          .json({ message: "This campus ID is already in use." });
       }
     }
 
@@ -345,7 +408,7 @@ export const deleteCampus = async (req, res) => {
     const campus = await Campus.findById(id);
     if (!campus) return res.status(404).json({ message: "Campus not found" });
 
-    const students = await Student.find({ campus: campus._id });
+    const students = await CafeStudent.find(getStudentCampusSyncQuery(campus));
 
     for (const student of students) {
       if (student.profilePublicId) {
@@ -353,7 +416,7 @@ export const deleteCampus = async (req, res) => {
       }
     }
 
-    await Student.deleteMany({ campus: campus._id });
+    await CafeStudent.deleteMany(getStudentCampusSyncQuery(campus));
 
     if (campus.logoPublicId) {
       await cloudinary.uploader.destroy(campus.logoPublicId);
@@ -377,6 +440,7 @@ export const getCampusDashboard = async (req, res) => {
 
     res.json({
       campus: {
+        campusId: campus.campusId,
         name: campus.name,
         email: campus.email,
         location: campus.location,
@@ -567,6 +631,11 @@ export const updateCampusProfile = async (req, res) => {
           message: "A campus with this name already exists.",
         });
       }
+      if (err.keyPattern?.campusId) {
+        return res.status(400).json({
+          message: "This campus ID is already in use.",
+        });
+      }
     }
 
     logInternalError("update-campus-profile", err);
@@ -583,8 +652,14 @@ export const logoutCampus = (req, res) => {
   })
     .catch(() => null)
     .finally(() => {
+      const isProduction = process.env.NODE_ENV === "production";
       res
-        .cookie("campusToken", "", { httpOnly: true, expires: new Date(0) })
+        .cookie("campusToken", "", {
+          httpOnly: true,
+          sameSite: isProduction ? "none" : "lax",
+          secure: isProduction,
+          expires: new Date(0),
+        })
         .json({ message: "Logged out" });
     });
 };

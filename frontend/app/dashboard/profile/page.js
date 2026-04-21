@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useUser } from "../../context/UserContext";
 import { FiCamera } from "react-icons/fi";
-import { IoChevronBackSharp } from "react-icons/io5";
 
 import AdminPasswordModal from "../../components/AdminPasswordModal";
 import EmailChangeModal from "../../components/EmailChangeModal";
@@ -172,14 +171,6 @@ export default function ProfilePage() {
 
   return (
     <div className="page-shell relative flex min-h-screen items-center justify-center px-6 py-12 pt-28 md:px-20">
-      <button
-        onClick={() => router.push("/dashboard")}
-        title="Back to Dashboard"
-        className="fixed left-6 top-24 z-20 rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-lg transition-transform hover:scale-110 hover:bg-slate-50"
-      >
-        <IoChevronBackSharp className="w-5 h-5" />
-      </button>
-
       <div className="surface-panel w-full max-w-lg rounded-2xl p-6">
         <h1 className="text-2xl font-bold mb-6 text-center">Edit Profile</h1>
         <div className="flex flex-col items-center mb-6 relative">

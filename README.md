@@ -5,12 +5,14 @@ Full-stack web application for managing campuses, students, meal schedules, meal
 ## Tech Stack
 
 ### Frontend
+
 - Next.js `16.1.4`
 - React `19.2.3`
 - Tailwind CSS `4.1.18`
 - Axios `1.13.4`
 
 ### Backend
+
 - Node.js
 - Express `5.2.1`
 - MongoDB with Mongoose `9.1.4`
@@ -27,13 +29,14 @@ The safest project-wide runtime requirement is driven by the backend dependency 
 - MongoDB: recommended `7.x` or MongoDB Atlas with a valid connection string
 
 ### Notes
+
 - Frontend dependency `next@16.1.4` requires Node.js `>= 20.9.0`.
 - Backend dependency `mongoose@9.1.4` requires Node.js `>= 20.19.0`.
 - This project is currently developed locally with Node.js `22.14.0` and npm `11.2.0`.
 
 ## Project Structure
 
-```text
+```
 arbaminchuniversity/
 |-- backend/
 `-- frontend/
@@ -47,6 +50,7 @@ Example environment files are included and should be committed:
 - `frontend/.env.example`
 
 ### Backend variables
+
 - `NODE_ENV`: runtime mode such as `development` or `production`
 - `PORT`: backend server port
 - `MONGO_URI`: MongoDB connection string
@@ -61,6 +65,7 @@ Example environment files are included and should be committed:
 - `CLOUDINARY_API_SECRET`: Cloudinary API secret
 
 ### Frontend variables
+
 - `NEXT_PUBLIC_API_URL`: backend API base URL, for example `http://localhost:5000/api`
 
 ## Local Setup
@@ -137,10 +142,12 @@ Default development URLs:
 ## Available Scripts
 
 ### Backend
+
 - `npm run dev`: start backend with Nodemon
 - `npm start`: start backend with Node
 
 ### Frontend
+
 - `npm run dev`: start Next.js development server
 - `npm run build`: build for production
 - `npm run start`: start production server

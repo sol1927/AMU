@@ -16,17 +16,19 @@ import {
   deleteCampus,
   selfUpdateCampus,
 } from "../controllers/campus.controller.js";
+import { syncCafeStudents } from "../controllers/student.controller.js";
 
 const router = express.Router();
 
 router.get("/", verifyToken, getAdminDashboard);
 router.get("/meals", verifyToken, getMeals);
 router.get("/meal-filters", verifyToken, getMealFilters);
-router.get("/meal-schedule", verifyToken, getMealSchedule);
-router.put("/meal-schedule", verifyToken, updateMealSchedule);
+router.get("/meal-schedule/:campusId", verifyToken, getMealSchedule);
+router.put("/meal-schedule/:campusId", verifyToken, updateMealSchedule);
 router.post("/campuses", verifyToken, createCampus);
 router.get("/campuses", verifyToken, getCampuses);
 router.patch("/campuses/:id", verifyToken, updateCampus);
+router.post("/campuses/:id/sync-students", verifyToken, syncCafeStudents);
 router.delete("/campuses/:id", verifyToken, deleteCampus);
 router.patch("/campuses/selfUpdate/:id", verifyToken, selfUpdateCampus);
 

@@ -64,7 +64,7 @@ export default function StationScanPage() {
     const timer = setTimeout(() => {
       setStudent(null);
       setAllowed(null);
-    }, 1000);
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [student]);
@@ -177,6 +177,10 @@ export default function StationScanPage() {
     setManualInput("");
   };
 
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
   if (setStudentsLoading || !currentCampus) {
     return (
       <div className="page-shell flex h-screen w-full items-center justify-center">
@@ -194,10 +198,7 @@ export default function StationScanPage() {
       return "bg-gradient-to-r from-pink-500 to-red-600 text-white shadow-lg animate-shake";
     if (student.name === "Student not found")
       return "bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg animate-shake";
-    if (
-      student.name === "Time is up / ሰዓት አልቋል" ||
-      student.name === "ሰዓት አልቋል"
-    )
+    if (student.name === "Time is up / ሰዓት አልቋል" || student.name === "ሰዓት አልቋል")
       return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold animate-shake";
     if (allowed)
       return "bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg";
@@ -311,7 +312,14 @@ export default function StationScanPage() {
               Scan
             </button>
           </div>
-          <div className="w-full md:w-[140px]"></div>
+          <div className="flex w-full justify-center md:w-[140px] md:justify-end">
+            <button
+              onClick={handleRefresh}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         <input

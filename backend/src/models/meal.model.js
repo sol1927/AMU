@@ -1,5 +1,26 @@
 import mongoose from "mongoose";
 
+const mealWindowSchema = new mongoose.Schema(
+  {
+    start: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    end: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    label: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+  },
+  { _id: false },
+);
+
 const mealSchema = new mongoose.Schema(
   {
     campus: {
@@ -19,10 +40,11 @@ const mealSchema = new mongoose.Schema(
       enum: ["first", "second"],
       required: true,
     },
+    appliedWindow: mealWindowSchema,
     students: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Student",
+        ref: "CafeStudent",
       },
     ],
   },

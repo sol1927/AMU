@@ -5,6 +5,9 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import PropTypes from "prop-types";
 
 export default function EditCampusModal({ campus, onCancel, onSubmit }) {
+  const [campusId, setCampusId] = useState(
+    campus.campusId ? String(campus.campusId) : "",
+  );
   const [name, setName] = useState(campus.name);
   const [location, setLocation] = useState(campus.location || "");
   const [email, setEmail] = useState(campus.email);
@@ -26,6 +29,11 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
   const handleUpdate = async () => {
     setMessage("");
+    if (!campusId.trim()) {
+      setMessage("Campus ID is required");
+      return;
+    }
+
     if (password && password.length < 6) {
       setMessage("New password must be at least 6 characters");
       return;
@@ -36,7 +44,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       return;
     }
 
-    const payload = { id: campus._id, name, location, email };
+    const payload = { id: campus._id, campusId, name, location, email };
     if (password) {
       payload.password = password;
     }
@@ -86,6 +94,14 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
         <label className="text-xs text-gray-400 ml-1 mb-1 block">
           Campus Details
         </label>
+        <input
+          type="number"
+          min="1"
+          placeholder="Campus ID"
+          value={campusId}
+          onChange={(e) => setCampusId(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
+        />
         <input
           type="text"
           placeholder="Campus Name"
@@ -189,6 +205,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 EditCampusModal.propTypes = {
   campus: PropTypes.shape({
     _id: PropTypes.string.isRequired,
+    campusId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     name: PropTypes.string.isRequired,
     location: PropTypes.string,
     email: PropTypes.string.isRequired,

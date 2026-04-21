@@ -4,6 +4,7 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import PropTypes from "prop-types";
 
 export default function AddCampusModal({ onCancel, onSubmit }) {
+  const [campusId, setCampusId] = useState("");
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [email, setEmail] = useState("");
@@ -20,18 +21,25 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!name || !email || !password) {
+    if (!campusId || !name || !email || !password) {
       setError("Please fill in all required fields.");
       return;
     }
 
     try {
-      const errMessage = await onSubmit({ name, location, email, password });
+      const errMessage = await onSubmit({
+        campusId,
+        name,
+        location,
+        email,
+        password,
+      });
 
       if (errMessage) {
         setError(errMessage);
       } else {
         setError("");
+        setCampusId("");
         setName("");
         setLocation("");
         setEmail("");
@@ -52,6 +60,14 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
 
         {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
 
+        <input
+          type="number"
+          min="1"
+          className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          placeholder="Campus ID"
+          value={campusId}
+          onChange={(e) => setCampusId(e.target.value)}
+        />
         <input
           className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Name"
