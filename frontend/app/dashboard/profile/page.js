@@ -1,10 +1,10 @@
 "use client";
 
-import { React, useEffect, useState } from "react";
+import { React, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useUser } from "../../context/UserContext";
 import { FiCamera } from "react-icons/fi";
+import { useUser } from "../../context/UserContext";
 
 import AdminPasswordModal from "../../components/AdminPasswordModal";
 import EmailChangeModal from "../../components/EmailChangeModal";
@@ -12,6 +12,13 @@ import ChangePasswordModal from "../../components/ChangePasswordModal";
 import { getApiMessage, getErrorMessage } from "../../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+const ALLOWED_LOGO_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/jpg",
+  "image/webp",
+]);
+const MAX_LOGO_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const capitalizeWords = (str) => {
   if (!str) return "";
@@ -24,14 +31,12 @@ const capitalizeWords = (str) => {
 export default function ProfilePage() {
   const router = useRouter();
   const { currentUser, setCurrentUser } = useUser();
+  const fileInputRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [savingChanges, setSavingChanges] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [name, setName] = useState("");
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState("");
 
   const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
   const [showEmailChangeModal, setShowEmailChangeModal] = useState(false);
@@ -57,7 +62,6 @@ export default function ProfilePage() {
 
         const data = await res.json();
         setName(data.user?.name || "");
-        setPhotoPreview(data.user?.logo?.url || "");
         setCurrentUser((prev) => ({ ...prev, ...data.user }));
       } catch {
         router.replace("/");
@@ -68,11 +72,103 @@ export default function ProfilePage() {
     fetchProfile();
   }, [router, setCurrentUser]);
 
-  const handlePhotoSelect = (e) => {
-    const file = e.target.files[0];
+  const resizeImageToDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const image = new window.Image();
+
+        image.onload = () => {
+          const maxSide = 320;
+          const scale = Math.min(maxSide / image.width, maxSide / image.height, 1);
+          const width = Math.max(1, Math.round(image.width * scale));
+          const height = Math.max(1, Math.round(image.height * scale));
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+
+          const context = canvas.getContext("2d");
+          if (!context) {
+            reject(new Error("Image processing is not supported in this browser."));
+            return;
+          }
+
+          context.drawImage(image, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          if (!dataUrl) {
+            reject(new Error("Could not prepare the selected image."));
+            return;
+          }
+
+          resolve(dataUrl);
+        };
+
+        image.onerror = () => {
+          reject(new Error("The selected file is not a valid image."));
+        };
+
+        image.src = reader.result;
+      };
+
+      reader.onerror = () => {
+        reject(new Error("We could not read the selected image."));
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+  const handleLogoSelection = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
     if (!file) return;
-    setPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
+
+    if (!ALLOWED_LOGO_MIME_TYPES.has((file.type || "").toLowerCase())) {
+      setError("Only JPG, JPEG, PNG, and WEBP images are supported.");
+      setTimeout(() => setError(""), 2500);
+      return;
+    }
+
+    if (file.size > MAX_LOGO_FILE_SIZE_BYTES) {
+      setError("The selected image is too large. Please choose a smaller one.");
+      setTimeout(() => setError(""), 2000);
+      return;
+    }
+
+    setUploadingLogo(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const photoUrl = await resizeImageToDataUrl(file);
+      const res = await fetch(`${url}/profile/me/photo`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoUrl }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(getApiMessage(data, "We could not update your logo."));
+      }
+
+      setCurrentUser((prev) => ({
+        ...prev,
+        ...(data.user || {}),
+        logo: data.user?.logo || { url: data.photoUrl },
+      }));
+      setMessage(getApiMessage(data, "Logo updated successfully."));
+      setTimeout(() => setMessage(""), 2000);
+    } catch (err) {
+      setError(getErrorMessage(err, "We could not update your logo."));
+      setTimeout(() => setError(""), 2500);
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleSaveChanges = async (e) => {
@@ -80,32 +176,8 @@ export default function ProfilePage() {
     setSavingChanges(true);
     setMessage("");
     setError("");
+
     try {
-      let photoUrl = photoPreview;
-
-      if (photo) {
-        setUploadingPhoto(true);
-        const formData = new FormData();
-        formData.append("photo", photo);
-
-        const resPhoto = await fetch(`${url}/profile/me/photo`, {
-          method: "PUT",
-          credentials: "include",
-          body: formData,
-        });
-
-        const dataPhoto = await resPhoto.json();
-        if (!resPhoto.ok)
-          throw new Error(
-            getApiMessage(dataPhoto, "We could not update the profile photo."),
-          );
-
-        photoUrl = dataPhoto.photoUrl || dataPhoto.logo?.url;
-        setCurrentUser((prev) => ({ ...prev, logo: { url: photoUrl } }));
-        setPhoto(null);
-        setUploadingPhoto(false);
-      }
-
       const resProfile = await fetch(`${url}/profile/me`, {
         method: "PUT",
         credentials: "include",
@@ -114,14 +186,13 @@ export default function ProfilePage() {
       });
       const dataProfile = await resProfile.json();
 
-      if (!resProfile.ok)
+      if (!resProfile.ok) {
         throw new Error(
           getApiMessage(dataProfile, "We could not save your profile changes."),
         );
+      }
 
       setCurrentUser((prev) => ({ ...prev, name }));
-      setPhotoPreview(photoUrl);
-
       setMessage(
         getApiMessage(dataProfile, "Your changes were saved successfully."),
       );
@@ -131,11 +202,9 @@ export default function ProfilePage() {
       setError(
         getErrorMessage(err, "We could not save your profile changes."),
       );
-
       setTimeout(() => setError(""), 2000);
     } finally {
       setSavingChanges(false);
-      setUploadingPhoto(false);
     }
   };
 
@@ -159,36 +228,59 @@ export default function ProfilePage() {
       setShowAdminPasswordModal(false);
       setPasswordError("");
       setShowEmailChangeModal(true);
-    } catch (error) {
+    } catch (err) {
       setPasswordError(
-        getErrorMessage(error, "We could not verify your password right now."),
+        getErrorMessage(err, "We could not verify your password right now."),
       );
     }
   };
 
-  if (loading)
+  if (loading) {
     return <p className="page-shell p-6 pt-28 text-slate-500">Checking authentication...</p>;
+  }
 
   return (
     <div className="page-shell relative flex min-h-screen items-center justify-center px-6 py-12 pt-28 md:px-20">
       <div className="surface-panel w-full max-w-lg rounded-2xl p-6">
-        <h1 className="text-2xl font-bold mb-6 text-center">Edit Profile</h1>
-        <div className="flex flex-col items-center mb-6 relative">
-          <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/20 shadow-lg hover:shadow-blue-500/50 transition-shadow duration-300">
-            {" "}
-            {photoPreview ? (
-              <Image
-                src={photoPreview}
-                alt="Profile"
-                width={112}
-                height={112}
-                className="object-cover w-full h-full"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-slate-300 font-bold text-white">
-                {capitalizeWords(currentUser?.name)?.charAt(0) || "U"}
-              </div>
-            )}
+        <h1 className="mb-6 text-center text-2xl font-bold">Edit Profile</h1>
+        <div className="relative mb-6 flex flex-col items-center">
+          <div className="relative h-28 w-28">
+            <div className="h-28 w-28 overflow-hidden rounded-full border-2 border-white/20 shadow-lg transition-shadow duration-300 hover:shadow-blue-500/50">
+              {currentUser?.logo?.url ? (
+                <Image
+                  src={currentUser.logo.url}
+                  alt="Profile"
+                  width={112}
+                  height={112}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-300 font-bold text-white">
+                  {capitalizeWords(currentUser?.name)?.charAt(0) || "U"}
+                </div>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              className="hidden"
+              onChange={handleLogoSelection}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingLogo}
+              className="absolute bottom-0 right-0 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow-lg transition hover:scale-105 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              aria-label="Update logo"
+              title="Update logo"
+            >
+              <FiCamera size={18} />
+            </button>
           </div>
 
           <div className="mt-4 max-w-full px-4 text-center">
@@ -196,19 +288,12 @@ export default function ProfilePage() {
               {capitalizeWords(name) || capitalizeWords(currentUser?.name) || "User"}
             </p>
             <p className="mt-1 text-sm text-slate-500">Admin profile</p>
+            <p className="mt-2 text-xs text-slate-400">
+              {uploadingLogo ? "Updating logo..." : "Tap the camera to change your logo"}
+            </p>
           </div>
-
-          <label className="absolute bottom-0 right-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-transform">
-            {" "}
-            <FiCamera />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoSelect}
-              className="hidden"
-            />
-          </label>
         </div>
+
         <form onSubmit={handleSaveChanges} className="space-y-4">
           <input
             type="text"
@@ -220,26 +305,24 @@ export default function ProfilePage() {
           />
           <div className="mt-6 flex flex-col gap-2">
             <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2 text-slate-600 transition hover:bg-slate-50">
-              {" "}
               <span className="truncate">
                 {currentUser?.email || "No email"}
               </span>
               <button
                 type="button"
                 onClick={() => setShowAdminPasswordModal(true)}
-                className="ml-2 bg-yellow-500 hover:bg-yellow-600  hover:cursor-pointer hover:scale-105 text-white px-3 py-1 rounded-md text-sm transition"
+                className="ml-2 rounded-md bg-yellow-500 px-3 py-1 text-sm text-white transition hover:cursor-pointer hover:scale-105 hover:bg-yellow-600"
               >
                 Change
               </button>
             </div>
 
             <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2 text-slate-600 transition hover:bg-slate-50">
-              {" "}
               <span className="truncate">••••••••</span>
               <button
                 type="button"
                 onClick={() => setShowChangePasswordModal(true)}
-                className="ml-2 bg-green-500 hover:bg-green-600  hover:cursor-pointer hover:scale-105 text-white px-3 py-1 rounded-md text-sm transition"
+                className="ml-2 rounded-md bg-green-500 px-3 py-1 text-sm text-white transition hover:cursor-pointer hover:scale-105 hover:bg-green-600"
               >
                 Change
               </button>
@@ -247,19 +330,19 @@ export default function ProfilePage() {
           </div>
 
           {message && (
-            <p className="text-green-400 text-center font-medium">{message}</p>
+            <p className="text-center font-medium text-green-400">{message}</p>
           )}
           {error && (
-            <p className="text-red-400 text-center font-medium">{error}</p>
+            <p className="text-center font-medium text-red-400">{error}</p>
           )}
 
-          <div className="flex justify-center mt-6">
+          <div className="mt-6 flex justify-center">
             <button
               type="submit"
-              disabled={savingChanges || uploadingPhoto}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600  hover:cursor-pointer text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 transition disabled:opacity-60"
+              disabled={savingChanges}
+              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 font-semibold text-white shadow-lg transition hover:cursor-pointer hover:scale-105 disabled:opacity-60"
             >
-              {savingChanges || uploadingPhoto ? "Saving..." : "Save Changes"}
+              {savingChanges ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

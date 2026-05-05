@@ -2,17 +2,125 @@ import Campus from "../models/campus.model.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import CafeStudent from "../models/cafeStudent.model.js";
-import cloudinary from "../config/cloudinary.js";
+import StationScan from "../models/stationScan.model.js";
+import Meal from "../models/meal.model.js";
 import { formatFullName } from "../utils/formatName.js";
 import {
   getStudentCampusSyncQuery,
   parseCampusId,
 } from "../utils/campusId.js";
+import {
+  getDashboardMealContext,
+  getDayString,
+  getCurrentMealType,
+  getMealScheduleAt,
+  getMealWindowLabel,
+  isCampusLiveNow,
+} from "../utils/mealSession.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
+import {
+  getCookieOptions,
+  getSessionCookieOptions,
+} from "../utils/sessionSecurity.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
-const LIVE_CAMPUS_WINDOW_MS = 5 * 60 * 1000;
+const getAppliedWindowDate = (dayString, timeValue) => {
+  if (!dayString || typeof timeValue !== "string") {
+    return null;
+  }
+
+  const [hour, minute] = timeValue.split(":").map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null;
+  }
+
+  const date = new Date(`${dayString}T00:00:00`);
+  date.setHours(hour, minute, 0, 0);
+  return date;
+};
+
+const clampToAppliedWindow = (value, appliedWindow, dayString) => {
+  const date = value ? new Date(value) : null;
+  const start = getAppliedWindowDate(dayString, appliedWindow?.start);
+  const end = getAppliedWindowDate(dayString, appliedWindow?.end);
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return start || null;
+  }
+
+  if (start && date < start) {
+    return start;
+  }
+
+  if (end && date > end) {
+    return end;
+  }
+
+  return date;
+};
+
+const closeMealAtAppliedTime = async (meal, fallbackOpenedAt, logoutTime) => {
+  if (!meal?.id) {
+    return;
+  }
+
+  const appliedWindow = meal.appliedWindow || {};
+  const dayString = meal.date || getDayString(logoutTime);
+  const openedAt = clampToAppliedWindow(
+    appliedWindow.actualOpenedAt ||
+      fallbackOpenedAt ||
+      meal.createdAt ||
+      logoutTime,
+    appliedWindow,
+    dayString,
+  );
+  const closedAt = clampToAppliedWindow(logoutTime, appliedWindow, dayString);
+
+  await Meal.updateById(meal.id, {
+    appliedWindow: {
+      ...appliedWindow,
+      actualOpenedAt: openedAt?.toISOString?.() || null,
+      actualClosedAt: closedAt?.toISOString?.() || null,
+    },
+  });
+};
+
+const findAdminConflict = async ({ email, name, excludeId } = {}) => {
+  const admins = await User.findAll({}, { includePassword: true });
+  return (
+    admins.find((admin) => {
+      if (excludeId && admin.id === Number(excludeId)) return false;
+      const sameEmail = email && admin.email === email;
+      const sameName =
+        name && admin.name && admin.name.toLowerCase() === name.toLowerCase();
+      return sameEmail || sameName;
+    }) || null
+  );
+};
+
+const findOwnedCampus = async (id, createdBy, includePassword = false) => {
+  const campus = await Campus.findById(id, { includePassword });
+  if (!campus || Number(campus.createdBy) !== Number(createdBy)) {
+    return null;
+  }
+  return campus;
+};
+
+const attachAdminLogoToCampus = async (campus) => {
+  if (!campus) {
+    return campus;
+  }
+
+  const admin = campus.createdBy
+    ? await User.findById(campus.createdBy)
+    : null;
+
+  return {
+    ...campus,
+    logo: admin?.logo || campus.logo,
+  };
+};
 
 export const createCampus = async (req, res) => {
   try {
@@ -22,9 +130,10 @@ export const createCampus = async (req, res) => {
 
     const { campusId, name, email, password, location } = req.body;
     const parsedCampusId = parseCampusId(campusId);
+    const normalizedEmail = email?.toLowerCase().trim();
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email.toLowerCase())) {
+    if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
       return res.status(400).json({ message: "Invalid email format." });
     }
 
@@ -42,7 +151,7 @@ export const createCampus = async (req, res) => {
 
     const existingCampus = await Campus.findOne({
       createdBy: req.userId,
-      name: { $regex: `^${name.trim()}$`, $options: "i" },
+      nameInsensitive: name.trim(),
     });
     if (existingCampus) {
       return res.status(400).json({
@@ -57,8 +166,16 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    const adminWithEmailOrName = await User.findOne({
-      $or: [{ email }, { name }],
+    const existingCampusEmail = await Campus.findOne({ email: normalizedEmail });
+    if (existingCampusEmail) {
+      return res.status(400).json({
+        message: "A campus with this email already exists.",
+      });
+    }
+
+    const adminWithEmailOrName = await findAdminConflict({
+      email: normalizedEmail,
+      name: formatFullName(name.trim()),
     });
     if (adminWithEmailOrName) {
       return res.status(400).json({
@@ -66,48 +183,37 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      Number(process.env.SALT_ROUNDS) || 10,
-    );
-
-    const admin = await User.findById(req.userId).select("logo");
-
     const campus = await Campus.create({
       campusId: parsedCampusId,
       name: formatFullName(name.trim()),
-      email,
-      password: hashedPassword,
+      email: normalizedEmail,
+      password,
       location: location ? formatFullName(location.trim()) : "",
       createdBy: req.userId,
-      logo: admin?.logo || {},
     });
-
-    const campusData = campus.toObject();
-    delete campusData.password;
+    const brandedCampus = await attachAdminLogoToCampus(campus);
 
     res.status(201).json({
       message: "Campus created successfully",
-      campus: campusData,
+      campus: brandedCampus,
     });
   } catch (err) {
-    if (err.code === 11000) {
-      if (err.keyPattern?.email) {
+    logInternalError("create-campus", err);
+
+    if (err?.code === "ER_DUP_ENTRY") {
+      if (err?.message?.includes("campuses.email")) {
         return res.status(400).json({
-          message: "This campus email is already in use.",
+          message: "A campus with this email already exists.",
         });
       }
-      if (err.keyPattern?.name) {
-        return res.status(400).json({
-          message: "You already have a campus with this name.",
-        });
-      }
-      if (err.keyPattern?.campusId) {
+
+      if (err?.message?.includes("campuses.campusId")) {
         return res.status(400).json({
           message: "This campus ID is already in use.",
         });
       }
     }
+
     res.status(500).json({ message: "Failed to create campus" });
   }
 };
@@ -118,29 +224,61 @@ export const getCampuses = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const campuses = await Campus.find({ createdBy: req.userId })
-      .select("-password")
-      .sort({ createdAt: -1 })
-      .lean();
+    const campuses = (await Campus.findAll({ createdBy: req.userId })).sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+    );
 
     const campusesWithStats = await Promise.all(
       campuses.map(async (campus) => {
         const studentsCount = await CafeStudent.countDocuments(
           getStudentCampusSyncQuery(campus),
         );
+        const mealSchedule = await getMealScheduleAt(campus.id, new Date());
+        const { mealType, label, targetDate } = await getDashboardMealContext(
+          campus.id,
+          new Date(),
+        );
+        const activityDate = new Date(targetDate);
+        activityDate.setHours(0, 0, 0, 0);
+        const currentMeal = await Meal.findOne({
+          campus: campus.id,
+          mealType,
+          date: getDayString(activityDate),
+        });
+        const actualOpenedAt =
+          currentMeal?.appliedWindow?.actualOpenedAt || null;
+        const actualClosedAt =
+          currentMeal?.appliedWindow?.actualClosedAt || null;
+        const isLive = isCampusLiveNow(campus);
+        const effectiveCampus =
+          !isLive && campus.isOnline
+            ? { ...campus, isOnline: false, lastActiveAt: null }
+            : campus;
 
-        const isLive =
-          Boolean(campus.isOnline) &&
-          Boolean(campus.lastActiveAt) &&
-          Date.now() - new Date(campus.lastActiveAt).getTime() <=
-            LIVE_CAMPUS_WINDOW_MS;
+        if (!isLive && campus.isOnline) {
+          await Campus.updateById(campus.id, {
+            isOnline: false,
+            lastActiveAt: null,
+          });
+        }
+
+        const currentSessionAppliedWindow =
+          currentMeal?.appliedWindow?.label ||
+          getMealWindowLabel(mealSchedule?.[mealType]);
+        const brandedCampus = await attachAdminLogoToCampus(effectiveCampus);
 
         return {
-          ...campus,
-          name: campus.name ? formatFullName(campus.name) : "",
-          location: campus.location ? formatFullName(campus.location) : "N/A",
+          ...brandedCampus,
+          name: brandedCampus.name ? formatFullName(brandedCampus.name) : "",
+          location: brandedCampus.location
+            ? formatFullName(brandedCampus.location)
+            : "N/A",
           students: studentsCount,
           isLive,
+          currentSessionLabel: label,
+          currentSessionAppliedWindow,
+          openingTime: actualOpenedAt,
+          closingTime: actualClosedAt,
         };
       }),
     );
@@ -159,21 +297,17 @@ export const updateCampus = async (req, res) => {
     }
 
     const { campusId, name, email, password, location } = req.body;
-
-    const campus = await Campus.findOne({
-      _id: req.params.id,
-      createdBy: req.userId,
-    }).select("+password");
+    const campus = await findOwnedCampus(req.params.id, req.userId, true);
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
 
     const previousCampusId = campus.campusId;
+    const updates = {};
 
     if (campusId !== undefined) {
       const parsedCampusId = parseCampusId(campusId);
-
       if (parsedCampusId === null) {
         return res.status(400).json({
           message: "Campus ID must be a positive whole number.",
@@ -181,17 +315,16 @@ export const updateCampus = async (req, res) => {
       }
 
       const existingCampusId = await Campus.findOne({
-        _id: { $ne: req.params.id },
         campusId: parsedCampusId,
+        excludeId: req.params.id,
       });
-
       if (existingCampusId) {
         return res.status(400).json({
           message: "This campus ID is already in use.",
         });
       }
 
-      campus.campusId = parsedCampusId;
+      updates.campusId = parsedCampusId;
     }
 
     if (email) {
@@ -199,28 +332,28 @@ export const updateCampus = async (req, res) => {
       if (!emailRegex.test(email.toLowerCase())) {
         return res.status(400).json({ message: "Invalid email format." });
       }
-      campus.email = email;
+      updates.email = email;
     }
 
     if (name) {
       const existingCampus = await Campus.findOne({
-        _id: { $ne: req.params.id },
         createdBy: req.userId,
-        name: { $regex: `^${name.trim()}$`, $options: "i" },
+        nameInsensitive: name.trim(),
+        excludeId: req.params.id,
       });
-
       if (existingCampus) {
         return res.status(400).json({
           message: "A campus with this name already exists",
         });
       }
 
-      campus.name = formatFullName(name.trim());
+      updates.name = formatFullName(name.trim());
     }
 
     if (email || name) {
-      const adminConflict = await User.findOne({
-        $or: [{ email }, { name }],
+      const adminConflict = await findAdminConflict({
+        email,
+        name: updates.name || name,
       });
       if (adminConflict) {
         return res.status(400).json({
@@ -230,58 +363,34 @@ export const updateCampus = async (req, res) => {
     }
 
     if (location !== undefined) {
-      campus.location = location ? formatFullName(location.trim()) : "";
+      updates.location = location ? formatFullName(location.trim()) : "";
     }
+
     if (password) {
       if (password.length < 6) {
         return res.status(400).json({
           message: "Password must be at least 6 characters",
         });
       }
-
-      campus.password = await bcrypt.hash(
-        password,
-        Number(process.env.SALT_ROUNDS) || 10,
-      );
+      updates.password = password;
     }
 
-    await campus.save();
+    const updatedCampus = await Campus.updateById(campus.id, updates);
+    const brandedCampus = await attachAdminLogoToCampus(updatedCampus);
 
     if (campusId !== undefined) {
       await CafeStudent.updateMany(
         getStudentCampusSyncQuery(campus, previousCampusId),
-        {
-          $set: { campusId: campus.campusId },
-        },
+        { campusId: updatedCampus.campusId },
       );
     }
 
-    const campusData = campus.toObject();
-    delete campusData.password;
-
     res.json({
       message: "Campus updated successfully",
-      campus: campusData,
+      campus: brandedCampus,
     });
   } catch (err) {
-    if (err.code === 11000) {
-      if (err.keyPattern?.email) {
-        return res
-          .status(400)
-          .json({ message: "This campus email is already in use." });
-      }
-      if (err.keyPattern?.name) {
-        return res
-          .status(400)
-          .json({ message: "You already have a campus with this name." });
-      }
-      if (err.keyPattern?.campusId) {
-        return res
-          .status(400)
-          .json({ message: "This campus ID is already in use." });
-      }
-    }
-
+    logInternalError("update-campus", err);
     res.status(500).json({ message: "Failed to update campus" });
   }
 };
@@ -293,43 +402,40 @@ export const selfUpdateCampus = async (req, res) => {
     }
 
     const { name, email, password, currentPassword, location } = req.body;
-
-    const campus = await Campus.findOne({
-      _id: req.params.id,
-      createdBy: req.userId,
-    }).select("+password");
+    const campus = await findOwnedCampus(req.params.id, req.userId, true);
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
+
+    const updates = {};
 
     if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.toLowerCase())) {
         return res.status(400).json({ message: "Invalid email format." });
       }
-      campus.email = email;
+      updates.email = email;
     }
 
     if (name) {
       const existingCampus = await Campus.findOne({
-        _id: { $ne: req.params.id },
         createdBy: req.userId,
-        name: { $regex: `^${name.trim()}$`, $options: "i" },
+        nameInsensitive: name.trim(),
+        excludeId: req.params.id,
       });
-
       if (existingCampus) {
         return res.status(400).json({
           message: "A campus with this name already exists",
         });
       }
-
-      campus.name = formatFullName(name.trim());
+      updates.name = formatFullName(name.trim());
     }
 
     if (email || name) {
-      const adminConflict = await User.findOne({
-        $or: [{ email }, { name }],
+      const adminConflict = await findAdminConflict({
+        email,
+        name: updates.name || name,
       });
       if (adminConflict) {
         return res.status(400).json({
@@ -339,8 +445,9 @@ export const selfUpdateCampus = async (req, res) => {
     }
 
     if (location !== undefined) {
-      campus.location = location ? formatFullName(location.trim()) : "";
+      updates.location = location ? formatFullName(location.trim()) : "";
     }
+
     if (password) {
       if (!currentPassword) {
         return res.status(400).json({
@@ -368,35 +475,17 @@ export const selfUpdateCampus = async (req, res) => {
         });
       }
 
-      campus.password = await bcrypt.hash(
-        password,
-        Number(process.env.SALT_ROUNDS) || 10,
-      );
+      updates.password = password;
     }
 
-    await campus.save();
-
-    const campusData = campus.toObject();
-    delete campusData.password;
+    const updatedCampus = await Campus.updateById(campus.id, updates);
 
     res.json({
       message: "Campus updated successfully",
-      campus: campusData,
+      campus: updatedCampus,
     });
   } catch (err) {
-    if (err.code === 11000) {
-      if (err.keyPattern?.email) {
-        return res
-          .status(400)
-          .json({ message: "This campus email is already in use." });
-      }
-      if (err.keyPattern?.name) {
-        return res
-          .status(400)
-          .json({ message: "You already have a campus with this name." });
-      }
-    }
-
+    logInternalError("self-update-campus", err);
     res.status(500).json({ message: "Failed to update campus" });
   }
 };
@@ -408,24 +497,13 @@ export const deleteCampus = async (req, res) => {
     const campus = await Campus.findById(id);
     if (!campus) return res.status(404).json({ message: "Campus not found" });
 
-    const students = await CafeStudent.find(getStudentCampusSyncQuery(campus));
-
-    for (const student of students) {
-      if (student.profilePublicId) {
-        await cloudinary.uploader.destroy(student.profilePublicId);
-      }
-    }
-
+    await StationScan.deleteMany({ campus: campus.id });
     await CafeStudent.deleteMany(getStudentCampusSyncQuery(campus));
 
-    if (campus.logoPublicId) {
-      await cloudinary.uploader.destroy(campus.logoPublicId);
-    }
-
-    await Campus.findByIdAndDelete(id);
-
+    await Campus.deleteById(id);
     res.json({ message: "Campus and its students deleted successfully" });
-  } catch {
+  } catch (err) {
+    logInternalError("delete-campus", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -438,13 +516,15 @@ export const getCampusDashboard = async (req, res) => {
       return res.status(404).json({ message: "Campus not found" });
     }
 
+    const brandedCampus = await attachAdminLogoToCampus(campus);
+
     res.json({
       campus: {
-        campusId: campus.campusId,
-        name: campus.name,
-        email: campus.email,
-        location: campus.location,
-        logo: campus.logo,
+        campusId: brandedCampus.campusId,
+        name: brandedCampus.name,
+        email: brandedCampus.email,
+        location: brandedCampus.location,
+        logo: brandedCampus.logo,
       },
     });
   } catch {
@@ -452,18 +532,32 @@ export const getCampusDashboard = async (req, res) => {
   }
 };
 
+export const heartbeatCampus = async (req, res) => {
+  try {
+    if (req.campus?.id) {
+      await Campus.updateById(req.campus.id, {
+        isOnline: true,
+        lastActiveAt: new Date(),
+      });
+    }
+
+    res.status(204).end();
+  } catch (err) {
+    logInternalError("heartbeat-campus", err);
+    res.status(204).end();
+  }
+};
+
 export const verifyCampusPassword = async (req, res) => {
   try {
     const { password } = req.body;
-    const campusId = req.campus._id;
+    const campusId = req.campus.id;
 
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    const campus = await Campus.findById(campusId).select(
-      "+password loginAttempts lockUntil",
-    );
+    const campus = await Campus.findById(campusId, { includePassword: true });
     if (!campus) return res.status(404).json({ message: "Campus not found" });
 
     const now = Date.now();
@@ -479,16 +573,12 @@ export const verifyCampusPassword = async (req, res) => {
     const isMatch = await bcrypt.compare(password, campus.password);
 
     if (!isMatch) {
-      campus.loginAttempts += 1;
+      const loginAttempts = Number(campus.loginAttempts || 0) + 1;
+      const lockUntil = loginAttempts >= MAX_ATTEMPTS ? now + WINDOW_MS : null;
 
-      if (campus.loginAttempts >= MAX_ATTEMPTS) {
-        campus.lockUntil = now + WINDOW_MS;
-      }
+      await Campus.updateById(campus.id, { loginAttempts, lockUntil });
 
-      await campus.save();
-
-      const attemptsLeft = Math.max(0, MAX_ATTEMPTS - campus.loginAttempts);
-
+      const attemptsLeft = Math.max(0, MAX_ATTEMPTS - loginAttempts);
       return res.status(401).json({
         message:
           attemptsLeft > 0
@@ -497,10 +587,7 @@ export const verifyCampusPassword = async (req, res) => {
       });
     }
 
-    campus.loginAttempts = 0;
-    campus.lockUntil = undefined;
-    await campus.save();
-
+    await Campus.updateById(campus.id, { loginAttempts: 0, lockUntil: null });
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {
     logInternalError("verify-campus-password", err);
@@ -514,12 +601,13 @@ export const verifyCampusPassword = async (req, res) => {
 export const updateCampusProfile = async (req, res) => {
   try {
     const { name, email, password, currentPassword, location } = req.body;
-
-    const campus = await Campus.findById(req.campus._id).select("+password");
+    const campus = await Campus.findById(req.campus.id, { includePassword: true });
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
+
+    const updates = {};
 
     if (email) {
       const normalizedEmail = email.toLowerCase().trim();
@@ -530,8 +618,8 @@ export const updateCampusProfile = async (req, res) => {
       }
 
       const existingCampus = await Campus.findOne({
-        _id: { $ne: campus._id },
         email: normalizedEmail,
+        excludeId: campus.id,
       });
       if (existingCampus) {
         return res.status(400).json({
@@ -546,15 +634,14 @@ export const updateCampusProfile = async (req, res) => {
         });
       }
 
-      campus.email = normalizedEmail;
+      updates.email = normalizedEmail;
     }
 
     if (name) {
       const normalizedName = formatFullName(name.trim());
-
       const existingCampusName = await Campus.findOne({
-        _id: { $ne: campus._id },
-        name: { $regex: `^${normalizedName}$`, $options: "i" },
+        nameInsensitive: normalizedName,
+        excludeId: campus.id,
       });
 
       if (existingCampusName) {
@@ -563,18 +650,18 @@ export const updateCampusProfile = async (req, res) => {
         });
       }
 
-      const adminConflict = await User.findOne({ name: normalizedName });
+      const adminConflict = await findAdminConflict({ name: normalizedName });
       if (adminConflict) {
         return res.status(400).json({
           message: "This name is already being used by an admin.",
         });
       }
 
-      campus.name = normalizedName;
+      updates.name = normalizedName;
     }
 
     if (location !== undefined) {
-      campus.location = location ? formatFullName(location.trim()) : "";
+      updates.location = location ? formatFullName(location.trim()) : "";
     }
 
     if (password) {
@@ -604,40 +691,17 @@ export const updateCampusProfile = async (req, res) => {
         });
       }
 
-      campus.password = await bcrypt.hash(
-        password,
-        Number(process.env.SALT_ROUNDS) || 10,
-      );
+      updates.password = password;
     }
 
-    await campus.save();
-
-    const campusData = campus.toObject();
-    delete campusData.password;
+    const updatedCampus = await Campus.updateById(campus.id, updates);
+    const brandedCampus = await attachAdminLogoToCampus(updatedCampus);
 
     res.json({
       message: "Campus profile updated successfully.",
-      campus: campusData,
+      campus: brandedCampus,
     });
   } catch (err) {
-    if (err.code === 11000) {
-      if (err.keyPattern?.email) {
-        return res.status(400).json({
-          message: "This campus email is already in use.",
-        });
-      }
-      if (err.keyPattern?.name) {
-        return res.status(400).json({
-          message: "A campus with this name already exists.",
-        });
-      }
-      if (err.keyPattern?.campusId) {
-        return res.status(400).json({
-          message: "This campus ID is already in use.",
-        });
-      }
-    }
-
     logInternalError("update-campus-profile", err);
     sendServerError(
       res,
@@ -646,20 +710,65 @@ export const updateCampusProfile = async (req, res) => {
   }
 };
 
-export const logoutCampus = (req, res) => {
-  Campus.findByIdAndUpdate(req.campus?._id, {
-    $set: { isOnline: false, lastActiveAt: null },
-  })
-    .catch(() => null)
-    .finally(() => {
-      const isProduction = process.env.NODE_ENV === "production";
-      res
-        .cookie("campusToken", "", {
-          httpOnly: true,
-          sameSite: isProduction ? "none" : "lax",
-          secure: isProduction,
-          expires: new Date(0),
-        })
-        .json({ message: "Logged out" });
-    });
+export const logoutCampus = async (req, res) => {
+  const logoutTime = new Date();
+
+  if (req.campus?.id) {
+    const todayString = getDayString(logoutTime);
+    const currentMealType = await getCurrentMealType(req.campus.id, logoutTime).catch(
+      () => null,
+    );
+
+    if (currentMealType) {
+      const currentMeal = await Meal.findOne({
+        campus: req.campus.id,
+        mealType: currentMealType,
+        date: todayString,
+      }).catch(() => null);
+
+      if (currentMeal) {
+        await closeMealAtAppliedTime(
+          currentMeal,
+          req.campus.lastActiveAt,
+          logoutTime,
+        ).catch(() => null);
+      }
+    } else {
+      const todaysMeals = await Meal.findAll({
+        campus: req.campus.id,
+        date: todayString,
+      }).catch(() => []);
+      const openExpiredMeals = todaysMeals.filter((meal) => {
+        const appliedWindow = meal.appliedWindow || {};
+        const end = getAppliedWindowDate(todayString, appliedWindow.end);
+
+        return (
+          appliedWindow.actualOpenedAt &&
+          !appliedWindow.actualClosedAt &&
+          end &&
+          logoutTime >= end
+        );
+      });
+
+      await Promise.all(
+        openExpiredMeals.map((meal) =>
+          closeMealAtAppliedTime(meal, req.campus.lastActiveAt, logoutTime).catch(
+            () => null,
+          ),
+        ),
+      );
+    }
+  }
+
+  await Campus.updateById(req.campus?.id, {
+    isOnline: false,
+    lastActiveAt: null,
+  }).catch(() => null);
+
+  res
+    .cookie("campusToken", "", {
+      ...getSessionCookieOptions(),
+      expires: new Date(0),
+    })
+    .json({ message: "Logged out" });
 };

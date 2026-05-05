@@ -1,6 +1,6 @@
 "use client";
 
-import { React, useState, useEffect } from "react";
+import { React, useEffect, useState } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import PropTypes from "prop-types";
 
@@ -67,23 +67,26 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-      <div className="bg-white/10 border border-white/20 backdrop-blur-lg rounded-2xl p-6 w-full max-w-sm sm:w-80 shadow-lg relative animate-fadeIn">
+      <div className="relative w-full max-w-sm rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg backdrop-blur-lg sm:w-80">
         <button
+          type="button"
           onClick={onCancel}
-          className="absolute top-3 right-3 text-white/70 hover:text-white transition"
+          aria-label="Close edit campus modal"
+          title="Close"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-black transition hover:bg-red-500 hover:text-white"
         >
-          ✕
+          X
         </button>
-        <h2 className="text-xl font-bold mb-4 text-center text-white">
+        <h2 className="mb-4 text-center text-xl font-bold text-white">
           Edit Campus
         </h2>
         {message && (
           <div className="mb-4">
             <p
-              className={`p-2 rounded-lg text-center text-sm ${
+              className={`rounded-lg p-2 text-center text-sm ${
                 message.toLowerCase().includes("success")
-                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                  : "bg-red-500/20 text-red-400 border border-red-500/30"
+                  ? "border border-green-500/30 bg-green-500/20 text-green-400"
+                  : "border border-red-500/30 bg-red-500/20 text-red-400"
               }`}
             >
               {message}
@@ -91,7 +94,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           </div>
         )}
 
-        <label className="text-xs text-gray-400 ml-1 mb-1 block">
+        <label className="ml-1 mb-1 block text-xs text-gray-400">
           Campus Details
         </label>
         <input
@@ -100,31 +103,31 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           placeholder="Campus ID"
           value={campusId}
           onChange={(e) => setCampusId(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
+          className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <input
           type="text"
           placeholder="Campus Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
+          className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <input
           type="text"
           placeholder="Location (optional)"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
+          className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <input
           type="email"
           placeholder="Campus Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 transition"
+          className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
 
-        <label className="text-xs text-gray-400 ml-1 mb-1 block">
+        <label className="ml-1 mb-1 block text-xs text-gray-400">
           Change Password
         </label>
         <div className="relative mb-3">
@@ -133,12 +136,12 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             placeholder="New password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 pr-10 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 transition hover:text-white"
           >
             {showPassword ? (
               <AiOutlineEyeInvisible size={20} />
@@ -153,12 +156,12 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
             placeholder="Confirm new password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-3 py-2 pr-10 rounded-lg border border-white/20 bg-white/5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 pr-10 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             type="button"
             onClick={() => setShowConfirm(!showConfirm)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 transition hover:text-white"
           >
             {showConfirm ? (
               <AiOutlineEyeInvisible size={20} />
@@ -170,11 +173,12 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
 
         <div className="flex justify-center">
           <button
+            type="button"
             onClick={handleUpdate}
             disabled={updateLoading}
-            className={`px-5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 hover:shadow-purple-800/50 transition ${
+            className={`rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 font-semibold text-white shadow-lg transition hover:scale-105 hover:shadow-purple-800/50 ${
               updateLoading
-                ? "opacity-50 cursor-not-allowed hover:scale-100"
+                ? "cursor-not-allowed opacity-50 hover:scale-100"
                 : ""
             }`}
           >
@@ -182,22 +186,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           </button>
         </div>
       </div>
-
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-15px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.25s ease forwards;
-        }
-      `}</style>
     </div>
   );
 }

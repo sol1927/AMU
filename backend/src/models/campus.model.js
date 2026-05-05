@@ -1,79 +1,237 @@
-import mongoose from "mongoose";
+import { dbConnection } from "../server.js";
 import bcrypt from "bcryptjs";
+import { mapRow, mapRows, normalizeDate, omitPassword } from "./modelUtils.js";
 
-const campusSchema = new mongoose.Schema(
-  {
-    campusId: {
-      type: Number,
-      unique: true,
-      sparse: true,
-    },
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    loginAttempts: {
-      type: Number,
-      default: 0,
-      required: true,
-    },
-    lockUntil: {
-      type: Number,
-    },
-    password: {
-      type: String,
-      required: true,
-      select: false,
-    },
-    location: {
-      type: String,
-      default: "",
-    },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    logo: {
-      url: String,
-      public_id: String,
-    },
-    role: {
-      type: String,
-      enum: ["campus", "admin"],
-      default: "campus",
-      required: true,
-    },
-    isOnline: {
-      type: Boolean,
-      default: false,
-    },
-    lastActiveAt: {
-      type: Date,
-      default: null,
-    },
-  },
-  { timestamps: true },
-);
+const mapCampusRow = (row) => ({
+  ...row,
+  logo: row.logo_url ? { url: row.logo_url } : undefined,
+});
 
-campusSchema.index({ name: 1, createdBy: 1 }, { unique: true });
+const sanitizeCampus = (row, includePassword = false) =>
+  includePassword
+    ? mapRow(row, mapCampusRow)
+    : omitPassword(mapRow(row, mapCampusRow));
 
-campusSchema.methods.comparePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+const nullable = (value) => (value === undefined ? null : value);
+
+const createTable = async () => {
+  const query = `
+    CREATE TABLE IF NOT EXISTS campuses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      campusId INT UNIQUE,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      loginAttempts INT DEFAULT 0,
+      lockUntil BIGINT,
+      password VARCHAR(255) NOT NULL,
+      location VARCHAR(255) DEFAULT '',
+      createdBy INT NOT NULL,
+      logo_url MEDIUMTEXT,
+      logo_public_id VARCHAR(255),
+      role ENUM('campus', 'admin') DEFAULT 'campus',
+      isOnline BOOLEAN DEFAULT FALSE,
+      lastActiveAt DATETIME,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_name_createdBy (name, createdBy),
+      FOREIGN KEY (createdBy) REFERENCES users(id)
+    );
+  `;
+  await dbConnection.execute(query);
+  await dbConnection.execute(
+    "ALTER TABLE campuses MODIFY COLUMN logo_url MEDIUMTEXT NULL",
+  );
 };
 
-campusSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-  delete obj.password;
-  return obj;
+const findAll = async (filter = {}, options = {}) => {
+  let query =
+    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, createdAt, updatedAt FROM campuses WHERE 1=1";
+  const params = [];
+  if (filter.createdBy) {
+    query += " AND createdBy = ?";
+    params.push(filter.createdBy);
+  }
+  if (filter.email) {
+    query += " AND email = ?";
+    params.push(filter.email);
+  }
+  if (filter.campusId !== undefined) {
+    query += " AND campusId = ?";
+    params.push(filter.campusId);
+  }
+  if (filter.excludeId !== undefined) {
+    query += " AND id != ?";
+    params.push(filter.excludeId);
+  }
+  if (filter.nameInsensitive) {
+    query += " AND LOWER(name) = LOWER(?)";
+    params.push(filter.nameInsensitive);
+  }
+  if (filter.role) {
+    query += " AND role = ?";
+    params.push(filter.role);
+  }
+  const [rows] = await dbConnection.execute(query, params);
+  const mapped = mapRows(rows, mapCampusRow);
+  return options.includePassword ? mapped : mapped.map(omitPassword);
 };
 
-export default mongoose.model("Campus", campusSchema);
+const findById = async (id, options = {}) => {
+  const [rows] = await dbConnection.execute(
+    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, createdAt, updatedAt FROM campuses WHERE id = ?",
+    [id],
+  );
+  return sanitizeCampus(rows[0] || null, options.includePassword);
+};
+
+const findOne = async (filter = {}, options = {}) =>
+  (await findAll(filter, options))[0] || null;
+
+const create = async (data) => {
+  const {
+    campusId,
+    name,
+    email,
+    password,
+    location = "",
+    createdBy,
+    logo,
+    role = "campus",
+    isOnline = false,
+    lastActiveAt,
+  } = data;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const query = `
+    INSERT INTO campuses (campusId, name, email, password, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const params = [
+    campusId,
+    name,
+    email,
+    hashedPassword,
+    location,
+    createdBy,
+    nullable(logo?.url),
+    null,
+    role,
+    isOnline,
+    normalizeDate(lastActiveAt),
+  ];
+  const [result] = await dbConnection.execute(query, params);
+  return findById(result.insertId);
+};
+
+const updateById = async (id, data, options = {}) => {
+  const fields = [];
+  const params = [];
+  if (data.campusId !== undefined) {
+    fields.push("campusId = ?");
+    params.push(data.campusId);
+  }
+  if (data.name) {
+    fields.push("name = ?");
+    params.push(data.name);
+  }
+  if (data.email) {
+    fields.push("email = ?");
+    params.push(data.email);
+  }
+  if (data.loginAttempts !== undefined) {
+    fields.push("loginAttempts = ?");
+    params.push(data.loginAttempts);
+  }
+  if (data.lockUntil !== undefined) {
+    fields.push("lockUntil = ?");
+    params.push(data.lockUntil);
+  }
+  if (data.password) {
+    const hashed = await bcrypt.hash(data.password, 10);
+    fields.push("password = ?");
+    params.push(hashed);
+  }
+  if (data.location !== undefined) {
+    fields.push("location = ?");
+    params.push(data.location);
+  }
+  if (data.createdBy) {
+    fields.push("createdBy = ?");
+    params.push(data.createdBy);
+  }
+  if (data.logo) {
+    fields.push("logo_url = ?");
+    params.push(nullable(data.logo.url));
+    fields.push("logo_public_id = ?");
+    params.push(null);
+  }
+  if (data.role) {
+    fields.push("role = ?");
+    params.push(data.role);
+  }
+  if (data.isOnline !== undefined) {
+    fields.push("isOnline = ?");
+    params.push(data.isOnline);
+  }
+  if (data.lastActiveAt !== undefined) {
+    fields.push("lastActiveAt = ?");
+    params.push(normalizeDate(data.lastActiveAt));
+  }
+  if (fields.length === 0) return null;
+  const query = `UPDATE campuses SET ${fields.join(", ")} WHERE id = ?`;
+  params.push(id);
+  await dbConnection.execute(query, params);
+  return findById(id, options);
+};
+
+const deleteById = async (id) => {
+  await dbConnection.execute("DELETE FROM campuses WHERE id = ?", [id]);
+};
+
+const updateMany = async (filter = {}, data = {}) => {
+  const campuses = await findAll(filter, { includePassword: true });
+  const updated = await Promise.all(
+    campuses.map((campus) =>
+      updateById(campus.id, data, { includePassword: true }),
+    ),
+  );
+
+  return {
+    matchedCount: campuses.length,
+    modifiedCount: updated.filter(Boolean).length,
+  };
+};
+
+const comparePassword = async (id, candidatePassword) => {
+  const [rows] = await dbConnection.execute(
+    "SELECT password FROM campuses WHERE id = ?",
+    [id],
+  );
+  if (rows.length === 0) return false;
+  return await bcrypt.compare(candidatePassword, rows[0].password);
+};
+
+const CampusModel = {
+  createTable,
+  findAll,
+  findById,
+  findOne,
+  create,
+  updateById,
+  updateMany,
+  deleteById,
+  comparePassword,
+};
+
+export {
+  createTable,
+  findAll,
+  findById,
+  findOne,
+  create,
+  updateById,
+  updateMany,
+  deleteById,
+  comparePassword,
+};
+
+export default CampusModel;

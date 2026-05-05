@@ -1,21 +1,13 @@
 "use client";
 
 import { React, useEffect, useMemo, useState } from "react";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import CampusNavbar from "@/app/components/CampusNavbar";
-import ConfirmCampusPasswordModal from "@/app/components/CampusPasswordModal";
 import { useCampus } from "@/app/context/CampusContext";
 import { useRouter } from "next/navigation";
+import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
-
-const getFastingLabel = (fastingType) => {
-  if (fastingType === "fasting") return "Fasting";
-  if (fastingType === "sunday_fasting") return "Sunday Fasting";
-  if (fastingType === "muslim_fasting") return "Muslim Fasting";
-  return "Not Fasting";
-};
 
 export default function CampusStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -23,23 +15,18 @@ export default function CampusStudentsPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [fastingFilter, setFastingFilter] = useState("");
-  const [openMenuId, setOpenMenuId] = useState(null);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkFastingType, setBulkFastingType] = useState("");
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
   const [bulkInternshipAction, setBulkInternshipAction] = useState("");
   const [savingBulkInternship, setSavingBulkInternship] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [studentToDelete, setStudentToDelete] = useState(null);
-  const [passwordError, setPasswordError] = useState("");
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
 
   const router = useRouter();
-  const { currentCampus, refreshCampus } = useCampus();
+  const { currentCampus } = useCampus();
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -99,17 +86,6 @@ export default function CampusStudentsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, fastingFilter]);
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest(".menu-button")) {
-        setOpenMenuId(null);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const filteredAndSortedStudents = useMemo(() => {
     const q = searchQuery.toLowerCase();
 
@@ -153,54 +129,6 @@ export default function CampusStudentsPage() {
 
     setSelectedStudents(filteredAndSortedStudents.map((student) => student._id));
     setSelectAll(true);
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      const res = await fetch(`${url}/campus/students/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          getApiMessage(data, "We could not delete the student right now."),
-        );
-      }
-
-      setStudents((prev) => prev.filter((student) => student._id !== id));
-      await refreshCampus();
-      showToast("Student deleted successfully", "success");
-    } catch (err) {
-      showToast(
-        getErrorMessage(err, "We could not delete the student right now."),
-        "error",
-      );
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    try {
-      await Promise.all(
-        selectedStudents.map((id) =>
-          fetch(`${url}/campus/students/${id}`, {
-            method: "DELETE",
-            credentials: "include",
-          }),
-        ),
-      );
-
-      setStudents((prev) =>
-        prev.filter((student) => !selectedStudents.includes(student._id)),
-      );
-      setSelectedStudents([]);
-      setSelectAll(false);
-      await refreshCampus();
-      showToast("Selected students deleted successfully", "success");
-    } catch {
-      showToast("Bulk delete failed", "error");
-    }
   };
 
   const handleBulkFastingUpdate = async () => {
@@ -306,44 +234,6 @@ export default function CampusStudentsPage() {
     }
   };
 
-  const handlePasswordSubmit = async (enteredPassword) => {
-    try {
-      const res = await fetch(`${url}/campus/verify-campus-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ password: enteredPassword }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setPasswordError(
-          getApiMessage(data, "The password you entered is not correct."),
-        );
-        setTimeout(() => setPasswordError(""), 2000);
-        return;
-      }
-
-      setShowPasswordModal(false);
-      setPasswordError("");
-
-      if (pendingAction === "delete" && studentToDelete) {
-        await handleDelete(studentToDelete);
-        setStudentToDelete(null);
-      } else if (pendingAction === "bulk_delete") {
-        await handleBulkDelete();
-      }
-
-      setPendingAction(null);
-    } catch (error) {
-      setPasswordError(
-        getErrorMessage(error, "We could not verify your password right now."),
-      );
-      setTimeout(() => setPasswordError(""), 2000);
-    }
-  };
-
   if (!currentCampus) {
     return (
       <div className="page-shell flex h-screen w-full items-center justify-center">
@@ -360,67 +250,69 @@ export default function CampusStudentsPage() {
       <CampusNavbar />
       <div className="page-shell mx-auto flex h-screen max-w-7xl flex-col px-6 pt-24 text-slate-900">
         <div>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h1 className="w-full text-3xl font-bold sm:w-auto">Students</h1>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefreshStudents}
-                disabled={refreshingStudents}
-                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
-                  refreshingStudents
-                    ? "cursor-not-allowed bg-slate-400"
-                    : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
-              >
-                {refreshingStudents ? "Refreshing..." : "Refresh"}
-              </button>
-              <button
-                onClick={() => router.push("/campus/students/groups")}
-                className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-700"
-              >
-                Batch
-              </button>
+          <div className="mb-3 rounded-3xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold leading-none">Students</h1>
+                <p className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
+                  {filteredAndSortedStudents.length}{" "}
+                  {filteredAndSortedStudents.length === 1 ? "student" : "students"}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleRefreshStudents}
+                  disabled={refreshingStudents}
+                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
+                    refreshingStudents
+                      ? "cursor-not-allowed bg-slate-400"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                >
+                  {refreshingStudents ? "Refreshing..." : "Refresh"}
+                </button>
+                <button
+                  onClick={() => router.push("/campus/students/groups")}
+                  className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-700"
+                >
+                  Batch
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="mb-4 flex gap-2">
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search students..."
-              className="field-surface flex-1 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <select
-              value={fastingFilter}
-              onChange={(e) => setFastingFilter(e.target.value)}
-              className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">
-                All Fasting Types
-              </option>
-              <option value="fasting">
-                Fasting
-              </option>
-              <option value="not_fasting">
-                Not Fasting
-              </option>
-              <option value="sunday_fasting">
-                Sunday Fasting
-              </option>
-              <option value="muslim_fasting">
-                Muslim Fasting
-              </option>
-            </select>
-          </div>
-
-          <div className="mb-3 flex items-center justify-between px-4">
-            <p className="font-medium text-slate-500">
-              {filteredAndSortedStudents.length}{" "}
-              {filteredAndSortedStudents.length === 1 ? "student" : "students"}
-            </p>
+            <div className="mt-3 flex flex-col gap-2 lg:flex-row">
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search students..."
+                className="field-surface min-w-0 flex-1 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <select
+                value={fastingFilter}
+                onChange={(e) => setFastingFilter(e.target.value)}
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
+              >
+                <option value="">
+                  All Fasting Types
+                </option>
+                <option value="fasting">
+                  Fasting
+                </option>
+                <option value="not_fasting">
+                  Not Fasting
+                </option>
+                <option value="sunday_fasting">
+                  Sunday Fasting
+                </option>
+                <option value="muslim_fasting">
+                  Muslim Fasting
+                </option>
+              </select>
+            </div>
 
             {selectedStudents.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <select
                   value={bulkInternshipAction}
                   onChange={(e) => setBulkInternshipAction(e.target.value)}
@@ -440,7 +332,7 @@ export default function CampusStudentsPage() {
                   <button
                     disabled={savingBulkInternship}
                     onClick={handleBulkInternshipUpdate}
-                    className="rounded bg-yellow-500 px-3 py-1 text-sm text-white hover:bg-yellow-600 disabled:opacity-50"
+                    className="rounded bg-yellow-500 px-3 py-2 text-sm text-white hover:bg-yellow-600 disabled:opacity-50"
                   >
                     {savingBulkInternship ? "Saving..." : "Apply"}
                   </button>
@@ -471,21 +363,11 @@ export default function CampusStudentsPage() {
                   <button
                     disabled={savingBulkFasting}
                     onClick={handleBulkFastingUpdate}
-                    className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700 disabled:opacity-50"
+                    className="rounded bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-50"
                   >
                     {savingBulkFasting ? "Saving..." : "Save"}
                   </button>
                 )}
-
-                <button
-                  onClick={() => {
-                    setPendingAction("bulk_delete");
-                    setShowPasswordModal(true);
-                  }}
-                  className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700"
-                >
-                  Delete ({selectedStudents.length})
-                </button>
               </div>
             )}
           </div>
@@ -500,7 +382,7 @@ export default function CampusStudentsPage() {
               <span className="w-[80px]">Batch</span>
               <span className="w-[140px]">Fasting</span>
               <span className="w-[100px]">Internship</span>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex w-6 justify-end">
                 <input
                   type="checkbox"
                   checked={selectAll}
@@ -517,7 +399,7 @@ export default function CampusStudentsPage() {
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm"
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm sm:flex-nowrap sm:gap-4"
             >
               <span className="w-10 font-medium text-slate-900">{index + 1}</span>
               <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
@@ -551,40 +433,12 @@ export default function CampusStudentsPage() {
                   <span className="text-slate-400">-</span>
                 )}
               </span>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex w-6 justify-end">
                 <input
                   type="checkbox"
                   checked={selectedStudents.includes(student._id)}
                   onChange={() => handleSelectStudent(student._id)}
                 />
-                <div className="relative">
-                  <button
-                    className="rounded p-1 transition hover:bg-slate-100"
-                    onClick={() =>
-                      setOpenMenuId(
-                        openMenuId === student._id ? null : student._id,
-                      )
-                    }
-                  >
-                    <BsThreeDotsVertical className="h-5 w-5 text-slate-500" />
-                  </button>
-
-                  {openMenuId === student._id && (
-                    <div className="menu-button absolute right-0 top-full z-50 mt-1 w-28 rounded border border-slate-200 bg-white shadow">
-                      <button
-                        className="block w-full px-3 py-2 text-sm text-red-600 transition hover:rounded hover:bg-red-50"
-                        onClick={() => {
-                          setStudentToDelete(student._id);
-                          setPendingAction("delete");
-                          setShowPasswordModal(true);
-                          setOpenMenuId(null);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           ))}
@@ -596,18 +450,6 @@ export default function CampusStudentsPage() {
 
         {error && <p className="mt-4 text-red-600">{error}</p>}
       </div>
-
-      {showPasswordModal && (
-        <ConfirmCampusPasswordModal
-          onCancel={() => {
-            setShowPasswordModal(false);
-            setPasswordError("");
-          }}
-          onConfirm={handlePasswordSubmit}
-          errorMessage={passwordError}
-        />
-      )}
-
       {toast && (
         <div
           className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${

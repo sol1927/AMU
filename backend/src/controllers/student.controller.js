@@ -1,12 +1,10 @@
-import Student from "../models/student.model.js";
+import ExternalStudent from "../models/externalStudent.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import Campus from "../models/campus.model.js";
-import cloudinary from "../config/cloudinary.js";
-import StationScan from "../models/stationScan.model.js";
-import { formatFullName } from "../utils/formatName.js";
-import streamifier from "streamifier";
-import Papa from "papaparse";
-import XLSX from "xlsx";
+// import StationScan from "../models/stationScan.model.js";
+// import { formatFullName } from "../utils/formatName.js";
+// import Papa from "papaparse";
+// import XLSX from "xlsx";
 import { normalizeStudent } from "../utils/studentDefaults.js";
 import { getStudentCampusQuery, parseCampusId } from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
@@ -17,9 +15,81 @@ const parseBatch = (input) => {
   return batch;
 };
 
+const matchesSearch = (student, search) => {
+  if (!search) return true;
+  const value = search.toLowerCase();
+  return [student.name, student.studentId, student.department]
+    .filter(Boolean)
+    .some((field) => String(field).toLowerCase().includes(value));
+};
+
+const byName = (left, right) =>
+  String(left.name || "").localeCompare(String(right.name || ""));
+
+const hasSyncChanges = (existingStudent, sourceStudent) =>
+  String(existingStudent.name || "") !== String(sourceStudent.name || "") ||
+  Number(existingStudent.batch) !== Number(sourceStudent.batch) ||
+  String(existingStudent.department || "") !==
+    String(sourceStudent.department || "") ||
+  String(existingStudent.profileUrl || "") !==
+    String(sourceStudent.profileUrl || "") ||
+  Number(existingStudent.campusId) !== Number(sourceStudent.campusId);
+
+const findUniversityCafeStudents = async (campusId) =>
+  ExternalStudent.findAll({ campusId });
+
+const logStudentSyncSourceError = (message, code = "SYNC_SOURCE_ERROR") => {
+  logInternalError("sync-cafe-students", {
+    code,
+    logMessage: message,
+    omitCodeInLog: true,
+    omitNameInLog: true,
+  });
+};
+
+const getStudentSyncUserMessage = (error) => {
+  if (error?.code === "ER_BAD_DB_ERROR") {
+    return "The student source database was not found. Please check the sync settings.";
+  }
+
+  if (error?.code === "ER_NO_SUCH_TABLE") {
+    return "The student source table was not found. Please check the sync settings.";
+  }
+
+  if (error?.code === "ER_ACCESS_DENIED_ERROR") {
+    return "The student source login details are not correct. Please check the sync settings.";
+  }
+
+  if (
+    error?.message?.startsWith("External student DB is not configured. Missing:")
+  ) {
+    return "Student sync settings are incomplete. Please update them and try again.";
+  }
+
+  return "We could not fetch students right now. Please try again.";
+};
+
+const resolveScopedCampus = async (req) => {
+  if (req.campus) {
+    return req.campus;
+  }
+
+  const campusRecordId = req.params.id || req.params.campusId;
+  if (!campusRecordId || req.userRole !== "admin") {
+    return null;
+  }
+
+  const campus = await Campus.findById(campusRecordId);
+  if (!campus || Number(campus.createdBy) !== Number(req.userId)) {
+    return null;
+  }
+
+  return campus;
+};
+
 export const getCampusStudents = async (req, res) => {
   try {
-    const campus = req.campus;
+    const campus = await resolveScopedCampus(req);
     const search = req.query.search || "";
     const fastingType = req.query.fastingType;
 
@@ -27,17 +97,7 @@ export const getCampusStudents = async (req, res) => {
       return res.status(404).json({ message: "Campus not found" });
     }
 
-    const campusQuery = getStudentCampusQuery(campus);
-
-    const query = { ...campusQuery };
-
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { studentId: { $regex: search, $options: "i" } },
-        { department: { $regex: search, $options: "i" } },
-      ];
-    }
+    let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
 
     if (
       fastingType &&
@@ -45,16 +105,17 @@ export const getCampusStudents = async (req, res) => {
         fastingType,
       )
     ) {
-      query.fastingType = fastingType;
+      students = students.filter(
+        (student) => student.fastingType === fastingType,
+      );
     }
 
-    const students = await CafeStudent.find(query)
-      .sort({ name: 1 })
-      .select(
-        "name studentId batch department profileUrl fastingType isInternship",
-      );
-
-    const totalStudents = await CafeStudent.countDocuments(campusQuery);
+    students = students
+      .filter((student) => matchesSearch(student, search))
+      .sort(byName);
+    const totalStudents = await CafeStudent.countDocuments(
+      getStudentCampusQuery(campus),
+    );
 
     res.json({
       students: students.map((student) => normalizeStudent(student)),
@@ -65,6 +126,7 @@ export const getCampusStudents = async (req, res) => {
   }
 };
 
+/*
 export const addStudent = async (req, res) => {
   try {
     const { name, studentId, batch, department, fastingType } = req.body;
@@ -103,24 +165,8 @@ export const addStudent = async (req, res) => {
       ? fastingType
       : "not_fasting";
 
-    let profileUrl = "";
-    let profilePublicId = "";
-
-    if (req.file) {
-      const result = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "students" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          },
-        );
-        streamifier.createReadStream(req.file.buffer).pipe(stream);
-      });
-
-      profileUrl = result.secure_url;
-      profilePublicId = result.public_id;
-    }
+    const profileUrl =
+      typeof req.body.profileUrl === "string" ? req.body.profileUrl.trim() : "";
 
     const student = await CafeStudent.create({
       name: formatFullName(name),
@@ -129,7 +175,6 @@ export const addStudent = async (req, res) => {
       department: formatFullName(department),
       fastingType: finalFastingType,
       profileUrl,
-      profilePublicId,
       campusId,
     });
 
@@ -139,7 +184,9 @@ export const addStudent = async (req, res) => {
     sendServerError(res, "We could not add the student. Please try again.");
   }
 };
+*/
 
+/*
 export const bulkUploadStudents = async (req, res) => {
   try {
     if (!req.file) {
@@ -174,15 +221,15 @@ export const bulkUploadStudents = async (req, res) => {
     }
 
     const campusId = parseCampusId(req.campus?.campusId);
-
     if (campusId === null) {
       return res.status(400).json({
         message: "Campus ID is not set for this campus. Ask the admin to add it first.",
       });
     }
+
     const requiredHeaders = ["name", "studentid", "batch", "department"];
-    const headers = Object.keys(data[0]).map((h) => h.trim().toLowerCase());
-    const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
+    const headers = Object.keys(data[0]).map((header) => header.trim().toLowerCase());
+    const missingHeaders = requiredHeaders.filter((header) => !headers.includes(header));
 
     if (missingHeaders.length > 0) {
       return res.status(400).json({
@@ -227,15 +274,14 @@ export const bulkUploadStudents = async (req, res) => {
       }
 
       const id = studentid.trim();
-
       if (!fileIds[id]) fileIds[id] = [];
       fileIds[id].push(index + 2);
 
       studentsToInsert.push({
-        name: name.trim(),
+        name: formatFullName(name.trim()),
         studentId: id,
         batch: batchNum,
-        department: department.trim(),
+        department: formatFullName(department.trim()),
         campusId,
         row: index + 2,
       });
@@ -257,8 +303,8 @@ export const bulkUploadStudents = async (req, res) => {
     if (skippedRows.length > 0) {
       const preview = skippedRows
         .slice(0, 5)
-        .map((r) =>
-          Array.isArray(r.row) ? `${r.error}` : `Row ${r.row}: ${r.error}`,
+        .map((row) =>
+          Array.isArray(row.row) ? `${row.error}` : `Row ${row.row}: ${row.error}`,
         )
         .join("; ");
       const more =
@@ -269,29 +315,22 @@ export const bulkUploadStudents = async (req, res) => {
       });
     }
 
-    const ids = studentsToInsert.map((s) => s.studentId);
-    const existingStudents = await CafeStudent.find({ studentId: { $in: ids } })
-      .select("studentId")
-      .lean();
-    const existingSet = new Set(existingStudents.map((s) => s.studentId));
+    const ids = studentsToInsert.map((student) => student.studentId);
+    const existingStudents = await CafeStudent.findAll({ studentIds: ids });
+    const existingSet = new Set(existingStudents.map((student) => student.studentId));
 
-    const finalStudents = [];
     const alreadyInDb = [];
-    const newStudents = [];
-
-    studentsToInsert.forEach((s) => {
-      if (existingSet.has(s.studentId)) {
+    const finalStudents = studentsToInsert.filter((student) => {
+      if (existingSet.has(student.studentId)) {
         alreadyInDb.push({
-          row: s.row,
-          studentId: s.studentId,
-          error: `StudentId already exists (${s.studentId})`,
+          row: student.row,
+          studentId: student.studentId,
+          error: `StudentId already exists (${student.studentId})`,
         });
-      } else {
-        newStudents.push(s);
+        return false;
       }
+      return true;
     });
-
-    finalStudents.push(...newStudents);
 
     if (finalStudents.length === 0) {
       return res.status(400).json({
@@ -299,10 +338,17 @@ export const bulkUploadStudents = async (req, res) => {
         skippedRows: alreadyInDb,
       });
     }
-    const studentsToInsertClean = finalStudents.map(({ row, ...rest }) => rest);
-    const inserted = await CafeStudent.insertMany(studentsToInsertClean, {
-      ordered: false,
-    });
+
+    const inserted = await CafeStudent.insertMany(
+      finalStudents.map((student) => ({
+        name: student.name,
+        studentId: student.studentId,
+        batch: student.batch,
+        department: student.department,
+        campusId: student.campusId,
+      })),
+    );
+
     res.json({
       message:
         `Successfully added ${inserted.length} student(s)` +
@@ -320,89 +366,80 @@ export const bulkUploadStudents = async (req, res) => {
     );
   }
 };
+*/
 
+/*
 export const updateStudent = async (req, res) => {
   try {
     const { name, studentId, batch, department, fastingType } = req.body;
 
-    const student = await CafeStudent.findOne({
-      _id: req.params.id,
-      ...getStudentCampusQuery(req.campus),
-    });
-
-    if (!student) {
+    const student = await CafeStudent.findById(req.params.id);
+    if (!student || Number(student.campusId) !== Number(req.campus.campusId)) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    if (name) student.name = formatFullName(name);
-    if (studentId) student.studentId = studentId;
+    const updates = {};
+    if (name) updates.name = formatFullName(name);
+    if (studentId) updates.studentId = studentId;
     if (batch !== undefined) {
       const batchNum = parseBatch(batch);
       if (batchNum === null) {
         return res.status(400).json({ message: "Batch must be a number" });
       }
-      student.batch = batchNum;
+      updates.batch = batchNum;
     }
-
-    if (department) student.department = formatFullName(department);
+    if (department) updates.department = formatFullName(department);
     if (
       fastingType &&
       ["not_fasting", "fasting", "sunday_fasting", "muslim_fasting"].includes(
         fastingType,
       )
     ) {
-      student.fastingType = fastingType;
+      updates.fastingType = fastingType;
     }
 
-    await student.save();
+    const updatedStudent = await CafeStudent.updateById(student.id, updates);
 
     res.json({
       message: "Student updated successfully",
-      student,
+      student: updatedStudent,
     });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ message: "Student ID must be unique" });
-    }
+  } catch {
     res.status(500).json({ message: "Failed to update student" });
   }
 };
+*/
 
+/*
 export const updateStudentPhoto = async (req, res) => {
   try {
-    if (!req.file)
-      return res.status(400).json({ message: "No image received" });
-
-    const student = await CafeStudent.findOne({
-      _id: req.params.id,
-      ...getStudentCampusQuery(req.campus),
-    });
-    if (!student) return res.status(404).json({ message: "Student not found" });
-
-    if (student.profilePublicId) {
-      try {
-        await cloudinary.uploader.destroy(student.profilePublicId);
-      } catch {
-      }
+    const { profileUrl } = req.body;
+    if (!profileUrl || typeof profileUrl !== "string") {
+      return res.status(400).json({ message: "Profile URL is required" });
     }
 
-    student.profileUrl = req.file.path;
-    student.profilePublicId = req.file.filename.replace(/\.[^.]+$/, "");
+    const student = await CafeStudent.findById(req.params.id);
+    if (!student || Number(student.campusId) !== Number(req.campus.campusId)) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
-    await student.save();
+    const updatedStudent = await CafeStudent.updateById(student.id, {
+      profileUrl: profileUrl.trim(),
+    });
 
     res.json({
       message: "Student photo updated",
-      profileUrl: student.profileUrl,
+      profileUrl: updatedStudent.profileUrl,
     });
   } catch {
     res.status(500).json({ message: "Failed to update photo" });
   }
 };
+*/
 
 export const getCampusBatches = async (req, res) => {
   try {
-    const campus = req.campus;
+    const campus = await resolveScopedCampus(req);
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
@@ -411,10 +448,7 @@ export const getCampusBatches = async (req, res) => {
       "batch",
       getStudentCampusQuery(campus),
     );
-
-    const sortedBatches = batches.sort((a, b) => a - b);
-
-    res.json({ batches: sortedBatches });
+    res.json({ batches: batches.sort((a, b) => a - b) });
   } catch {
     res.status(500).json({ message: "Failed to fetch batches" });
   }
@@ -422,10 +456,11 @@ export const getCampusBatches = async (req, res) => {
 
 export const getStudentsByBatch = async (req, res) => {
   try {
-    const campus = req.campus;
+    const campus = await resolveScopedCampus(req);
     const batchNum = parseBatch(req.params.batch);
     const search = req.query.search || "";
     const fastingType = req.query.fastingType;
+    const department = req.query.department || "";
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
@@ -435,63 +470,56 @@ export const getStudentsByBatch = async (req, res) => {
       return res.status(400).json({ message: "Batch must be a number" });
     }
 
-    const campusQuery = getStudentCampusQuery(campus);
-
-    const query = {
-      ...campusQuery,
+    let students = await CafeStudent.findAll({
+      ...getStudentCampusQuery(campus),
       batch: batchNum,
-    };
-
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { studentId: { $regex: search, $options: "i" } },
-        { department: { $regex: search, $options: "i" } },
-      ];
-    }
+    });
 
     if (
       fastingType &&
-      ["not_fasting", "fasting", "sunday_fasting"].includes(fastingType)
+      ["not_fasting", "fasting", "sunday_fasting", "muslim_fasting"].includes(
+        fastingType,
+      )
     ) {
-      query.fastingType = fastingType;
+      students = students.filter(
+        (student) => student.fastingType === fastingType,
+      );
     }
 
-    const students = await CafeStudent.find(query)
-      .sort({ name: 1 })
-      .select(
-        "name studentId batch department profileUrl fastingType isInternship",
+    if (department) {
+      const normalizedDepartment = department.toLowerCase().trim();
+      students = students.filter(
+        (student) =>
+          String(student.department || "")
+            .toLowerCase()
+            .trim() === normalizedDepartment,
       );
+    }
 
-    res.json({ students: students.map((student) => normalizeStudent(student)) });
+    students = students
+      .filter((student) => matchesSearch(student, search))
+      .sort(byName);
+    res.json({
+      students: students.map((student) => normalizeStudent(student)),
+    });
   } catch {
     res.status(500).json({ message: "Failed to fetch students" });
   }
 };
 
+/*
 export const deleteStudent = async (req, res) => {
   try {
-    const student = await CafeStudent.findOne({
-      _id: req.params.id,
-      ...getStudentCampusQuery(req.campus),
-    });
-
-    if (!student) {
+    const student = await CafeStudent.findById(req.params.id);
+    if (!student || Number(student.campusId) !== Number(req.campus.campusId)) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    if (student.profilePublicId) {
-      try {
-        await cloudinary.uploader.destroy(student.profilePublicId);
-      } catch {
-      }
-    }
     await StationScan.deleteMany({
-      student: student._id,
-      campus: req.campus._id,
+      student: student.id,
+      campus: req.campus.id,
     });
-
-    await student.deleteOne();
+    await CafeStudent.deleteById(student.id);
 
     res.json({
       message: "Student and related station scans deleted successfully",
@@ -500,14 +528,16 @@ export const deleteStudent = async (req, res) => {
     res.status(500).json({ message: "Failed to delete student" });
   }
 };
+*/
 
+/*
 export const deleteBatch = async (req, res) => {
-  const { batch } = req.params;
+  const batch = parseBatch(req.params.batch);
 
   try {
-    const students = await CafeStudent.find({
-      batch,
+    const students = await CafeStudent.findAll({
       ...getStudentCampusQuery(req.campus),
+      batch,
     });
 
     if (students.length === 0) {
@@ -516,28 +546,14 @@ export const deleteBatch = async (req, res) => {
         .json({ message: "No students found in this batch" });
     }
 
-    for (const student of students) {
-      if (student.profilePublicId) {
-        try {
-          const result = await cloudinary.uploader.destroy(
-            student.profilePublicId,
-          );
-
-          if (result.result !== "ok" && result.result !== "not found") {
-          }
-        } catch {
-        }
-      }
-    }
-
-    const studentIds = students.map((s) => s._id);
+    const studentIds = students.map((student) => student.id);
     await StationScan.deleteMany({
-      student: { $in: studentIds },
-      campus: req.campus._id,
+      students: studentIds,
+      campus: req.campus.id,
     });
 
     const result = await CafeStudent.deleteMany({
-      _id: { $in: studentIds },
+      ids: studentIds,
       ...getStudentCampusQuery(req.campus),
     });
 
@@ -549,7 +565,9 @@ export const deleteBatch = async (req, res) => {
     res.status(500).json({ message: "Failed to delete batch" });
   }
 };
+*/
 
+/*
 export const bulkDeleteStudents = async (req, res) => {
   try {
     const { ids } = req.body;
@@ -558,8 +576,8 @@ export const bulkDeleteStudents = async (req, res) => {
       return res.status(400).json({ message: "No students selected" });
     }
 
-    const students = await CafeStudent.find({
-      _id: { $in: ids },
+    const students = await CafeStudent.findAll({
+      ids,
       ...getStudentCampusQuery(req.campus),
     });
 
@@ -567,29 +585,13 @@ export const bulkDeleteStudents = async (req, res) => {
       return res.status(404).json({ message: "Students not found" });
     }
 
-    for (const student of students) {
-      if (student.profilePublicId) {
-        try {
-          const result = await cloudinary.uploader.destroy(
-            student.profilePublicId,
-          );
-
-          if (result.result !== "ok" && result.result !== "not found") {
-          }
-        } catch {
-        }
-      }
-    }
-
-    const studentIds = students.map((s) => s._id);
-
+    const studentIds = students.map((student) => student.id);
     await StationScan.deleteMany({
-      student: { $in: studentIds },
-      campus: req.campus._id,
+      students: studentIds,
+      campus: req.campus.id,
     });
-
     await CafeStudent.deleteMany({
-      _id: { $in: studentIds },
+      ids: studentIds,
       ...getStudentCampusQuery(req.campus),
     });
 
@@ -601,10 +603,16 @@ export const bulkDeleteStudents = async (req, res) => {
     res.status(500).json({ message: "Bulk delete failed" });
   }
 };
+*/
 
 export const bulkUpdateFasting = async (req, res) => {
   try {
+    const campus = await resolveScopedCampus(req);
     const { ids, fastingType } = req.body;
+
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ message: "No students selected" });
@@ -622,8 +630,8 @@ export const bulkUpdateFasting = async (req, res) => {
     }
 
     const result = await CafeStudent.updateMany(
-      { _id: { $in: ids }, ...getStudentCampusQuery(req.campus) },
-      { $set: { fastingType } },
+      { ids, ...getStudentCampusQuery(campus) },
+      { fastingType },
     );
 
     res.json({
@@ -637,26 +645,28 @@ export const bulkUpdateFasting = async (req, res) => {
 
 export const toggleInternshipStudent = async (req, res) => {
   try {
+    const campus = await resolveScopedCampus(req);
     const { isInternship } = req.body;
     if (typeof isInternship !== "boolean") {
       return res.status(400).json({ message: "isInternship must be boolean" });
     }
 
-    const student = await CafeStudent.findOne({
-      _id: req.params.id,
-      ...getStudentCampusQuery(req.campus),
-    });
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
 
-    if (!student) {
+    const student = await CafeStudent.findById(req.params.id);
+    if (!student || Number(student.campusId) !== Number(campus.campusId)) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    student.isInternship = isInternship;
-    await student.save();
+    const updatedStudent = await CafeStudent.updateById(student.id, {
+      isInternship,
+    });
 
     res.json({
       message: `Student ${isInternship ? "marked as internship" : "marked as not internship"} successfully`,
-      student,
+      student: updatedStudent,
     });
   } catch {
     res.status(500).json({ message: "Failed to update internship status" });
@@ -665,7 +675,12 @@ export const toggleInternshipStudent = async (req, res) => {
 
 export const bulkToggleInternshipStudents = async (req, res) => {
   try {
+    const campus = await resolveScopedCampus(req);
     const { ids, isInternship } = req.body;
+
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
 
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ message: "No students selected" });
@@ -675,8 +690,8 @@ export const bulkToggleInternshipStudents = async (req, res) => {
     }
 
     const result = await CafeStudent.updateMany(
-      { _id: { $in: ids }, ...getStudentCampusQuery(req.campus) },
-      { $set: { isInternship } },
+      { ids, ...getStudentCampusQuery(campus) },
+      { isInternship },
     );
 
     res.json({
@@ -694,83 +709,171 @@ export const syncCafeStudents = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const campus = req.params.id
-      ? await Campus.findOne({
-          _id: req.params.id,
-          createdBy: req.userId,
-        })
-      : null;
+    const campus = req.params.id ? await Campus.findById(req.params.id) : null;
 
-    if (!campus) {
+    if (!campus || Number(campus.createdBy) !== Number(req.userId)) {
       return res.status(404).json({ message: "Campus not found" });
     }
 
     const campusId = parseCampusId(campus.campusId);
-
     if (campusId === null) {
       return res.status(400).json({
-        message: "Campus ID is not set for this campus. Ask the admin to add it first.",
+        message:
+          "Campus ID is not set for this campus. Ask the admin to add it first.",
       });
     }
 
-    const universityStudents = await Student.find({ campusId, cafe: 1 })
-      .select(
-        "name studentId batch department profileUrl profilePublicId fastingType isInternship campusId",
-      )
-      .lean();
+    let universityStudents = [];
+    try {
+      universityStudents = await findUniversityCafeStudents(campusId);
+    } catch (error) {
+      if (error?.code === "ER_BAD_DB_ERROR") {
+        logStudentSyncSourceError(error.message, "SYNC_EXTERNAL_DB_MISSING");
+        return res.status(404).json({
+          message:
+            "The student source database was not found. Please check the sync settings.",
+        });
+      }
+
+      if (error?.code === "ER_NO_SUCH_TABLE") {
+        logStudentSyncSourceError(error.message, "SYNC_EXTERNAL_TABLE_MISSING");
+        return res.status(404).json({
+          message:
+            "The student source table was not found. Please check the sync settings.",
+        });
+      }
+
+      if (error?.code === "ER_ACCESS_DENIED_ERROR") {
+        logStudentSyncSourceError(error.message, "SYNC_EXTERNAL_LOGIN_FAILED");
+        return res.status(401).json({
+          message:
+            "The student source login details are not correct. Please check the sync settings.",
+        });
+      }
+
+      throw error;
+    }
 
     if (universityStudents.length === 0) {
+      const existingCampusCafeStudents = await CafeStudent.findAll({ campusId });
+      if (existingCampusCafeStudents.length > 0) {
+        await CafeStudent.deleteMany({ campusId });
+      }
+
+      const currentCafeStudentCount = await CafeStudent.countDocuments({ campusId });
       return res.json({
-        message: "No cafe students were found in the university database.",
+        message: "No students were found in the university database.",
         syncedCount: 0,
+        updatedCount: 0,
+        removedCount: existingCampusCafeStudents.length,
         skippedCount: 0,
         totalCafeStudents: 0,
+        currentCafeStudentCount,
       });
     }
 
-    const studentIds = universityStudents.map((student) => student.studentId);
-    const existingCafeStudents = await CafeStudent.find({
-      studentId: { $in: studentIds },
-    })
-      .select("studentId")
-      .lean();
+    const normalizedUniversityStudents = universityStudents
+      .map((student) => ({
+        ...student,
+        studentId:
+          typeof student.studentId === "string"
+            ? student.studentId.trim()
+            : String(student.studentId ?? "").trim(),
+      }))
+      .filter((student) => student.studentId);
 
-    const existingStudentIds = new Set(
-      existingCafeStudents.map((student) => student.studentId),
+    const studentIds = normalizedUniversityStudents.map((student) => student.studentId);
+    const existingCampusCafeStudents = await CafeStudent.findAll({ campusId });
+    const existingStudentMap = new Map(
+      existingCampusCafeStudents.map((student) => [
+        String(student.studentId).trim(),
+        student,
+      ]),
+    );
+    const queuedStudentIds = new Set();
+    const sourceStudentIds = new Set(studentIds);
+    let updatedCount = 0;
+
+    const studentsToInsert = normalizedUniversityStudents.reduce(
+      (accumulator, student) => {
+        if (queuedStudentIds.has(student.studentId)) {
+          return accumulator;
+        }
+
+        queuedStudentIds.add(student.studentId);
+
+        const existingStudent = existingStudentMap.get(student.studentId);
+        if (existingStudent) {
+          return accumulator;
+        }
+
+        accumulator.push({
+          name: student.name,
+          studentId: student.studentId,
+          batch: student.batch,
+          department: student.department,
+          profileUrl: student.profileUrl || "",
+          fastingType: student.fastingType || "not_fasting",
+          isInternship: student.isInternship === true,
+          campusId: student.campusId,
+        });
+        return accumulator;
+      },
+      [],
     );
 
-    const studentsToInsert = universityStudents
-      .filter((student) => !existingStudentIds.has(student.studentId))
-      .map((student) => ({
-        name: student.name,
-        studentId: student.studentId,
-        batch: student.batch,
-        department: student.department,
-        profileUrl: student.profileUrl || "",
-        profilePublicId: student.profilePublicId || "",
-        fastingType: student.fastingType || "not_fasting",
-        isInternship: student.isInternship === true,
-        campusId: student.campusId,
-      }));
+    const studentsToUpdate = normalizedUniversityStudents.filter((student) => {
+      const existingStudent = existingStudentMap.get(student.studentId);
+      return existingStudent && hasSyncChanges(existingStudent, student);
+    });
+
+    updatedCount = studentsToUpdate.length;
+
+    await Promise.all(
+      studentsToUpdate.map(async (student) => {
+        const existingStudent = existingStudentMap.get(student.studentId);
+        await CafeStudent.updateById(existingStudent.id, {
+          name: student.name,
+          batch: student.batch,
+          department: student.department,
+          profileUrl: student.profileUrl || "",
+          campusId: student.campusId,
+        });
+      }),
+    );
 
     if (studentsToInsert.length > 0) {
-      await CafeStudent.insertMany(studentsToInsert, { ordered: false });
+      await CafeStudent.insertMany(studentsToInsert);
     }
 
+    const studentsToDeactivate = existingCampusCafeStudents.filter(
+      (student) => !sourceStudentIds.has(String(student.studentId).trim()),
+    );
+
+    if (studentsToDeactivate.length > 0) {
+      await CafeStudent.deleteMany({
+        ids: studentsToDeactivate.map((student) => student.id),
+      });
+    }
+
+    const skippedCount =
+      normalizedUniversityStudents.length -
+      studentsToInsert.length -
+      updatedCount;
+    const currentCafeStudentCount = await CafeStudent.countDocuments({ campusId });
+    const removedCount = studentsToDeactivate.length;
+
     return res.json({
-      message:
-        studentsToInsert.length > 0
-          ? `Fetched ${studentsToInsert.length} new cafe student(s).`
-          : "All cafe students are already synced.",
+      message: `Students synced. Added ${studentsToInsert.length}, updated ${updatedCount}, removed ${removedCount}.`,
       syncedCount: studentsToInsert.length,
-      skippedCount: universityStudents.length - studentsToInsert.length,
-      totalCafeStudents: universityStudents.length,
+      updatedCount,
+      removedCount,
+      skippedCount,
+      totalCafeStudents: normalizedUniversityStudents.length,
+      currentCafeStudentCount,
     });
   } catch (err) {
     logInternalError("sync-cafe-students", err);
-    sendServerError(
-      res,
-      "We could not fetch cafe students right now. Please try again.",
-    );
+    sendServerError(res, getStudentSyncUserMessage(err));
   }
 };

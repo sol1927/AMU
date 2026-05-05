@@ -22,8 +22,10 @@ import {
   otpLimiter,
   otpVerifyLimiter,
   passwordResetLimiter,
+  passwordResetCompletionLimiter,
   loginLimiter,
   deviceOtpLimiter,
+  deviceOtpVerifyLimiter,
 } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
@@ -32,14 +34,18 @@ router.post("/request-otp", otpLimiter, requestOTP);
 router.post("/verify-otp", otpVerifyLimiter, verifyOTP);
 router.post("/set-password", setPassword);
 router.post("/login", loginLimiter, login);
-router.post("/verify-device-otp", verifyAdminDeviceOtp);
+router.post("/verify-device-otp", deviceOtpVerifyLimiter, verifyAdminDeviceOtp);
 router.post("/resend-device-otp", deviceOtpLimiter, resendDeviceOtp);
 router.post(
   "/request-password-reset",
   passwordResetLimiter,
   requestPasswordReset,
 );
-router.post("/reset-password", resetPassword);
+router.post(
+  "/reset-password",
+  passwordResetCompletionLimiter,
+  resetPassword,
+);
 router.post("/logout", logout);
 
 export default router;

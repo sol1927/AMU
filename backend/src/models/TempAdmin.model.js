@@ -1,20 +1,130 @@
-import mongoose from "mongoose";
+import { dbConnection } from "../server.js";
+import { mapRow, mapRows } from "./modelUtils.js";
 
-const tempAdminSchema = new mongoose.Schema(
-  {
-    name: { type: String },
-    email: { type: String, required: true, unique: true },
+const mapTempAdminRow = (row) => ({
+  ...row,
+  verified: Boolean(row.verified),
+});
 
-    otp: { type: String, required: true },
-    otpExpires: { type: Date, required: true },
+const createTable = async () => {
+  const query = `
+    CREATE TABLE IF NOT EXISTS temp_admins (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255),
+      email VARCHAR(255) NOT NULL UNIQUE,
+      otp VARCHAR(255) NOT NULL,
+      otpExpires DATETIME NOT NULL,
+      verified BOOLEAN DEFAULT FALSE,
+      verifiedAt DATETIME,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+  `;
+  await dbConnection.execute(query);
+};
 
-    verified: { type: Boolean, default: false },
+const findAll = async (filter = {}) => {
+  let query = "SELECT * FROM temp_admins WHERE 1=1";
+  const params = [];
+  if (filter.email) {
+    query += " AND email = ?";
+    params.push(filter.email);
+  }
+  if (filter.verified !== undefined) {
+    query += " AND verified = ?";
+    params.push(filter.verified);
+  }
+  const [rows] = await dbConnection.execute(query, params);
+  return mapRows(rows, mapTempAdminRow);
+};
 
-    verifiedAt: { type: Date },
-  },
-  { timestamps: true },
-);
+const findById = async (id) => {
+  const [rows] = await dbConnection.execute(
+    "SELECT * FROM temp_admins WHERE id = ?",
+    [id],
+  );
+  return mapRow(rows[0] || null, mapTempAdminRow);
+};
 
-tempAdminSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
+const findOne = async (filter = {}) => (await findAll(filter))[0] || null;
 
-export default mongoose.model("TempAdmin", tempAdminSchema);
+const create = async (data) => {
+  const { name, email, otp, otpExpires, verified = false, verifiedAt } = data;
+  const query = `
+    INSERT INTO temp_admins (name, email, otp, otpExpires, verified, verifiedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  const params = [name, email, otp, otpExpires, verified, verifiedAt];
+  const [result] = await dbConnection.execute(query, params);
+  return { id: result.insertId, ...data };
+};
+
+const updateById = async (id, data) => {
+  const fields = [];
+  const params = [];
+  if (data.name !== undefined) {
+    fields.push("name = ?");
+    params.push(data.name);
+  }
+  if (data.email) {
+    fields.push("email = ?");
+    params.push(data.email);
+  }
+  if (data.otp) {
+    fields.push("otp = ?");
+    params.push(data.otp);
+  }
+  if (data.otpExpires) {
+    fields.push("otpExpires = ?");
+    params.push(data.otpExpires);
+  }
+  if (data.verified !== undefined) {
+    fields.push("verified = ?");
+    params.push(data.verified);
+  }
+  if (data.verifiedAt !== undefined) {
+    fields.push("verifiedAt = ?");
+    params.push(data.verifiedAt);
+  }
+  if (fields.length === 0) return null;
+  const query = `UPDATE temp_admins SET ${fields.join(", ")} WHERE id = ?`;
+  params.push(id);
+  await dbConnection.execute(query, params);
+  return findById(id);
+};
+
+const deleteById = async (id) => {
+  await dbConnection.execute("DELETE FROM temp_admins WHERE id = ?", [id]);
+};
+
+const upsertByEmail = async (email, data) => {
+  const existing = await findOne({ email });
+  if (existing) {
+    return updateById(existing.id, data);
+  }
+  return create({ ...data, email });
+};
+
+const TempAdminModel = {
+  createTable,
+  findAll,
+  findById,
+  findOne,
+  create,
+  updateById,
+  deleteById,
+  upsertByEmail,
+};
+
+export {
+  createTable,
+  findAll,
+  findById,
+  findOne,
+  create,
+  updateById,
+  deleteById,
+  upsertByEmail,
+};
+
+export default TempAdminModel;

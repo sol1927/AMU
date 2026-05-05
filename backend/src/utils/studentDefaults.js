@@ -5,7 +5,7 @@ export const DEFAULT_MEAL_STATUS = {
 };
 
 export const getStudentIsInternship = (student = {}) =>
-  student.isInternship === true;
+  student.isInternship === true || student.isInternship === 1;
 
 export const getStudentFastingType = (student = {}) =>
   student.fastingType || "not_fasting";
@@ -18,8 +18,7 @@ export const getStudentMealStatus = (student = {}) => ({
 export const normalizeStudent = (student = {}) => {
   if (!student) return student;
 
-  const normalizedStudent =
-    typeof student.toObject === "function" ? student.toObject() : { ...student };
+  const normalizedStudent = { ...student };
 
   normalizedStudent.isInternship = getStudentIsInternship(normalizedStudent);
   normalizedStudent.fastingType = getStudentFastingType(normalizedStudent);
@@ -29,18 +28,14 @@ export const normalizeStudent = (student = {}) => {
 };
 
 export const ensureStudentDefaults = async (StudentModel, baseQuery = {}) => {
-  await Promise.all([
-    StudentModel.updateMany(
-      { ...baseQuery, isInternship: { $exists: false } },
-      { $set: { isInternship: false } },
+  const students = await StudentModel.findAll(baseQuery);
+  await Promise.all(
+    students.map((student) =>
+      StudentModel.updateById(student.id, {
+        isInternship: student.isInternship ?? false,
+        fastingType: student.fastingType || "not_fasting",
+        mealStatus: student.mealStatus || DEFAULT_MEAL_STATUS,
+      }),
     ),
-    StudentModel.updateMany(
-      { ...baseQuery, fastingType: { $exists: false } },
-      { $set: { fastingType: "not_fasting" } },
-    ),
-    StudentModel.updateMany(
-      { ...baseQuery, mealStatus: { $exists: false } },
-      { $set: { mealStatus: DEFAULT_MEAL_STATUS } },
-    ),
-  ]);
+  );
 };

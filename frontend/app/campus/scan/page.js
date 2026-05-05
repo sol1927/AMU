@@ -6,17 +6,20 @@ import { useCampus } from "@/app/context/CampusContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-const getCurrentMealSessionLabel = (schedule) => {
+const getCurrentMealSession = (schedule) => {
   if (!schedule) {
-    return "Loading...";
+    return {
+      label: "Loading...",
+      window: "--:-- - --:--",
+    };
   }
 
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const meals = [
-    { key: "breakfast", label: "ቁርስ" },
-    { key: "lunch", label: "ምሳ" },
-    { key: "dinner", label: "እራት" },
+    { key: "breakfast", label: "\u1241\u122d\u1235" },
+    { key: "lunch", label: "\u121d\u1233" },
+    { key: "dinner", label: "\u12a5\u122b\u1275" },
   ];
 
   for (const meal of meals) {
@@ -31,11 +34,17 @@ const getCurrentMealSessionLabel = (schedule) => {
     const endMinutes = endHour * 60 + endMinute;
 
     if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
-      return meal.label;
+      return {
+        label: meal.label,
+        window: mealWindow.label || `${mealWindow.start} - ${mealWindow.end}`,
+      };
     }
   }
 
-  return "ሰዓት አልቋል";
+  return {
+    label: "\u1230\u12d3\u1275 \u12a0\u120d\u124b\u120d",
+    window: "--:-- - --:--",
+  };
 };
 
 export default function StationScanPage() {
@@ -44,6 +53,9 @@ export default function StationScanPage() {
   const [manualInput, setManualInput] = useState("");
   const [shokeKey, setShokeKey] = useState(0);
   const [mealSchedule, setMealSchedule] = useState(null);
+  const [currentMealSession, setCurrentMealSession] = useState(() =>
+    getCurrentMealSession(null),
+  );
 
   const { currentCampus, setStudentsLoading } = useCampus();
   const hiddenInputRef = useRef(null);
@@ -86,14 +98,31 @@ export default function StationScanPage() {
           throw new Error(data.message || "Failed to load meal schedule");
         }
 
-        setMealSchedule(data.schedule || null);
+        const schedule = data.schedule || null;
+        setMealSchedule(schedule);
+        setCurrentMealSession(getCurrentMealSession(schedule));
       } catch {
         setMealSchedule(null);
+        setCurrentMealSession(getCurrentMealSession(null));
       }
     };
 
     fetchMealSchedule();
   }, []);
+
+  useEffect(() => {
+    setCurrentMealSession(getCurrentMealSession(mealSchedule));
+
+    if (!mealSchedule) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      setCurrentMealSession(getCurrentMealSession(mealSchedule));
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [mealSchedule]);
 
   const processScan = async (studentId) => {
     try {
@@ -121,7 +150,7 @@ export default function StationScanPage() {
 
       if (data && data.message) {
         const displayName = data.message.includes("Time is up")
-          ? "ሰዓት አልቋል"
+          ? "\u1230\u12d3\u1275 \u12a0\u120d\u124b\u120d"
           : data.message;
 
         setShokeKey((prev) => prev + 1);
@@ -198,7 +227,11 @@ export default function StationScanPage() {
       return "bg-gradient-to-r from-pink-500 to-red-600 text-white shadow-lg animate-shake";
     if (student.name === "Student not found")
       return "bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg animate-shake";
-    if (student.name === "Time is up / ሰዓት አልቋል" || student.name === "ሰዓት አልቋል")
+    if (
+      student.name ===
+        `Time is up / ${"\u1230\u12d3\u1275 \u12a0\u120d\u124b\u120d"}` ||
+      student.name === "\u1230\u12d3\u1275 \u12a0\u120d\u124b\u120d"
+    )
       return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold animate-shake";
     if (allowed)
       return "bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg";
@@ -207,7 +240,9 @@ export default function StationScanPage() {
 
   const getStatusText = () => {
     if (!student) return "";
-    return allowed ? "ተፈቅዷል ✅" : "አልተፈቀደም ❌";
+    return allowed
+      ? "\u1270\u1348\u1245\u12f6\u120d \u2705"
+      : "\u12a0\u120d\u1270\u1348\u1240\u12f0\u121d \u274c";
   };
 
   return (
@@ -223,7 +258,7 @@ export default function StationScanPage() {
                   className={`w-full max-w-2xl rounded-xl p-8 text-center transition-all duration-300 ${getCardClasses()}`}
                 >
                   {student.name !== "Student not found" && (
-                    <div className="mb-6 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-300 text-center text-sm font-semibold text-black">
+                    <div className="mx-auto mb-6 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-300 text-center text-sm font-semibold text-black">
                       {student.profileUrl ? (
                         <img
                           src={student.profileUrl}
@@ -266,11 +301,11 @@ export default function StationScanPage() {
                         }
                       >
                         {student.fastingType === "fasting"
-                          ? "ጾመኛ"
+                          ? "\u133e\u1218\u129b"
                           : student.fastingType === "sunday_fasting"
-                            ? "የእሁድ ጾመኛ"
+                            ? "\u12e8\u12a5\u1201\u12f5 \u133e\u1218\u129b"
                             : student.fastingType === "muslim_fasting"
-                              ? "የሙስሊም ጾመኛ"
+                              ? "\u12e8\u1219\u1235\u120a\u121d \u133e\u1218\u129b"
                               : "..."}
                       </span>
                     </div>
@@ -291,8 +326,13 @@ export default function StationScanPage() {
           <div className="hidden w-[140px] md:block"></div>
 
           <div className="surface-panel flex w-full max-w-md flex-col items-center gap-2 rounded-2xl p-3 md:flex-row md:p-4">
-            <div className="flex items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 font-bold text-white">
-              {getCurrentMealSessionLabel(mealSchedule)}
+            <div className="flex min-w-[180px] flex-col items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white">
+              <span className="whitespace-nowrap font-bold">
+                {currentMealSession.label}
+              </span>
+              <span className="text-xs font-medium text-blue-100">
+                {currentMealSession.window}
+              </span>
             </div>
             <input
               ref={manualInputRef}

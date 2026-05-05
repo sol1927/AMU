@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { TempAdminProvider } from "./context/TempAdminContext";
 import { UserProvider } from "./context/UserContext";
 import { CampusProvider } from "./context/CampusContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import PropTypes from "prop-types";
 
 const inter = Inter({
@@ -26,11 +27,13 @@ export default function RootLayout({ children }) {
       <body
         className={`${inter.className} min-h-screen overflow-x-hidden bg-transparent text-slate-900 antialiased`}
       >
-        <UserProvider>
-          <TempAdminProvider>
-            <CampusProvider>{children}</CampusProvider>
-          </TempAdminProvider>
-        </UserProvider>
+        <ThemeProvider>
+          <UserProvider>
+            <TempAdminProvider>
+              <CampusProvider>{children}</CampusProvider>
+            </TempAdminProvider>
+          </UserProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

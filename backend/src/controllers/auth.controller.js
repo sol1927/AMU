@@ -3,56 +3,113 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendDeviceOtp } from "../controllers/device.controller.js";
 import Campus from "../models/campus.model.js";
+import { syncCampusLiveMealWindow } from "../utils/mealSession.js";
+import {
+  formatMinutes,
+  getCookieOptions,
+  getSessionCookieOptions,
+} from "../utils/sessionSecurity.js";
+import { logInternalError } from "../utils/safeError.js";
 
-const getCookieOptions = (duration = 24 * 60 * 60 * 1000) => ({
-  httpOnly: true,
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  secure: process.env.NODE_ENV === "production",
-  maxAge: duration,
-  priority: "high",
-});
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
+
+const getAccountModel = (role) => (role === "admin" ? User : Campus);
+
+const resetAccountLock = async (role, accountId, options = {}) => {
+  const AccountModel = getAccountModel(role);
+  return AccountModel.updateById(
+    accountId,
+    { loginAttempts: 0, lockUntil: null },
+    options,
+  );
+};
+
+const registerFailedLoginAttempt = async (role, account) => {
+  const AccountModel = getAccountModel(role);
+  const nextAttempts = Number(account.loginAttempts || 0) + 1;
+  const lockUntil =
+    nextAttempts >= MAX_LOGIN_ATTEMPTS
+      ? Date.now() + LOGIN_LOCK_WINDOW_MS
+      : null;
+
+  await AccountModel.updateById(account.id, {
+    loginAttempts: nextAttempts,
+    lockUntil,
+  });
+
+  return { nextAttempts, lockUntil };
+};
 
 export const login = async (req, res) => {
   try {
     const { email, password, deviceId, deviceName } = req.body;
 
-    if (!email || !password)
+    if (!email || !password) {
       return res.status(400).json({
         message: "Please enter both your email and password.",
       });
+    }
 
-    let user = await User.findOne({ email }).select("+password");
+    let user = await User.findOne({ email, role: "admin" }, { includePassword: true });
     let role = "admin";
 
     if (!user) {
-      user = await Campus.findOne({ email }).select("+password");
+      user = await Campus.findOne({ email }, { includePassword: true });
       role = "campus";
     }
 
-    if (!user)
-      return res.status(401).json({ message: "Invalid email or password." });
+    if (!user) {
+      const [existingAdmin, existingCampus] = await Promise.all([
+        User.findOne({ role: "admin" }),
+        Campus.findOne(),
+      ]);
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(401).json({ message: "Invalid email or password." });
-
-    if (role === "admin") {
-      user.trustedDevices = user.trustedDevices || [];
-      if (user.trustedDevices.length) {
-        user.trustedDevices = user.trustedDevices.filter(
-          (d) => d.expiresAt && d.expiresAt > new Date(),
-        );
-        await user.save();
+      if (!existingAdmin && !existingCampus) {
+        return res.status(404).json({
+          message:
+            "No admin or campus account has been set up yet. Please create the first account before signing in.",
+        });
       }
 
-      if (!deviceId)
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    const now = Date.now();
+    if (user.lockUntil && Number(user.lockUntil) > now) {
+      return res.status(429).json({
+        message: `Too many attempts. Try again after ${formatMinutes(
+          Number(user.lockUntil) - now,
+        )}.`,
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      await registerFailedLoginAttempt(role, user);
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    user = await resetAccountLock(role, user.id, { includePassword: true });
+
+    if (role === "admin") {
+      const trustedDevices = (user.trustedDevices || []).filter(
+        (device) => device.expiresAt && new Date(device.expiresAt) > new Date(),
+      );
+
+      if (trustedDevices.length !== (user.trustedDevices || []).length) {
+        user = await User.updateById(user.id, { trustedDevices }, { includePassword: true });
+      } else {
+        user.trustedDevices = trustedDevices;
+      }
+
+      if (!deviceId) {
         return res.status(400).json({
           message: "Device information missing. Please refresh and try again.",
         });
+      }
 
-      const isTrusted = user.trustedDevices.some(
-        (d) => d.deviceId === deviceId,
-      );
+      const isTrusted = trustedDevices.some((device) => device.deviceId === deviceId);
       if (!isTrusted) {
         const deviceOtpToken = await sendDeviceOtp(user, deviceId, deviceName);
         res.cookie(
@@ -67,28 +124,41 @@ export const login = async (req, res) => {
       }
     }
 
-    const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
+    const token = jwt.sign({ id: user.id, role }, process.env.JWT_SECRET);
 
     const cookieName = role === "admin" ? "accessToken" : "campusToken";
-    res.cookie(cookieName, token, getCookieOptions());
+    res.cookie(cookieName, token, getSessionCookieOptions());
 
     if (role === "campus") {
-      user.isOnline = true;
-      user.lastActiveAt = new Date();
-      await user.save();
+      const loginTime = new Date();
+      user = await Campus.updateById(user.id, {
+        isOnline: true,
+        lastActiveAt: loginTime,
+      });
+      const admin = user.createdBy ? await User.findById(user.createdBy) : null;
+      if (admin?.logo) {
+        user = { ...user, logo: admin.logo };
+      }
+      await syncCampusLiveMealWindow(user.id, loginTime).catch(() => null);
     }
 
-    const userData = user._doc || user.toObject();
-    delete userData.password;
+    delete user.password;
 
     res.json({
       message: `Successfully logged in as ${role}`,
-      user: userData,
+      user,
       role,
     });
-  } catch {
+  } catch (error) {
+    logInternalError("login", error);
+
+    if (
+      error?.code === "EMAIL_NETWORK_ERROR" ||
+      error?.code === "EMAIL_DELIVERY_FAILED"
+    ) {
+      return res.status(503).json({ message: error.message });
+    }
+
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again." });
@@ -96,7 +166,7 @@ export const login = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-  const options = { ...getCookieOptions(), maxAge: 0 };
+  const options = { ...getSessionCookieOptions(), maxAge: 0 };
   res
     .clearCookie("accessToken", options)
     .clearCookie("campusToken", options)

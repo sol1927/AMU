@@ -1,12 +1,21 @@
-import mongoose from "mongoose";
+import {
+  dbConnection,
+  ensureDatabaseTables,
+  getDatabaseConnectionErrorMessage,
+} from "../server.js";
 
-export const requireDatabaseConnection = (_req, res, next) => {
-  if (mongoose.connection.readyState === 1) {
-    return next();
+export const requireDatabaseConnection = async (_req, res, next) => {
+  if (dbConnection) {
+    try {
+      await dbConnection.ping();
+      await ensureDatabaseTables();
+      return next();
+    } catch {
+      // Connection failed
+    }
   }
 
   return res.status(503).json({
-    message:
-      "The server is reconnecting to the database. Please wait a moment and try again.",
+    message: getDatabaseConnectionErrorMessage(),
   });
 };

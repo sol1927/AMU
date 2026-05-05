@@ -1,14 +1,19 @@
 import Campus from "../models/campus.model.js";
+import User from "../models/user.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
+import StationScan from "../models/stationScan.model.js";
 import {
-  dedupeMealStudents,
   getCurrentSemester,
   getCurrentYear,
+  getDateFromDayString,
+  getDayString,
   getMealSnapshotCutoff,
   getMealScheduleAt,
   getMealSessionStatus,
   getMealSessionWindow,
+  isCampusLiveNow,
+  syncCampusLiveMealWindow,
 } from "../utils/mealSession.js";
 import {
   getStudentFastingType,
@@ -19,6 +24,265 @@ import {
   getStudentCampusSyncQuery,
 } from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
+
+const findOwnedCampus = async (campusId, userId) => {
+  const campus = await Campus.findById(campusId);
+  if (!campus || Number(campus.createdBy) !== Number(userId)) {
+    return null;
+  }
+  return campus;
+};
+
+const attachAdminLogoToCampus = async (campus) => {
+  if (!campus) {
+    return campus;
+  }
+
+  const admin = campus.createdBy
+    ? await User.findById(campus.createdBy)
+    : null;
+
+  return {
+    ...campus,
+    logo: admin?.logo || campus.logo,
+  };
+};
+
+const buildFastingBreakdown = (students = []) => ({
+  fasting: students.filter(
+    (student) => getStudentFastingType(student) === "fasting",
+  ).length,
+  sundayFasting: students.filter(
+    (student) => getStudentFastingType(student) === "sunday_fasting",
+  ).length,
+  muslimFasting: students.filter(
+    (student) => getStudentFastingType(student) === "muslim_fasting",
+  ).length,
+  notFasting: students.filter(
+    (student) => getStudentFastingType(student) === "not_fasting",
+  ).length,
+});
+
+const buildMealSummarySnapshot = (campusStudents = [], servedStudentIds = []) => {
+  const regularStudentsList = campusStudents.filter(
+    (student) => !getStudentIsInternship(student),
+  );
+  const internshipStudentsList = campusStudents.filter((student) =>
+    getStudentIsInternship(student),
+  );
+  const servedStudentIdSet = new Set(servedStudentIds.map(String));
+  const servedRegularStudentsList = regularStudentsList.filter((student) =>
+    servedStudentIdSet.has(String(student.studentId)),
+  );
+  const pendingRegularStudentsList = regularStudentsList.filter(
+    (student) => !servedStudentIdSet.has(String(student.studentId)),
+  );
+
+  return {
+    totalStudents: campusStudents.length,
+    regularStudents: regularStudentsList.length,
+    internshipStudents: internshipStudentsList.length,
+    servedStudents: servedRegularStudentsList.length,
+    pendingStudents: pendingRegularStudentsList.length,
+    fastingBreakdown: buildFastingBreakdown(campusStudents),
+    regularFastingBreakdown: buildFastingBreakdown(regularStudentsList),
+    internshipFastingBreakdown: buildFastingBreakdown(internshipStudentsList),
+    servedFastingBreakdown: buildFastingBreakdown(servedRegularStudentsList),
+    pendingFastingBreakdown: buildFastingBreakdown(pendingRegularStudentsList),
+  };
+};
+
+const buildServedOnlySummarySnapshot = (studentSnapshots = []) => {
+  const servedStudents = studentSnapshots.filter(
+    (student) => !getStudentIsInternship(student),
+  );
+  const internshipStudents = studentSnapshots.filter((student) =>
+    getStudentIsInternship(student),
+  );
+
+  return {
+    totalStudents: null,
+    regularStudents: null,
+    internshipStudents: null,
+    servedStudents: servedStudents.length,
+    pendingStudents: null,
+    fastingBreakdown: null,
+    regularFastingBreakdown: null,
+    internshipFastingBreakdown: null,
+    servedFastingBreakdown: buildFastingBreakdown(servedStudents),
+    pendingFastingBreakdown: null,
+  };
+};
+
+const getAppliedWindowDate = (dayString, timeValue) => {
+  if (!dayString || typeof timeValue !== "string") {
+    return null;
+  }
+
+  const [hour, minute] = timeValue.split(":").map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null;
+  }
+
+  const date = new Date(`${dayString}T00:00:00`);
+  date.setHours(hour, minute, 0, 0);
+  return date;
+};
+
+const resolveActualMealWindow = async ({
+  campusId,
+  mealType,
+  queryDate,
+  sessionStatus,
+  meal,
+}) => {
+  if (!meal) {
+    return {
+      openedAt: null,
+      closedAt: null,
+    };
+  }
+
+  const appliedWindow = meal.appliedWindow || {};
+  let openedAt = appliedWindow.actualOpenedAt || meal.createdAt || null;
+  const storedOpenedAt = openedAt;
+  let closedAt = appliedWindow.actualClosedAt || null;
+  const storedClosedAt = closedAt;
+  const queryDayString = getDayString(queryDate);
+  const appliedStartAt = getAppliedWindowDate(queryDayString, appliedWindow.start);
+  const appliedEndAt = getAppliedWindowDate(queryDayString, appliedWindow.end);
+  const capOpenedAt = (value) => {
+    if (!value) return null;
+
+    const openedDate = new Date(value);
+    if (Number.isNaN(openedDate.getTime())) {
+      return null;
+    }
+
+    if (appliedStartAt && openedDate < appliedStartAt) {
+      return appliedStartAt.toISOString();
+    }
+
+    if (appliedEndAt && openedDate > appliedEndAt) {
+      return appliedEndAt.toISOString();
+    }
+
+    return value;
+  };
+  const capClosedAt = (value) => {
+    if (!value) return null;
+
+    const closedDate = new Date(value);
+    if (Number.isNaN(closedDate.getTime())) {
+      return null;
+    }
+
+    if (appliedEndAt && closedDate > appliedEndAt) {
+      return appliedEndAt.toISOString();
+    }
+
+    return value;
+  };
+  const isValidClosedAt = (value) => {
+    if (!value) return false;
+
+    const openedDate = openedAt ? new Date(openedAt) : null;
+    const closedDate = new Date(value);
+
+    if (Number.isNaN(closedDate.getTime())) {
+      return false;
+    }
+
+    if (getDayString(closedDate) !== queryDayString) {
+      return false;
+    }
+
+    return (
+      !openedDate ||
+      Number.isNaN(openedDate.getTime()) ||
+      closedDate.getTime() >= openedDate.getTime()
+    );
+  };
+
+  openedAt = capOpenedAt(openedAt);
+  closedAt = capClosedAt(closedAt);
+
+  if (
+    (storedOpenedAt && openedAt && openedAt !== storedOpenedAt) ||
+    (storedClosedAt && closedAt && closedAt !== storedClosedAt)
+  ) {
+    await Meal.updateById(meal.id, {
+      appliedWindow: {
+        ...appliedWindow,
+        actualOpenedAt: openedAt,
+        actualClosedAt: closedAt,
+      },
+    }).catch(() => null);
+  }
+
+  if (closedAt && !isValidClosedAt(closedAt)) {
+    closedAt = null;
+
+    await Meal.updateById(meal.id, {
+      appliedWindow: {
+        ...appliedWindow,
+        actualOpenedAt: openedAt,
+        actualClosedAt: null,
+      },
+    }).catch(() => null);
+  }
+
+  if (!closedAt && sessionStatus === "completed") {
+    const latestScan = await StationScan.findOne({
+      campus: campusId,
+      date: getDayString(queryDate),
+      mealType,
+      orderByCreatedAtDesc: true,
+    });
+
+    closedAt = latestScan?.scannedAt || latestScan?.createdAt || null;
+    closedAt = capClosedAt(closedAt);
+    if (!isValidClosedAt(closedAt)) {
+      closedAt = null;
+    }
+
+    if (closedAt) {
+      await Meal.updateById(meal.id, {
+        appliedWindow: {
+          ...appliedWindow,
+          actualOpenedAt: openedAt,
+          actualClosedAt: closedAt,
+        },
+      });
+    }
+  }
+
+  return {
+    openedAt,
+    closedAt,
+  };
+};
+
+const resolveDashboardSessionStatus = ({
+  scheduleStatus,
+  actualMealWindow,
+  campus,
+  currentDate = new Date(),
+}) => {
+  if (scheduleStatus !== "active") {
+    return scheduleStatus;
+  }
+
+  if (isCampusLiveNow(campus, currentDate)) {
+    return "active";
+  }
+
+  if (actualMealWindow?.openedAt) {
+    return "logged_out";
+  }
+
+  return "not_opened";
+};
 
 export const getAdminDashboard = async (req, res) => {
   try {
@@ -31,7 +295,7 @@ export const getAdminDashboard = async (req, res) => {
     const year = getCurrentYear();
     const semester = getCurrentSemester();
 
-    const campuses = await Campus.find({ createdBy: req.userId }).lean();
+    const campuses = await Campus.findAll({ createdBy: req.userId });
 
     let totalStudents = 0;
     let totalServed = 0;
@@ -42,25 +306,26 @@ export const getAdminDashboard = async (req, res) => {
           getStudentCampusSyncQuery(campus),
         );
 
-        const todaysMeals = await Meal.find({
-          campus: campus._id,
-          date: today,
+        const todaysMeals = await Meal.findAll({
+          campus: campus.id,
+          date: getDayString(today),
           year,
           semester,
         });
 
         const servedCount = new Set();
         todaysMeals.forEach((meal) => {
-          meal.students.forEach((studentId) =>
-            servedCount.add(studentId.toString()),
+          (meal.students || []).forEach((studentId) =>
+            servedCount.add(String(studentId)),
           );
         });
 
         totalStudents += studentsCount;
         totalServed += servedCount.size;
+        const brandedCampus = await attachAdminLogoToCampus(campus);
 
         return {
-          ...campus,
+          ...brandedCampus,
           students: studentsCount,
           served: servedCount.size,
         };
@@ -99,192 +364,155 @@ export const getMeals = async (req, res) => {
       });
     }
 
-    const campus = await Campus.findOne({
-      _id: campusId,
-      createdBy: req.userId,
-    });
+    const campus = await findOwnedCampus(campusId, req.userId);
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
 
     const studentCampusQuery = getStudentCampusQuery(campus);
-
-    const queryDate = new Date(date);
-    queryDate.setHours(0, 0, 0, 0);
+    const queryDate = getDateFromDayString(date);
+    const queryDayString = getDayString(queryDate);
 
     const resolvedYear =
       year && !Number.isNaN(Number(year))
         ? Number(year)
         : getCurrentYear(queryDate);
     const resolvedSemester = semester || getCurrentSemester(queryDate);
-    const meal = await Meal.findOne({
-      campus: campusId,
+
+    let meal = await Meal.findOne({
+      campus: Number(campusId),
       year: resolvedYear,
       semester: resolvedSemester,
-      date: queryDate,
+      date: queryDayString,
       mealType,
     });
-    const mealSchedule = await getMealScheduleAt(campusId, queryDate);
-    const sessionStatus = await getMealSessionStatus(
-      campusId,
+    const scheduleStatus = await getMealSessionStatus(
+      campus.id,
       mealType,
       queryDate,
     );
-    const snapshotCutoff = await getMealSnapshotCutoff(
-      campusId,
-      mealType,
-      queryDate,
-    );
+    if (scheduleStatus === "active" && isCampusLiveNow(campus)) {
+      meal =
+        (await syncCampusLiveMealWindow(campus.id, new Date(), {
+          onlineSince: campus.lastActiveAt,
+        }).catch(() => null)) || meal;
+    }
+    const snapshotCutoff = await getMealSnapshotCutoff(campus.id, mealType, queryDate);
     const sessionWindow = meal?.appliedWindow
       ? (() => {
-          const dayText = queryDate.toISOString().split("T")[0];
           return {
-            start: new Date(`${dayText}T${meal.appliedWindow.start}:00`),
-            end: new Date(`${dayText}T${meal.appliedWindow.end}:00`),
+            start: new Date(`${queryDayString}T${meal.appliedWindow.start}:00`),
+            end: new Date(`${queryDayString}T${meal.appliedWindow.end}:00`),
           };
         })()
-      : await getMealSessionWindow(campusId, mealType, queryDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isTodayQuery = queryDate.getTime() === today.getTime();
+      : await getMealSessionWindow(campus.id, mealType, queryDate);
     const trackingStartAt = campus.createdAt ? new Date(campus.createdAt) : null;
     const isBeforeSystemStart =
       Boolean(snapshotCutoff && sessionWindow?.end && trackingStartAt) &&
       sessionWindow.end < trackingStartAt;
-    const hasSnapshotData = Boolean(snapshotCutoff) && !isBeforeSystemStart;
-    const noDataReason = !snapshotCutoff
-      ? "upcoming"
-      : isBeforeSystemStart
-        ? "before_system_start"
-        : null;
-
-    let totalStudents = null;
-    let regularStudents = null;
-    let internshipStudents = null;
-    let fastingBreakdown = null;
-    let regularFastingBreakdown = null;
-    let internshipFastingBreakdown = null;
-    let servedFastingBreakdown = null;
-    let notServedFastingBreakdown = null;
-
-    const buildFastingBreakdown = (students = []) => ({
-      fasting: students.filter(
-        (student) => getStudentFastingType(student) === "fasting",
-      ).length,
-      sundayFasting: students.filter(
-        (student) => getStudentFastingType(student) === "sunday_fasting",
-      ).length,
-      muslimFasting: students.filter(
-        (student) => getStudentFastingType(student) === "muslim_fasting",
-      ).length,
-      notFasting: students.filter(
-        (student) => getStudentFastingType(student) === "not_fasting",
-      ).length,
+    const actualMealWindow = await resolveActualMealWindow({
+      campusId: campus.id,
+      mealType,
+      queryDate,
+      sessionStatus: scheduleStatus,
+      meal,
     });
+    const sessionStatus = resolveDashboardSessionStatus({
+      scheduleStatus,
+      actualMealWindow,
+      campus,
+      currentDate: new Date(),
+    });
+    if (sessionStatus === "active") {
+      actualMealWindow.closedAt = null;
+    }
+    const isLiveSession =
+      sessionStatus === "active" || sessionStatus === "logged_out";
+    const shouldUseStoredHistoryOnly = !isLiveSession;
 
-    const getStudentEffectiveCreatedAt = (student) => {
-      if (student.createdAt) {
-        return new Date(student.createdAt);
-      }
-
-      if (student._id && typeof student._id.getTimestamp === "function") {
-        return student._id.getTimestamp();
-      }
-
-      return null;
-    };
-
-    let snapshotStudents = [];
-
-    if (hasSnapshotData) {
-      const campusStudents = await CafeStudent.find(studentCampusQuery)
-        .select("_id fastingType isInternship createdAt")
-        .lean();
-
-      snapshotStudents = isTodayQuery
-        ? campusStudents
-        : campusStudents.filter((student) => {
-            const effectiveCreatedAt = getStudentEffectiveCreatedAt(student);
-            return effectiveCreatedAt && effectiveCreatedAt <= snapshotCutoff;
-          });
-
-      const regularSnapshotStudents = snapshotStudents.filter(
-        (student) => !getStudentIsInternship(student),
-      );
-      const internshipSnapshotStudents = snapshotStudents.filter(
-        (student) => getStudentIsInternship(student),
-      );
-
-      totalStudents = snapshotStudents.length;
-      regularStudents = regularSnapshotStudents.length;
-      internshipStudents = internshipSnapshotStudents.length;
-      fastingBreakdown = buildFastingBreakdown(snapshotStudents);
-      regularFastingBreakdown = buildFastingBreakdown(regularSnapshotStudents);
-      internshipFastingBreakdown = buildFastingBreakdown(
-        internshipSnapshotStudents,
-      );
+    let summarySnapshot = meal?.summarySnapshot || null;
+    if (isLiveSession && !summarySnapshot) {
+      const campusStudents = await CafeStudent.findAll(studentCampusQuery);
+      summarySnapshot = buildMealSummarySnapshot(campusStudents, meal?.students || []);
+    }
+    if (
+      shouldUseStoredHistoryOnly &&
+      !summarySnapshot &&
+      Array.isArray(meal?.studentSnapshots) &&
+      meal.studentSnapshots.length > 0
+    ) {
+      summarySnapshot = buildServedOnlySummarySnapshot(meal.studentSnapshots);
     }
 
-    const servedStudentIds = hasSnapshotData
-      ? meal
-        ? await dedupeMealStudents(meal)
-        : []
-      : [];
-
-    const servedStudents = hasSnapshotData ? servedStudentIds.length : null;
-
-    const regularSnapshotStudents = snapshotStudents.filter(
-      (student) => !getStudentIsInternship(student),
+    const hasStoredHistoricalSnapshot = Boolean(
+      meal && (meal.summarySnapshot || meal.appliedWindow),
     );
+    const hasSnapshotData = isLiveSession
+      ? true
+      : Boolean(snapshotCutoff) &&
+        !isBeforeSystemStart &&
+        hasStoredHistoricalSnapshot;
+    const noDataReason = isLiveSession
+      ? null
+      : !snapshotCutoff
+        ? "upcoming"
+        : isBeforeSystemStart
+          ? "before_system_start"
+          : !meal
+            ? "no_meal_record"
+            : !meal.summarySnapshot
+              ? "snapshot_missing"
+              : null;
 
-    const servedStudentIdSet = new Set(
-      servedStudentIds.map((studentId) => studentId.toString()),
-    );
-
-    const servedSnapshotStudents = regularSnapshotStudents.filter((student) =>
-      servedStudentIdSet.has(student._id.toString()),
-    );
-
-    const notServedSnapshotStudents = regularSnapshotStudents.filter(
-      (student) => !servedStudentIdSet.has(student._id.toString()),
-    );
-
-    const notServedStudents = hasSnapshotData
-      ? notServedSnapshotStudents.length
+    const mealSchedule = hasSnapshotData || sessionStatus === "not_opened"
+      ? await getMealScheduleAt(campus.id, queryDate)
       : null;
-
-    if (hasSnapshotData) {
-      servedFastingBreakdown = buildFastingBreakdown(servedSnapshotStudents);
-    }
-
-    if (hasSnapshotData) {
-      notServedFastingBreakdown =
-        buildFastingBreakdown(notServedSnapshotStudents);
-    }
+    const campusSnapshot = meal?.campusSnapshot || null;
 
     res.json({
       summary: {
-        campusId: campus.campusId,
-        campusName: campus.name,
+        campusId: campusSnapshot?.campusId || campus.campusId,
+        campusName: campusSnapshot?.campusName || campus.name,
         date: queryDate,
         mealType,
         year: resolvedYear,
         semester: resolvedSemester,
         isFutureDate: sessionStatus === "upcoming",
-        totalStudents,
-        regularStudents,
-        internshipStudents,
-        fastingBreakdown,
-        regularFastingBreakdown,
-        internshipFastingBreakdown,
-        servedFastingBreakdown,
-        notServedFastingBreakdown,
-        servedStudents,
-        notServedStudents,
+        totalStudents: hasSnapshotData
+          ? (summarySnapshot?.totalStudents ?? null)
+          : null,
+        regularStudents: hasSnapshotData
+          ? (summarySnapshot?.regularStudents ?? null)
+          : null,
+        internshipStudents: hasSnapshotData
+          ? (summarySnapshot?.internshipStudents ?? null)
+          : null,
+        fastingBreakdown: hasSnapshotData
+          ? (summarySnapshot?.fastingBreakdown || null)
+          : null,
+        regularFastingBreakdown: hasSnapshotData
+          ? (summarySnapshot?.regularFastingBreakdown || null)
+          : null,
+        internshipFastingBreakdown: hasSnapshotData
+          ? (summarySnapshot?.internshipFastingBreakdown || null)
+          : null,
+        servedFastingBreakdown: hasSnapshotData
+          ? (summarySnapshot?.servedFastingBreakdown || null)
+          : null,
+        notServedFastingBreakdown: hasSnapshotData
+          ? (summarySnapshot?.pendingFastingBreakdown || null)
+          : null,
+        servedStudents: hasSnapshotData
+          ? (summarySnapshot?.servedStudents ?? null)
+          : null,
+        notServedStudents: hasSnapshotData
+          ? (summarySnapshot?.pendingStudents ?? null)
+          : null,
         sessionStatus,
         mealSchedule,
         appliedMealWindow:
           meal?.appliedWindow || mealSchedule?.[mealType] || null,
+        actualMealWindow,
         hasSnapshotData,
         noDataReason,
       },
@@ -310,22 +538,26 @@ export const getMealFilters = async (req, res) => {
       return res.status(400).json({ message: "campusId is required" });
     }
 
-    const campus = await Campus.findOne({
-      _id: campusId,
-      createdBy: req.userId,
-    });
+    const campus = await findOwnedCampus(campusId, req.userId);
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
 
-    const distinctMeals = await Meal.find({ campus: campusId })
-      .distinct("year semester")
-      .sort({ year: -1, semester: -1 });
-
-    const filters = distinctMeals.map((item) => ({
-      year: item.year,
-      semester: item.semester,
-    }));
+    const meals = await Meal.findAll({ campus: Number(campusId) });
+    const filters = Array.from(
+      new Map(
+        meals
+          .sort((a, b) =>
+            b.year !== a.year
+              ? b.year - a.year
+              : String(b.semester).localeCompare(String(a.semester)),
+          )
+          .map((meal) => [`${meal.year}-${meal.semester}`, {
+            year: meal.year,
+            semester: meal.semester,
+          }]),
+      ).values(),
+    );
 
     res.json({ filters });
   } catch (err) {

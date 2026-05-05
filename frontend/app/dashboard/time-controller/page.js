@@ -102,7 +102,11 @@ export default function TimeControllerPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedCampus) return;
+    if (!selectedCampus) {
+      setLoading(false);
+      setSchedule(defaultSchedule);
+      return;
+    }
 
     const fetchSchedule = async () => {
       setLoading(true);
@@ -189,21 +193,21 @@ export default function TimeControllerPage() {
   return (
     <div className="page-shell px-4 pb-10 pt-24 md:px-8">
       <div className="mx-auto max-w-6xl">
-        <section className="surface-panel rounded-[28px] p-6 md:p-8">
+        <section className="surface-panel rounded-[28px] p-5 md:p-6">
           <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
             Admin Control
           </p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
+          <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
             Meal Time Controller
           </h1>
-          <p className="mt-3 max-w-3xl text-sm text-slate-600 md:text-base">
+          <p className="mt-2 max-w-3xl text-sm text-slate-600 md:text-base">
             Set the breakfast, lunch, and dinner times for the selected campus.
             Campus scanning, dashboard session status, and meal history all use
             this saved schedule.
           </p>
         </section>
 
-        <div className="mt-8">
+        <div className="mt-5">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">
               Select Campus
@@ -223,13 +227,13 @@ export default function TimeControllerPage() {
                   </option>
                 ))
               ) : (
-                <option>No campuses available</option>
+                <option value="">No available campus</option>
               )}
             </select>
           </label>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
             {mealCards.map((meal) => (
               <div key={meal.key} className="surface-card rounded-[28px] p-6">
@@ -309,7 +313,9 @@ export default function TimeControllerPage() {
                 ? "Saving..."
                 : loading
                   ? "Loading..."
-                  : "Save Meal Times"}
+                  : !selectedCampus
+                    ? "No available campus"
+                    : "Save Meal Times"}
             </button>
           </div>
         </form>

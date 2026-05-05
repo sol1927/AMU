@@ -14,6 +14,108 @@ const capitalizeWords = (str) => {
     .join(" ");
 };
 
+const formatActivityTime = (value, fallback = "Not opened yet") => {
+  if (!value) return fallback;
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallback;
+  }
+
+  return parsed.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+const getAppliedWindowStatus = (appliedWindowLabel) => {
+  if (!appliedWindowLabel) return "--:-- - --:--";
+
+  const parts = String(appliedWindowLabel).split("-").map((part) => part.trim());
+  if (parts.length !== 2) return appliedWindowLabel;
+
+  const [endHour, endMinute] = parts[1].split(":").map(Number);
+  if (Number.isNaN(endHour) || Number.isNaN(endMinute)) {
+    return appliedWindowLabel;
+  }
+
+  const now = new Date();
+  const endTime = new Date(now);
+  endTime.setHours(endHour, endMinute, 0, 0);
+
+  return now > endTime ? "Completed" : appliedWindowLabel;
+};
+
+const isAppliedWindowCompleted = (appliedWindowLabel) =>
+  getAppliedWindowStatus(appliedWindowLabel) === "Completed";
+
+const getAppliedWindowPhase = (appliedWindowLabel) => {
+  if (!appliedWindowLabel) return "unknown";
+
+  const parts = String(appliedWindowLabel).split("-").map((part) => part.trim());
+  if (parts.length !== 2) return "active";
+
+  const [startHour, startMinute] = parts[0].split(":").map(Number);
+  const [endHour, endMinute] = parts[1].split(":").map(Number);
+
+  if (
+    Number.isNaN(startHour) ||
+    Number.isNaN(startMinute) ||
+    Number.isNaN(endHour) ||
+    Number.isNaN(endMinute)
+  ) {
+    return "active";
+  }
+
+  const now = new Date();
+  const startTime = new Date(now);
+  startTime.setHours(startHour, startMinute, 0, 0);
+  const endTime = new Date(now);
+  endTime.setHours(endHour, endMinute, 0, 0);
+
+  if (now < startTime) return "before_start";
+  if (now > endTime) return "completed";
+  return "active";
+};
+
+const getAppliedWindowStartTime = (appliedWindowLabel) => {
+  if (!appliedWindowLabel) return null;
+
+  const parts = String(appliedWindowLabel).split("-").map((part) => part.trim());
+  if (parts.length !== 2) return null;
+
+  const [startHour, startMinute] = parts[0].split(":").map(Number);
+  if (Number.isNaN(startHour) || Number.isNaN(startMinute)) {
+    return null;
+  }
+
+  const startTime = new Date();
+  startTime.setHours(startHour, startMinute, 0, 0);
+  return startTime;
+};
+
+const getLiveCampusOpenedTime = (campus) => {
+  if (campus.openingTime) {
+    return formatActivityTime(campus.openingTime);
+  }
+
+  if (
+    campus.isLive &&
+    getAppliedWindowPhase(campus.currentSessionAppliedWindow) === "active"
+  ) {
+    const appliedStartTime = getAppliedWindowStartTime(
+      campus.currentSessionAppliedWindow,
+    );
+
+    if (appliedStartTime) {
+      return formatActivityTime(appliedStartTime.toISOString());
+    }
+  }
+
+  return "Not opened yet";
+};
+
 export default function AdminDashboardPage() {
   const { currentUser } = useUser();
   const [campuses, setCampuses] = useState([]);
@@ -161,15 +263,50 @@ export default function AdminDashboardPage() {
                     key={campus._id}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
                   >
-                    <p className="font-semibold text-slate-900">
-                      {campus.name}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600">
-                      Campus ID {campus.campusId ?? "Not set"}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {campus.location || "Location not set"}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-cyan-100 text-lg font-black text-cyan-700">
+                        {campus.logo?.url ? (
+                          <img
+                            src={campus.logo.url}
+                            alt={campus.name || "Campus logo"}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          campus.name?.charAt(0) || "C"
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {campus.name}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600">
+                          Campus ID {campus.campusId ?? "Not set"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {campus.location || "Location not set"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Applied time{" "}
+                          {getAppliedWindowStatus(
+                            campus.currentSessionAppliedWindow,
+                          )}
+                        </p>
+                        {getAppliedWindowPhase(
+                          campus.currentSessionAppliedWindow,
+                        ) === "before_start" ? (
+                          <p className="mt-1 text-xs text-amber-600">
+                            Waiting for applied time
+                          </p>
+                        ) : !isAppliedWindowCompleted(
+                            campus.currentSessionAppliedWindow,
+                          ) && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {campus.currentSessionLabel || "Session"} opened{" "}
+                              {getLiveCampusOpenedTime(campus)}
+                            </p>
+                          )}
+                      </div>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -225,8 +362,16 @@ export default function AdminDashboardPage() {
               campuses.map((campus) => (
                 <div key={campus._id} className="surface-card rounded-3xl p-5">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-100 text-lg font-black text-cyan-700">
-                      {campus.name?.charAt(0) || "C"}
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-cyan-100 text-lg font-black text-cyan-700">
+                      {campus.logo?.url ? (
+                        <img
+                          src={campus.logo.url}
+                          alt={campus.name || "Campus logo"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        campus.name?.charAt(0) || "C"
+                      )}
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-slate-900">

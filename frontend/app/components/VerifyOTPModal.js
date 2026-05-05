@@ -13,7 +13,7 @@ export default function VerifyOTPModal({
   onOpenLogin,
   onSuccess,
 }) {
-  const { email } = useTempAdmin();
+  const { email, name } = useTempAdmin();
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("error");
@@ -113,7 +113,8 @@ export default function VerifyOTPModal({
       const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ name, email }),
+        credentials: "include",
         signal: controller.signal,
       });
 

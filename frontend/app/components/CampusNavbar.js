@@ -4,6 +4,7 @@ import ConfirmModal from "./ConfirmModal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { React, useEffect, useRef, useState } from "react";
+import ThemeToggle from "./ThemeToggle";
 import { useCampus } from "../context/CampusContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -23,7 +24,7 @@ const capitalizeWords = (str) => {
 
 export default function CampusNavbar() {
   const router = useRouter();
-  const { currentCampus } = useCampus();
+  const { currentCampus, setCurrentCampus } = useCampus();
   const [openMenu, setOpenMenu] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const menuRef = useRef(null);
@@ -45,6 +46,7 @@ export default function CampusNavbar() {
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
+    setCurrentCampus(null);
 
     try {
       const res = await fetch(`${url}/campus/logout`, {
@@ -57,7 +59,7 @@ export default function CampusNavbar() {
       }
 
       router.replace("/");
-      } catch {}
+    } catch {}
   };
 
   return (
@@ -78,7 +80,10 @@ export default function CampusNavbar() {
           Gibi<span className="text-blue-500">Gebeta</span>
         </span>
       </div>
-      <div className="relative" ref={menuRef}>
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
+
+        <div className="relative" ref={menuRef}>
         <button
           onClick={() => setOpenMenu(!openMenu)}
           className="flex items-center gap-3 rounded-xl px-3 py-2 transition-all duration-300 hover:bg-slate-100"
@@ -185,6 +190,7 @@ export default function CampusNavbar() {
           onCancel={() => setShowLogoutModal(false)}
           onConfirm={confirmLogout}
         />
+        </div>
       </div>
     </header>
   );

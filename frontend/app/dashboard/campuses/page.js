@@ -2,7 +2,7 @@
 
 import { React, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { BsArrowClockwise, BsThreeDotsVertical } from "react-icons/bs";
 import AdminPasswordModal from "../../components/AdminPasswordModal";
 import AddCampusModal from "../../components/AddCampusModal";
 import EditCampusModal from "../../components/EditCampusModal";
@@ -28,6 +28,7 @@ export default function CampusesPage() {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [toast, setToast] = useState(null);
   const [syncingCampusId, setSyncingCampusId] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -52,29 +53,36 @@ export default function CampusesPage() {
     return () => clearTimeout(timer);
   }, [adminError]);
 
-  useEffect(() => {
-    const fetchCampuses = async () => {
-      try {
-        const res = await fetch(`${url}/dashboard/campuses`, {
-          credentials: "include",
-        });
+  const fetchCampuses = async ({ silent = false } = {}) => {
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
-        if (!res.ok) {
-          router.replace("/");
-          return;
-        }
+    try {
+      const res = await fetch(`${url}/dashboard/campuses`, {
+        credentials: "include",
+      });
 
-        const data = await res.json();
-        const campusList = Array.isArray(data.campuses) ? data.campuses : [];
-        campusList.sort((a, b) => a.name.localeCompare(b.name));
-        setCampuses(campusList);
-      } catch {
-        showToast("Failed to load campuses", "error");
-      } finally {
-        setLoading(false);
+      if (!res.ok) {
+        router.replace("/");
+        return;
       }
-    };
 
+      const data = await res.json();
+      const campusList = Array.isArray(data.campuses) ? data.campuses : [];
+      campusList.sort((a, b) => a.name.localeCompare(b.name));
+      setCampuses(campusList);
+    } catch {
+      showToast("Failed to load campuses", "error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCampuses();
   }, [router]);
 
@@ -163,7 +171,10 @@ export default function CampusesPage() {
           campus._id === id
             ? {
                 ...campus,
-                students: (campus.students ?? 0) + (data.syncedCount ?? 0),
+                students:
+                  typeof data.currentCafeStudentCount === "number"
+                    ? data.currentCafeStudentCount
+                    : (campus.students ?? 0) + (data.syncedCount ?? 0),
               }
             : campus,
         ),
@@ -202,16 +213,30 @@ export default function CampusesPage() {
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  setPendingAction("add");
-                  setShowAdminPasswordPrompt(true);
-                  setOpenMenuId(null);
-                }}
-                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01]"
-              >
-                + Add Campus
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fetchCampuses({ silent: true })}
+                  disabled={loading || refreshing}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <BsArrowClockwise
+                    className={refreshing ? "animate-spin" : ""}
+                  />
+                  {refreshing ? "Refreshing..." : "Refresh"}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setPendingAction("add");
+                    setShowAdminPasswordPrompt(true);
+                    setOpenMenuId(null);
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01]"
+                >
+                  + Add Campus
+                </button>
+              </div>
             </div>
           </div>
 

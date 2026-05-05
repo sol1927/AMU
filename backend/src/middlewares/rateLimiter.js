@@ -72,3 +72,31 @@ export const deviceOtpLimiter = rateLimit({
     });
   },
 });
+
+export const passwordResetCompletionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const retryAfter = formatMs(req.rateLimit.resetTime - Date.now());
+    return res.status(429).json({
+      message: `Too many reset attempts. Try again after ${retryAfter}.`,
+    });
+  },
+});
+
+export const deviceOtpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const retryAfter = formatMs(req.rateLimit.resetTime - Date.now());
+    return res.status(429).json({
+      message: `Too many device OTP attempts. Try again after ${retryAfter}.`,
+    });
+  },
+});

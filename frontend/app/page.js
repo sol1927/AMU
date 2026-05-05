@@ -8,6 +8,7 @@ import ForgotPasswordModal from "./components/ForgotPasswordModal";
 import VerifyOTPModal from "./components/VerifyOTPModal";
 import SetPasswordModal from "./components/SetPasswordModal";
 import VerifyDeviceOtpModal from "./components/VerifyDeviceOtpModal";
+import ThemeToggle from "./components/ThemeToggle";
 import { useUser } from "./context/UserContext";
 import { useCampus } from "./context/CampusContext";
 
@@ -61,7 +62,10 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const handleLoginSuccess = () => {};
+  const handleLoginSuccess = async () => {
+    setShowLoginModal(false);
+    await Promise.all([refreshUser(), refreshCampus()]);
+  };
 
   const handlePrimaryAction = () => {
     if (currentCampus) {
@@ -97,12 +101,15 @@ export default function LandingPage() {
             </h1>
           </div>
 
-          <button
-            onClick={handlePrimaryAction}
-            className="app-primary-btn rounded-xl px-5 py-2.5 font-medium transition hover:-translate-y-0.5"
-          >
-            {primaryButtonLabel}
-          </button>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <button
+              onClick={handlePrimaryAction}
+              className="app-primary-btn rounded-xl px-5 py-2.5 font-medium transition hover:-translate-y-0.5"
+            >
+              {primaryButtonLabel}
+            </button>
+          </div>
         </div>
       </header>
 

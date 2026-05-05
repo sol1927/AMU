@@ -25,28 +25,28 @@ export const getStudentCampusQuery = (campus = {}) => {
 };
 
 export const getStudentCampusSyncQuery = (campus = {}, previousCampusId) => {
-  const filters = [];
+  const campusIds = [];
   const currentCampusId = parseCampusId(campus.campusId);
   const oldCampusId = parseCampusId(previousCampusId);
 
   if (currentCampusId !== null) {
-    filters.push({ campusId: currentCampusId });
+    campusIds.push(currentCampusId);
   }
 
   if (
     oldCampusId !== null &&
-    !filters.some((filter) => filter.campusId === oldCampusId)
+    !campusIds.includes(oldCampusId)
   ) {
-    filters.push({ campusId: oldCampusId });
+    campusIds.push(oldCampusId);
   }
 
-  if (filters.length === 0) {
+  if (campusIds.length === 0) {
     return { campusId: null };
   }
 
-  if (filters.length === 1) {
-    return filters[0];
+  if (campusIds.length === 1) {
+    return { campusId: campusIds[0] };
   }
 
-  return { $or: filters };
+  return { campusIds };
 };

@@ -17,12 +17,12 @@ function ResetPasswordContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [resetSession, setResetSession] = useState({ token: null, email: null });
+  const [sessionChecked, setSessionChecked] = useState(false);
   const router = useRouter();
 
   const rulesRef = useRef(null);
   const searchParams = useSearchParams();
-  const token = searchParams?.get("token");
-  const email = searchParams?.get("email");
 
   const rules = {
     length: (pw) => pw.length >= 8,
@@ -53,6 +53,29 @@ function ResetPasswordContent() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const hashToken = params.get("token");
+    const hashEmail = params.get("email");
+    const queryToken = searchParams?.get("token");
+    const queryEmail = searchParams?.get("email");
+
+    setResetSession({
+      token: hashToken || queryToken,
+      email: hashEmail || queryEmail,
+    });
+
+    if (hashToken || hashEmail) {
+      window.history.replaceState(
+        null,
+        document.title,
+        window.location.pathname + window.location.search,
+      );
+    }
+
+    setSessionChecked(true);
+  }, [searchParams]);
+
   const triggerShake = () => {
     setShake(true);
     setTimeout(() => setShake(false), 500);
@@ -82,7 +105,11 @@ function ResetPasswordContent() {
       const res = await fetch(`${url}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, token, newPassword }),
+        body: JSON.stringify({
+          email: resetSession.email,
+          token: resetSession.token,
+          newPassword,
+        }),
       });
 
       const data = await res.json();
@@ -116,7 +143,18 @@ function ResetPasswordContent() {
     }
   };
 
-  if (!token || !email) {
+  if (!sessionChecked) {
+    return (
+      <div className="page-shell flex min-h-screen items-center justify-center p-4">
+        <div className="relative flex items-center justify-center">
+          <div className="h-12 w-12 rounded-full border-4 border-slate-200"></div>
+          <div className="absolute h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!resetSession.token || !resetSession.email) {
     return (
       <div className="page-shell flex min-h-screen items-center justify-center p-4">
         <p className="text-red-600 text-center text-lg font-semibold">

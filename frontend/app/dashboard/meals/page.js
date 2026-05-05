@@ -1,6 +1,6 @@
 "use client";
 
-import { React, useEffect, useState } from "react";
+import { React, useCallback, useEffect, useState } from "react";
 import AdminNavbar from "@/app/components/AdminNavbar";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -23,6 +23,19 @@ const getMealLabel = (mealType) => {
   }
 };
 
+const getSnapshotMealLabel = (mealType) => {
+  switch (mealType) {
+    case "breakfast":
+      return "ቁርስ";
+    case "lunch":
+      return "ምሳ";
+    case "dinner":
+      return "እራት";
+    default:
+      return getMealLabel(mealType);
+  }
+};
+
 const formatDate = (date) =>
   new Date(date).toLocaleDateString([], {
     year: "numeric",
@@ -30,10 +43,87 @@ const formatDate = (date) =>
     day: "numeric",
   });
 
+const formatDateTime = (value) => {
+  if (!value) return "Not opened yet";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Not available";
+  }
+
+  return parsed.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+const formatWindowTime = (value, fallback = "Not available") =>
+  value || fallback;
+
+const getAppliedEndDate = (date, endTime) => {
+  if (!date || typeof endTime !== "string") {
+    return null;
+  }
+
+  const targetDate = date ? new Date(date) : null;
+  const [hour, minute] = endTime.split(":").map(Number);
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return null;
+  }
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null;
+  }
+
+  targetDate.setHours(hour, minute, 0, 0);
+  return targetDate;
+};
+
+const getValidClosingTime = (openedAt, closedAt, date, appliedEnd) => {
+  if (!closedAt) return null;
+
+  const closedDate = new Date(closedAt);
+  const openedDate = openedAt ? new Date(openedAt) : null;
+  const targetDate = date ? new Date(date) : null;
+  const appliedEndDate = getAppliedEndDate(date, appliedEnd);
+
+  if (Number.isNaN(closedDate.getTime())) {
+    return null;
+  }
+
+  if (
+    targetDate &&
+    !Number.isNaN(targetDate.getTime()) &&
+    closedDate.toDateString() !== targetDate.toDateString()
+  ) {
+    return null;
+  }
+
+  if (appliedEndDate && closedDate > appliedEndDate) {
+    closedDate.setTime(appliedEndDate.getTime());
+  }
+
+  if (
+    openedDate &&
+    !Number.isNaN(openedDate.getTime()) &&
+    closedDate < openedDate
+  ) {
+    return null;
+  }
+
+  return closedDate.toISOString();
+};
+
 const getStatusLabel = (status) => {
   switch (status) {
     case "active":
       return "Active";
+    case "logged_out":
+      return "Logged Out";
+    case "not_opened":
+      return "Not Opened";
     case "completed":
       return "Completed";
     case "upcoming":
@@ -47,6 +137,10 @@ const getStatusClasses = (status) => {
   switch (status) {
     case "active":
       return "border-emerald-300/50 bg-emerald-50 text-emerald-700";
+    case "logged_out":
+      return "border-rose-300/50 bg-rose-50 text-rose-700";
+    case "not_opened":
+      return "border-slate-300 bg-slate-50 text-slate-700";
     case "completed":
       return "border-cyan-300/50 bg-cyan-50 text-cyan-700";
     case "upcoming":
@@ -80,16 +174,58 @@ export default function MealsPage() {
     return () => clearTimeout(timer);
   }, [error]);
 
-  const shouldHideCounts =
-    mealSummary?.sessionStatus === "upcoming" ||
-    mealSummary?.totalStudents === null;
+  const hasSnapshotData = Boolean(mealSummary?.hasSnapshotData);
+  const isBeforeSystemStart =
+    mealSummary?.noDataReason === "before_system_start";
+  const shouldHideCounts = !hasSnapshotData;
+  const hasSessionWindowData = Boolean(
+    mealSummary?.appliedMealWindow || mealSummary?.actualMealWindow?.openedAt,
+  );
+  const shouldShowSessionMeta =
+    ["active", "logged_out", "not_opened", "completed"].includes(
+      mealSummary?.sessionStatus || "",
+    ) &&
+    !isBeforeSystemStart &&
+    (hasSnapshotData || hasSessionWindowData);
+  const shouldShowOpenedTime = shouldShowSessionMeta;
+  const shouldShowClosingTime = mealSummary?.sessionStatus === "completed";
+  const validActualClosedAt = getValidClosingTime(
+    mealSummary?.actualMealWindow?.openedAt,
+    mealSummary?.actualMealWindow?.closedAt,
+    mealSummary?.date,
+    mealSummary?.appliedMealWindow?.end,
+  );
+  const shouldShowSnapshotSection =
+    Boolean(mealSummary) &&
+    (hasSnapshotData || mealSummary?.sessionStatus === "active") &&
+    !isBeforeSystemStart;
 
   const getEmptyStateMessage = () => {
-    if (mealSummary?.noDataReason === "before_system_start") {
-      return "No historical data is available for that session because it is before this campus started using the system.";
+    if (mealSummary?.sessionStatus === "active") {
+      return "";
     }
 
-    return "Upcoming sessions do not show total, served, or not served students yet because attendance is not known at that session time.";
+    if (mealSummary?.sessionStatus === "not_opened") {
+      return "The cafe has not opened this meal session yet.";
+    }
+
+    if (mealSummary?.noDataReason === "snapshot_missing") {
+      return "That session has a meal record, but no saved snapshot is available.";
+    }
+
+    if (mealSummary?.noDataReason === "no_meal_record") {
+      return "No meal session was opened for that date and meal.";
+    }
+
+    if (mealSummary?.noDataReason === "upcoming") {
+      return "This meal session has not started yet.";
+    }
+
+    if (mealSummary?.noDataReason === "before_system_start") {
+      return "No data is available because this date is before tracking started.";
+    }
+
+    return "No data is available for that date and session.";
   };
 
   useEffect(() => {
@@ -135,14 +271,15 @@ export default function MealsPage() {
 
   useEffect(() => {
     const fetchMealSchedule = async () => {
-      if (!selectedCampus) {
+      if (!selectedCampus || !selectedDate) {
         setMealSchedule(null);
         return;
       }
 
       try {
+        const params = new URLSearchParams({ date: selectedDate });
         const res = await fetch(
-          `${url}/dashboard/meal-schedule/${selectedCampus}`,
+          `${url}/dashboard/meal-schedule/${selectedCampus}?${params.toString()}`,
           {
             credentials: "include",
           },
@@ -161,7 +298,7 @@ export default function MealsPage() {
     };
 
     fetchMealSchedule();
-  }, [selectedCampus]);
+  }, [selectedCampus, selectedDate]);
 
   useEffect(() => {
     setDetailMode("total");
@@ -170,17 +307,17 @@ export default function MealsPage() {
   const getBreakdownTitle = () => {
     switch (detailMode) {
       case "total":
-        return "Total Students by Fasting Type";
+        return `Total Students by Fasting Type (${snapshotMealLabel})`;
       case "regular":
-        return "Regular Students by Fasting Type";
+        return `Regular Students by Fasting Type (${snapshotMealLabel})`;
       case "internship":
-        return "Internship Students by Fasting Type";
+        return `Internship Students by Fasting Type (${snapshotMealLabel})`;
       case "served":
-        return "Served Students by Fasting Type";
+        return `Served Students by Fasting Type (${snapshotMealLabel})`;
       case "notServed":
-        return "Not Served Students by Fasting Type";
+        return `Pending Students by Fasting Type (${snapshotMealLabel})`;
       default:
-        return "Students by Fasting Type";
+        return `Students by Fasting Type (${snapshotMealLabel})`;
     }
   };
 
@@ -201,8 +338,16 @@ export default function MealsPage() {
   };
 
   const activeBreakdown = getActiveBreakdown();
+  const snapshotMealLabel = getSnapshotMealLabel(mealSummary?.mealType);
+  const snapshotCounts = {
+    total: mealSummary?.totalStudents ?? 0,
+    regular: mealSummary?.regularStudents ?? 0,
+    internship: mealSummary?.internshipStudents ?? 0,
+    served: mealSummary?.servedStudents ?? 0,
+    pending: mealSummary?.notServedStudents ?? 0,
+  };
 
-  const handleShowHistory = async () => {
+  const fetchMealSummary = useCallback(async () => {
     if (!selectedCampus || !selectedDate || !selectedMealType) {
       setError("Please choose a campus, date, and meal session first.");
       return;
@@ -246,6 +391,10 @@ export default function MealsPage() {
     } finally {
       setLoadingSummary(false);
     }
+  }, [selectedCampus, selectedDate, selectedMealType]);
+
+  const handleShowHistory = async () => {
+    await fetchMealSummary();
   };
 
   return (
@@ -285,15 +434,21 @@ export default function MealsPage() {
                     disabled={loadingCampuses}
                     className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
                   >
-                    {campuses.map((campus) => (
-                      <option
-                        key={campus._id}
-                        value={campus._id}
-                        className="text-black"
-                      >
-                        {campus.name}
-                      </option>
-                    ))}
+                    {loadingCampuses ? (
+                      <option value="">Loading campuses...</option>
+                    ) : campuses.length > 0 ? (
+                      campuses.map((campus) => (
+                        <option
+                          key={campus._id}
+                          value={campus._id}
+                          className="text-black"
+                        >
+                          {campus.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No available campus</option>
+                    )}
                   </select>
                 </label>
 
@@ -343,10 +498,14 @@ export default function MealsPage() {
 
               <button
                 onClick={handleShowHistory}
-                disabled={loadingSummary || loadingCampuses}
+                disabled={loadingSummary || loadingCampuses || !selectedCampus}
                 className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loadingSummary ? "Loading Summary..." : "Show Meal Summary"}
+                {loadingSummary
+                  ? "Loading Summary..."
+                  : !selectedCampus
+                    ? "No available campus"
+                    : "Show Meal Summary"}
               </button>
 
               {error && (
@@ -371,28 +530,80 @@ export default function MealsPage() {
                       {formatDate(mealSummary.date)} •{" "}
                       {getMealLabel(mealSummary.mealType)}
                     </p>
-                    <span
-                      className={`rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${getStatusClasses(
-                        mealSummary.sessionStatus,
-                      )}`}
-                    >
-                      {getStatusLabel(mealSummary.sessionStatus)}
-                    </span>
+                    {!isBeforeSystemStart && (
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${getStatusClasses(
+                          mealSummary.sessionStatus,
+                        )}`}
+                      >
+                        {getStatusLabel(mealSummary.sessionStatus)}
+                      </span>
+                    )}
+                    {mealSummary.sessionStatus === "active" && (
+                      <button
+                        type="button"
+                        onClick={fetchMealSummary}
+                        disabled={loadingSummary}
+                        className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {loadingSummary ? "Refreshing..." : "Refresh Live Data"}
+                      </button>
+                    )}
                   </div>
-                  <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
-                    Applied time:{" "}
-                    <span className="font-bold">
-                      {mealSummary.appliedMealWindow?.label || "--:-- - --:--"}
-                    </span>
-                  </div>
+                  {shouldShowSessionMeta && (
+                    <>
+                      <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
+                        Applied time:{" "}
+                        <span className="font-bold">
+                          {mealSummary.appliedMealWindow?.label || "--:-- - --:--"}
+                        </span>
+                      </div>
+                      <div
+                        className={`mt-3 grid gap-3 ${
+                          shouldShowClosingTime ? "sm:grid-cols-2" : ""
+                        }`}
+                      >
+                        {shouldShowOpenedTime && (
+                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                            Cafe opening time:{" "}
+                            <span className="font-bold">
+                              {formatDateTime(mealSummary.actualMealWindow?.openedAt)}
+                            </span>
+                          </div>
+                        )}
+                        {shouldShowClosingTime && (
+                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                            Cafe ending time:{" "}
+                            <span className="font-bold">
+                              {validActualClosedAt
+                                ? formatDateTime(validActualClosedAt)
+                                : formatWindowTime(
+                                    mealSummary.appliedMealWindow?.end,
+                                  )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
 
                   <div className="mt-6 grid gap-4">
-                    {shouldHideCounts ? (
-                      <div className="rounded-3xl border border-dashed border-amber-300/40 bg-amber-50 p-5 text-sm text-amber-700">
-                        {getEmptyStateMessage()}
-                      </div>
-                    ) : (
+                    {shouldShowSnapshotSection ? (
                       <>
+                        <div className="surface-panel rounded-3xl p-6">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <h3 className="text-2xl font-bold text-slate-900">
+                                Student Snapshot
+                              </h3>
+                              <p className="mt-1 text-sm text-slate-500">
+                                A quick view of regular, internship, served, and
+                                pending students for {snapshotMealLabel}.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="grid gap-4 sm:grid-cols-3">
                           <button
                             type="button"
@@ -407,7 +618,7 @@ export default function MealsPage() {
                               Total Students
                             </p>
                             <p className="mt-2 text-4xl font-black text-slate-900">
-                              {mealSummary.totalStudents}
+                              {snapshotCounts.total}
                             </p>
                             <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                               Click to view fasting breakdown
@@ -427,7 +638,7 @@ export default function MealsPage() {
                               Regular Students
                             </p>
                             <p className="mt-2 text-3xl font-black text-sky-800">
-                              {mealSummary.regularStudents}
+                              {snapshotCounts.regular}
                             </p>
                             <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-600">
                               Click to view fasting breakdown
@@ -447,7 +658,7 @@ export default function MealsPage() {
                               Internship Students
                             </p>
                             <p className="mt-2 text-3xl font-black text-fuchsia-800">
-                              {mealSummary.internshipStudents}
+                              {snapshotCounts.internship}
                             </p>
                             <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-fuchsia-600">
                               Click to view fasting breakdown
@@ -465,142 +676,157 @@ export default function MealsPage() {
                                 : "bg-emerald-50/70 ring-emerald-200 hover:bg-emerald-50"
                             }`}
                           >
-                            <p className="text-sm text-emerald-700">
-                              Served Students
+                            <p className="text-sm text-emerald-700">Served Today</p>
+                            <p className="text-xs text-slate-400">
+                              {snapshotMealLabel}
                             </p>
                             <p className="mt-2 text-3xl font-black text-emerald-800">
-                              {mealSummary.servedStudents}
+                              {snapshotCounts.served}
                             </p>
                             <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-emerald-600">
                               Click to view fasting breakdown
                             </p>
                           </button>
 
-                          <div className="rounded-3xl bg-rose-50 p-5 ring-1 ring-rose-200">
-                            <button
-                              type="button"
-                              onClick={() => setDetailMode("notServed")}
-                              className={`w-full rounded-3xl p-5 text-left ring-1 transition ${
-                                detailMode === "notServed"
-                                  ? "bg-rose-50 ring-rose-300/50"
-                                  : "bg-rose-50/70 ring-rose-200 hover:bg-rose-50"
-                              }`}
-                            >
-                              <p className="text-sm text-rose-700">
-                                Not Served Students
-                              </p>
-                              <p className="mt-2 text-3xl font-black text-rose-800">
-                                {mealSummary.notServedStudents}
-                              </p>
-                              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-rose-600">
-                                Click to view fasting breakdown
-                              </p>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setDetailMode("notServed")}
+                            className={`rounded-3xl p-5 text-left ring-1 transition ${
+                              detailMode === "notServed"
+                                ? "bg-rose-50 ring-rose-300/50"
+                                : "bg-rose-50/70 ring-rose-200 hover:bg-rose-50"
+                            }`}
+                          >
+                            <p className="text-sm text-rose-700">Pending</p>
+                            <p className="text-xs text-slate-400">
+                              {snapshotMealLabel}
+                            </p>
+                            <p className="mt-2 text-3xl font-black text-rose-800">
+                              {snapshotCounts.pending}
+                            </p>
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-rose-600">
+                              Click to view fasting breakdown
+                            </p>
+                          </button>
                         </div>
 
-                        <div className="rounded-3xl bg-slate-50 p-5 ring-1 ring-slate-200">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-sm text-slate-600">
-                              {getBreakdownTitle()}
-                            </p>
-                            <div className="flex items-center gap-2 rounded-full bg-white p-1 ring-1 ring-slate-200">
-                              <button
-                                type="button"
-                                onClick={() => setDetailMode("total")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                                  detailMode === "total"
-                                    ? "bg-cyan-100 text-cyan-700"
-                                    : "text-slate-600 hover:bg-slate-100"
-                                }`}
-                              >
-                                Total
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDetailMode("regular")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                                  detailMode === "regular"
-                                    ? "bg-sky-100 text-sky-700"
-                                    : "text-slate-600 hover:bg-slate-100"
-                                }`}
-                              >
-                                Regular
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDetailMode("internship")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                                  detailMode === "internship"
-                                    ? "bg-fuchsia-100 text-fuchsia-700"
-                                    : "text-slate-600 hover:bg-slate-100"
-                                }`}
-                              >
-                                Internship
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDetailMode("served")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                                  detailMode === "served"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "text-slate-600 hover:bg-slate-100"
-                                }`}
-                              >
-                                Served
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDetailMode("notServed")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                                  detailMode === "notServed"
-                                    ? "bg-rose-100 text-rose-700"
-                                    : "text-slate-600 hover:bg-slate-100"
-                                }`}
-                              >
-                                Not Served
-                              </button>
+                        {hasSnapshotData && (
+                          <div className="rounded-3xl bg-slate-50 p-5 ring-1 ring-slate-200">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  Fasting Breakdown
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  {getBreakdownTitle()}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 rounded-full bg-white p-1 ring-1 ring-slate-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailMode("total")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                    detailMode === "total"
+                                      ? "bg-cyan-100 text-cyan-700"
+                                      : "text-slate-600 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  Total
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailMode("regular")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                    detailMode === "regular"
+                                      ? "bg-sky-100 text-sky-700"
+                                      : "text-slate-600 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  Regular
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailMode("internship")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                    detailMode === "internship"
+                                      ? "bg-fuchsia-100 text-fuchsia-700"
+                                      : "text-slate-600 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  Internship
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailMode("served")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                    detailMode === "served"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "text-slate-600 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  Served
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailMode("notServed")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                                    detailMode === "notServed"
+                                      ? "bg-rose-100 text-rose-700"
+                                      : "text-slate-600 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  Not Served
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
                               <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
                                 Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-amber-800">
+                              <p className="mt-4 text-2xl font-black leading-none text-amber-800 tabular-nums">
                                 {activeBreakdown?.fasting ?? 0}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200">
+                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200">
                               <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
                                 Sunday Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-violet-800">
+                              <p className="mt-4 text-2xl font-black leading-none text-violet-800 tabular-nums">
                                 {activeBreakdown?.sundayFasting ?? 0}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
                               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
                                 Muslim Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-emerald-800">
+                              <p className="mt-4 text-2xl font-black leading-none text-emerald-800 tabular-nums">
                                 {activeBreakdown?.muslimFasting ?? 0}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-slate-100 p-4 ring-1 ring-slate-200">
+                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-slate-100 p-4 ring-1 ring-slate-200">
                               <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
                                 Not Fasting
                               </p>
-                              <p className="mt-2 text-2xl font-black text-slate-900">
+                              <p className="mt-4 text-2xl font-black leading-none text-slate-900 tabular-nums">
                                 {activeBreakdown?.notFasting ?? 0}
                               </p>
                             </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </>
+                    ) : shouldHideCounts ? (
+                      getEmptyStateMessage() ? (
+                        <div className="rounded-3xl border border-dashed border-amber-300/40 bg-amber-50 p-5 text-sm text-amber-700">
+                          {getEmptyStateMessage()}
+                        </div>
+                      ) : null
+                    ) : (
+                      null
                     )}
                   </div>
                 </>
