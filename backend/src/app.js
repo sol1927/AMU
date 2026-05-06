@@ -41,10 +41,7 @@ app.use((req, res, next) => {
   );
 
   if (process.env.NODE_ENV === "production") {
-    res.set(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains",
-    );
+    res.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
 
   next();
@@ -78,6 +75,10 @@ app.use((req, res, next) => {
   }
 
   return next();
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.use("/api", requireDatabaseConnection);

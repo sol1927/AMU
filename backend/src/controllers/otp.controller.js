@@ -9,7 +9,8 @@ import { formatFullName } from "../utils/formatName.js";
 import { logInternalError } from "../utils/safeError.js";
 import { getCookieOptions } from "../utils/sessionSecurity.js";
 
-const OTP_COOKIE_DURATION_MS = 10 * 60 * 1000;
+const OTP_EXPIRY_MINUTES = 10;
+const OTP_COOKIE_DURATION_MS = OTP_EXPIRY_MINUTES * 60 * 1000;
 
 export const requestOTP = async (req, res) => {
   try {
@@ -53,7 +54,7 @@ export const requestOTP = async (req, res) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    const otpExpires = new Date(Date.now() + OTP_COOKIE_DURATION_MS);
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
     await TempAdmin.upsertByEmail(email, {
@@ -67,7 +68,7 @@ export const requestOTP = async (req, res) => {
 
     await sendEmail({
       toEmail: email,
-      toName: normalizedName || "Admin",
+      toName: normalizedName,
       subject: "Your OTP for Admin Registration",
       htmlContent: `
   <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
@@ -93,7 +94,7 @@ export const requestOTP = async (req, res) => {
     });
 
     const otpToken = jwt.sign({ email }, process.env.JWT_SECRET, {
-      expiresIn: "10m",
+      expiresIn: `${OTP_EXPIRY_MINUTES}m`,
     });
 
     return res
@@ -119,6 +120,12 @@ export const verifyOTP = async (req, res) => {
   try {
     const { otp } = req.body ?? {};
     const token = req.cookies?.otpToken;
+
+    if (!otp) {
+      return res.status(400).json({
+        message: "Please enter the OTP sent to your email.",
+      });
+    }
 
     if (!token) {
       return res.status(400).json({
@@ -162,7 +169,7 @@ export const verifyOTP = async (req, res) => {
     });
 
     const registerToken = jwt.sign({ email }, process.env.JWT_SECRET, {
-      expiresIn: "10m",
+      expiresIn: `${OTP_EXPIRY_MINUTES}m`,
     });
 
     return res
