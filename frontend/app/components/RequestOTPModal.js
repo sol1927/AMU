@@ -43,7 +43,25 @@ export default function RequestOTPModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+
+    if (!name?.trim() || !email?.trim() || !defaultEmail?.trim()) {
+      setMessageType("error");
+      setMessage("All fields are required");
+      triggerShake();
+      return;
+    }
+
+    const normalize = (v) => v?.trim().toLowerCase();
+
+    if (normalize(email) === normalize(defaultEmail)) {
+      setMessageType("error");
+      setMessage("New email cannot be same as current email");
+      triggerShake();
+      return;
+    }
+
     setLoading(true);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -51,7 +69,11 @@ export default function RequestOTPModal({
       const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, defaultEmail }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          defaultEmail: defaultEmail.trim(),
+        }),
         credentials: "include",
         signal: controller.signal,
       });

@@ -30,29 +30,37 @@ export const requestOTP = async (req, res) => {
     }
 
     const existingAdminAccount = await User.findOne({ role: "admin" });
-    const existingTempAdmin = await TempAdmin.findOne({ email });
     const normalizedInitialEmail =
       process.env.INITIAL_ADMIN_EMAIL?.toLowerCase().trim();
     const storedAdminEmail = existingAdminAccount?.email?.toLowerCase().trim();
-    const providedDefaultEmail = defaultEmail?.toLowerCase().trim();
 
-    if (existingAdminAccount) {
-      const isBootstrapRecord = storedAdminEmail === normalizedInitialEmail;
+    const existingTempAdmin = await TempAdmin.findOne({ email });
 
-      if (isBootstrapRecord) {
-        // Security check: Only require the default email if this is the first attempt.
-        // If a TempAdmin record already exists, it means the user already passed this gate
-        // and is simply requesting a resend.
-        const isFirstAttempt = !existingTempAdmin;
+    
 
-        if (isFirstAttempt && providedDefaultEmail !== normalizedInitialEmail) {
-          return res
-            .status(401)
-            .json({ message: "The current email is incorrect." });
-        }
-      } else {
-        return res.status(403).json({
-          message: "System initialization is already complete.",
+
+    // BLOCK ONLY IF SYSTEM IS ALREADY FINISHED
+    if (existingAdminAccount && storedAdminEmail !== normalizedInitialEmail) {
+      return res.status(403).json({
+        message: "System initialization is already complete.",
+      });
+    }
+
+    // ONLY CHECK DEFAULT EMAIL ON FIRST REQUEST (NOT RESEND)
+    const isFirstRequest = !existingTempAdmin;
+
+    if (isFirstRequest && existingAdminAccount) {
+      const providedDefaultEmail = defaultEmail?.toLowerCase().trim();
+
+      if (providedDefaultEmail !== normalizedInitialEmail) {
+        return res.status(401).json({
+          message: "The default email is incorrect.",
+        });
+      }
+
+      if (email.toLowerCase().trim() === providedDefaultEmail) {
+        return res.status(400).json({
+          message: "New email must be different from current email.",
         });
       }
     }
@@ -124,11 +132,8 @@ export const requestOTP = async (req, res) => {
       .cookie("otpToken", otpToken, getCookieOptions(OTP_COOKIE_DURATION_MS))
       .json({ message: "OTP sent to your email. Please check your inbox." });
   } catch (error) {
-    console.error("REQUEST OTP ERROR:");
-    console.error("Message:", error?.message);
-    console.error("Code:", error?.code);
-    console.error("Stack:", error?.stack);
-    console.error(error);
+    logInternalError("request-otp", error);
+
     if (
       error?.code === "EMAIL_NETWORK_ERROR" ||
       error?.code === "EMAIL_DELIVERY_FAILED"

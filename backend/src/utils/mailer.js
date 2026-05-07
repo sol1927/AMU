@@ -1,64 +1,30 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const EMAIL_NETWORK_ERROR_CODES = new Set([
-  "EAI_AGAIN",
-  "ECONNECTION",
-  "ECONNREFUSED",
-  "ECONNRESET",
-  "ENETUNREACH",
-  "ENOTFOUND",
-  "ESOCKET",
-  "ETIMEDOUT",
-]);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
-  // Brevo SMTP Configuration
-  const transporter = nodemailer.createTransport({
-    host: "smtp-relay.brevo.com",
-    port: 587,
-    secure: false, // true for 465, false for other ports
-    auth: {
-      user: process.env.BREVO_USER,
-      pass: process.env.BREVO_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: `"GibiGebeta" <${process.env.EMAIL_USER}>`,
-    to: toEmail,
-    subject,
-    html: htmlContent,
-  };
-
   try {
-    return await transporter.sendMail(mailOptions);
+    const result = await resend.emails.send({
+      from: "GibiGebeta <onboarding@resend.dev>",
+      to: [toEmail],
+      subject,
+      html: htmlContent,
+    });
+
+    console.log("Email sent successfully");
+    return result;
   } catch (error) {
-    const details =
-      `${error?.message || ""} ${error?.response || ""} ${error?.syscall || ""} ${error?.command || ""}`.trim();
-
-    const isTransportFailureWithoutSmtpResponse =
-      !error?.responseCode && error?.code !== "EAUTH";
-
-    const isNetworkIssue =
-      isTransportFailureWithoutSmtpResponse ||
-      EMAIL_NETWORK_ERROR_CODES.has(error?.code) ||
-      /resolve ipv4|resolve|network|connection|timeout|dns|getaddrinfo|lookup|socket|connect|greeting/i.test(
-        details,
-      );
+    console.error("--- Resend API Error Detail ---");
+    console.error("Message:", error?.message);
+    console.error("Name:", error?.name);
+    console.error("Error:", error);
+    console.error("--------------------------------");
 
     const wrappedError = new Error(
-      isNetworkIssue
-        ? "No internet connection. Please check your network and try again."
-        : "We could not send the email right now. Please try again in a moment.",
+      error?.message || "Failed to send email via Resend",
     );
 
-    wrappedError.name = "EmailDeliveryError";
-    wrappedError.code = isNetworkIssue
-      ? "EMAIL_NETWORK_ERROR"
-      : "EMAIL_DELIVERY_FAILED";
-    wrappedError.logMessage = isNetworkIssue
-      ? `Email delivery failed: network unavailable (${error.code})`
-      : `Email delivery failed: ${error.message}`;
+    wrappedError.code = "RESEND_ERROR";
 
     throw wrappedError;
   }
