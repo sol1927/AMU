@@ -12,11 +12,14 @@ const EMAIL_NETWORK_ERROR_CODES = new Set([
 ]);
 
 export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
+  // Brevo SMTP Configuration
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp-relay.brevo.com",
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: process.env.BREVO_USER,
+      pass: process.env.BREVO_PASS,
     },
   });
 
@@ -30,9 +33,12 @@ export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
   try {
     return await transporter.sendMail(mailOptions);
   } catch (error) {
-    const details = `${error?.message || ""} ${error?.response || ""} ${error?.syscall || ""} ${error?.command || ""}`.trim();
+    const details =
+      `${error?.message || ""} ${error?.response || ""} ${error?.syscall || ""} ${error?.command || ""}`.trim();
+
     const isTransportFailureWithoutSmtpResponse =
       !error?.responseCode && error?.code !== "EAUTH";
+
     const isNetworkIssue =
       isTransportFailureWithoutSmtpResponse ||
       EMAIL_NETWORK_ERROR_CODES.has(error?.code) ||
@@ -51,8 +57,8 @@ export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
       ? "EMAIL_NETWORK_ERROR"
       : "EMAIL_DELIVERY_FAILED";
     wrappedError.logMessage = isNetworkIssue
-      ? "Email delivery failed: network unavailable"
-      : "Email delivery failed";
+      ? `Email delivery failed: network unavailable (${error.code})`
+      : `Email delivery failed: ${error.message}`;
 
     throw wrappedError;
   }
