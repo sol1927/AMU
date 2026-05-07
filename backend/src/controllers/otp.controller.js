@@ -124,8 +124,11 @@ export const requestOTP = async (req, res) => {
       .cookie("otpToken", otpToken, getCookieOptions(OTP_COOKIE_DURATION_MS))
       .json({ message: "OTP sent to your email. Please check your inbox." });
   } catch (error) {
-    logInternalError("request-otp", error);
-
+    console.error("REQUEST OTP ERROR:");
+    console.error("Message:", error?.message);
+    console.error("Code:", error?.code);
+    console.error("Stack:", error?.stack);
+    console.error(error);
     if (
       error?.code === "EMAIL_NETWORK_ERROR" ||
       error?.code === "EMAIL_DELIVERY_FAILED"

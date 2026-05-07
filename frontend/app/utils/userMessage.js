@@ -50,9 +50,7 @@ export const getFriendlyMessage = (
   const normalizedMessage = message.trim();
   if (!normalizedMessage) return fallback;
 
-  if (
-    NO_CONNECTION_PATTERNS.some((pattern) => pattern.test(normalizedMessage))
-  ) {
+  if (NO_CONNECTION_PATTERNS.some((pattern) => pattern.test(normalizedMessage))) {
     return "No internet connection. Please check your network and try again.";
   }
 
@@ -79,8 +77,9 @@ export const getRequestErrorMessage = (
   fallback = "Something went wrong. Please try again.",
 ) => {
   if (error?.name === "AbortError") {
-    return error?.message || fallback;
+    return "The request is taking too long to respond. Please try again in a moment.";
   }
+
   if (
     typeof navigator !== "undefined" &&
     "onLine" in navigator &&
