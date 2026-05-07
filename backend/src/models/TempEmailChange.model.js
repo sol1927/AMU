@@ -1,4 +1,4 @@
-import { dbConnection } from "../server.js";
+import { getDB } from "../config/db.js";
 import { mapRow, mapRows } from "./modelUtils.js";
 
 const mapTempEmailChangeRow = (row) => ({
@@ -21,7 +21,7 @@ const createTable = async () => {
       FOREIGN KEY (userId) REFERENCES users(id)
     );
   `;
-  await dbConnection.execute(query);
+  await getDB().execute(query);
 };
 
 const findAll = async (filter = {}) => {
@@ -31,12 +31,12 @@ const findAll = async (filter = {}) => {
     query += " AND userId = ?";
     params.push(filter.userId);
   }
-  const [rows] = await dbConnection.execute(query, params);
+  const [rows] = await getDB().execute(query, params);
   return mapRows(rows, mapTempEmailChangeRow);
 };
 
 const findById = async (id) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     "SELECT * FROM temp_email_changes WHERE id = ?",
     [id],
   );
@@ -52,7 +52,7 @@ const create = async (data) => {
     VALUES (?, ?, ?, ?, ?)
   `;
   const params = [userId, newEmail, otp, otpExpires, verified];
-  const [result] = await dbConnection.execute(query, params);
+  const [result] = await getDB().execute(query, params);
   return { id: result.insertId, ...data };
 };
 
@@ -82,12 +82,12 @@ const updateById = async (id, data) => {
   if (fields.length === 0) return null;
   const query = `UPDATE temp_email_changes SET ${fields.join(", ")} WHERE id = ?`;
   params.push(id);
-  await dbConnection.execute(query, params);
+  await getDB().execute(query, params);
   return findById(id);
 };
 
 const deleteById = async (id) => {
-  await dbConnection.execute("DELETE FROM temp_email_changes WHERE id = ?", [
+  await getDB().execute("DELETE FROM temp_email_changes WHERE id = ?", [
     id,
   ]);
 };

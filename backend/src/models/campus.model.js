@@ -1,4 +1,4 @@
-import { dbConnection } from "../server.js";
+import { getDB } from "../config/db.js";
 import bcrypt from "bcryptjs";
 import { mapRow, mapRows, normalizeDate, omitPassword } from "./modelUtils.js";
 
@@ -37,8 +37,8 @@ const createTable = async () => {
       FOREIGN KEY (createdBy) REFERENCES users(id)
     );
   `;
-  await dbConnection.execute(query);
-  await dbConnection.execute(
+  await getDB().execute(query);
+  await getDB().execute(
     "ALTER TABLE campuses MODIFY COLUMN logo_url MEDIUMTEXT NULL",
   );
 };
@@ -71,13 +71,13 @@ const findAll = async (filter = {}, options = {}) => {
     query += " AND role = ?";
     params.push(filter.role);
   }
-  const [rows] = await dbConnection.execute(query, params);
+  const [rows] = await getDB().execute(query, params);
   const mapped = mapRows(rows, mapCampusRow);
   return options.includePassword ? mapped : mapped.map(omitPassword);
 };
 
 const findById = async (id, options = {}) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, createdAt, updatedAt FROM campuses WHERE id = ?",
     [id],
   );
@@ -118,7 +118,7 @@ const create = async (data) => {
     isOnline,
     normalizeDate(lastActiveAt),
   ];
-  const [result] = await dbConnection.execute(query, params);
+  const [result] = await getDB().execute(query, params);
   return findById(result.insertId);
 };
 
@@ -179,12 +179,12 @@ const updateById = async (id, data, options = {}) => {
   if (fields.length === 0) return null;
   const query = `UPDATE campuses SET ${fields.join(", ")} WHERE id = ?`;
   params.push(id);
-  await dbConnection.execute(query, params);
+  await getDB().execute(query, params);
   return findById(id, options);
 };
 
 const deleteById = async (id) => {
-  await dbConnection.execute("DELETE FROM campuses WHERE id = ?", [id]);
+  await getDB().execute("DELETE FROM campuses WHERE id = ?", [id]);
 };
 
 const updateMany = async (filter = {}, data = {}) => {
@@ -202,7 +202,7 @@ const updateMany = async (filter = {}, data = {}) => {
 };
 
 const comparePassword = async (id, candidatePassword) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     "SELECT password FROM campuses WHERE id = ?",
     [id],
   );

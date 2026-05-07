@@ -1,12 +1,10 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { sendDeviceOtp } from "../controllers/device.controller.js";
 import Campus from "../models/campus.model.js";
 import { syncCampusLiveMealWindow } from "../utils/mealSession.js";
 import {
   formatMinutes,
-  getCookieOptions,
   getSessionCookieOptions,
 } from "../utils/sessionSecurity.js";
 import { logInternalError } from "../utils/safeError.js";
@@ -43,7 +41,7 @@ const registerFailedLoginAttempt = async (role, account) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password, deviceId, deviceName } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -51,7 +49,10 @@ export const login = async (req, res) => {
       });
     }
 
-    let user = await User.findOne({ email, role: "admin" }, { includePassword: true });
+    let user = await User.findOne(
+      { email, role: "admin" },
+      { includePassword: true },
+    );
     let role = "admin";
 
     if (!user) {
@@ -92,36 +93,13 @@ export const login = async (req, res) => {
 
     user = await resetAccountLock(role, user.id, { includePassword: true });
 
-    if (role === "admin") {
-      const trustedDevices = (user.trustedDevices || []).filter(
-        (device) => device.expiresAt && new Date(device.expiresAt) > new Date(),
-      );
-
-      if (trustedDevices.length !== (user.trustedDevices || []).length) {
-        user = await User.updateById(user.id, { trustedDevices }, { includePassword: true });
-      } else {
-        user.trustedDevices = trustedDevices;
-      }
-
-      if (!deviceId) {
-        return res.status(400).json({
-          message: "Device information missing. Please refresh and try again.",
-        });
-      }
-
-      const isTrusted = trustedDevices.some((device) => device.deviceId === deviceId);
-      if (!isTrusted) {
-        const deviceOtpToken = await sendDeviceOtp(user, deviceId, deviceName);
-        res.cookie(
-          "deviceOtpToken",
-          deviceOtpToken,
-          getCookieOptions(10 * 60 * 1000),
-        );
-        return res.status(202).json({
-          message: "New device detected. OTP sent to your email.",
-          requireDeviceOtp: true,
-        });
-      }
+    if (role === "admin" && user.mustChangePassword) {
+      return res.status(200).json({
+        message: "This is your first login. Please set a new password.",
+        requirePasswordSetup: true,
+        email: user.email,
+        user,
+      });
     }
 
     const token = jwt.sign({ id: user.id, role }, process.env.JWT_SECRET);
@@ -166,9 +144,13 @@ export const login = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-  const options = { ...getSessionCookieOptions(), maxAge: 0 };
+  const options = { ...getSessionCookieOptions(), maxAge: 0, expires: new Date(0) };
   res
-    .clearCookie("accessToken", options)
-    .clearCookie("campusToken", options)
+    .cookie("accessToken", "", options)
+    .cookie("campusToken", "", options)
+    .cookie("otpToken", "", options)
+    .cookie("registerToken", "", options)
+    .cookie("emailOtpToken", "", options)
+    .cookie("deviceOtpToken", "", options)
     .json({ message: "Logged out" });
 };

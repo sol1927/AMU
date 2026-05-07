@@ -34,12 +34,15 @@ export default function AdminNavbar() {
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
-    setCurrentUser(null);
-    await fetch(`${url}/auth/logout`, {
+    const res = await fetch(`${url}/auth/logout`, {
       method: "POST",
       credentials: "include",
     });
-    window.location.replace("/");
+
+    if (res.ok) {
+      setCurrentUser(null);
+      window.location.replace("/");
+    }
   };
 
   return (

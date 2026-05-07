@@ -127,7 +127,9 @@ export default function CampusStudentsPage() {
       return;
     }
 
-    setSelectedStudents(filteredAndSortedStudents.map((student) => student._id));
+    setSelectedStudents(
+      filteredAndSortedStudents.map((student) => student._id),
+    );
     setSelectAll(true);
   };
 
@@ -256,7 +258,9 @@ export default function CampusStudentsPage() {
                 <h1 className="text-2xl font-bold leading-none">Students</h1>
                 <p className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
                   {filteredAndSortedStudents.length}{" "}
-                  {filteredAndSortedStudents.length === 1 ? "student" : "students"}
+                  {filteredAndSortedStudents.length === 1
+                    ? "student"
+                    : "students"}
                 </p>
               </div>
 
@@ -293,21 +297,11 @@ export default function CampusStudentsPage() {
                 onChange={(e) => setFastingFilter(e.target.value)}
                 className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
               >
-                <option value="">
-                  All Fasting Types
-                </option>
-                <option value="fasting">
-                  Fasting
-                </option>
-                <option value="not_fasting">
-                  Not Fasting
-                </option>
-                <option value="sunday_fasting">
-                  Sunday Fasting
-                </option>
-                <option value="muslim_fasting">
-                  Muslim Fasting
-                </option>
+                <option value="">All Fasting Types</option>
+                <option value="fasting">Fasting</option>
+                <option value="not_fasting">Not Fasting</option>
+                <option value="sunday_fasting">Sunday Fasting</option>
+                <option value="muslim_fasting">Muslim Fasting</option>
               </select>
             </div>
 
@@ -318,15 +312,9 @@ export default function CampusStudentsPage() {
                   onChange={(e) => setBulkInternshipAction(e.target.value)}
                   className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">
-                    Internship Status
-                  </option>
-                  <option value="start">
-                    Send to Internship
-                  </option>
-                  <option value="return">
-                    Return from Internship
-                  </option>
+                  <option value="">Internship Status</option>
+                  <option value="start">Send to Internship</option>
+                  <option value="return">Return from Internship</option>
                 </select>
                 {bulkInternshipAction && (
                   <button
@@ -343,21 +331,11 @@ export default function CampusStudentsPage() {
                   onChange={(e) => setBulkFastingType(e.target.value)}
                   className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">
-                    Select Fasting
-                  </option>
-                  <option value="fasting">
-                    Fasting
-                  </option>
-                  <option value="not_fasting">
-                    Not Fasting
-                  </option>
-                  <option value="sunday_fasting">
-                    Sunday Fasting
-                  </option>
-                  <option value="muslim_fasting">
-                    Muslim Fasting
-                  </option>
+                  <option value="">Select Fasting</option>
+                  <option value="fasting">Fasting</option>
+                  <option value="not_fasting">Not Fasting</option>
+                  <option value="sunday_fasting">Sunday Fasting</option>
+                  <option value="muslim_fasting">Muslim Fasting</option>
                 </select>
                 {bulkFastingType && (
                   <button
@@ -401,7 +379,9 @@ export default function CampusStudentsPage() {
               key={student._id}
               className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm sm:flex-nowrap sm:gap-4"
             >
-              <span className="w-10 font-medium text-slate-900">{index + 1}</span>
+              <span className="w-10 font-medium text-slate-900">
+                {index + 1}
+              </span>
               <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
                 {student.profileUrl ? (
                   <img
@@ -443,9 +423,13 @@ export default function CampusStudentsPage() {
             </div>
           ))}
 
-          {!loading && initialLoadDone && filteredAndSortedStudents.length === 0 && (
-            <p className="mt-12 text-center text-slate-500">Student not found</p>
-          )}
+          {!loading &&
+            initialLoadDone &&
+            filteredAndSortedStudents.length === 0 && (
+              <p className="mt-12 text-center text-slate-500">
+                Student not found
+              </p>
+            )}
         </div>
 
         {error && <p className="mt-4 text-red-600">{error}</p>}

@@ -13,13 +13,12 @@ import {
   getDashboardMealContext,
   getDayString,
   getCurrentMealType,
-  getMealScheduleAt,
+  getMealSchedule,
   getMealWindowLabel,
   isCampusLiveNow,
 } from "../utils/mealSession.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 import {
-  getCookieOptions,
   getSessionCookieOptions,
 } from "../utils/sessionSecurity.js";
 
@@ -233,7 +232,7 @@ export const getCampuses = async (req, res) => {
         const studentsCount = await CafeStudent.countDocuments(
           getStudentCampusSyncQuery(campus),
         );
-        const mealSchedule = await getMealScheduleAt(campus.id, new Date());
+        const mealSchedule = await getMealSchedule(campus.id);
         const { mealType, label, targetDate } = await getDashboardMealContext(
           campus.id,
           new Date(),
@@ -712,16 +711,18 @@ export const updateCampusProfile = async (req, res) => {
 
 export const logoutCampus = async (req, res) => {
   const logoutTime = new Date();
+  const campus = req.campus;
+  const campusId = campus?.id;
 
-  if (req.campus?.id) {
+  if (campusId) {
     const todayString = getDayString(logoutTime);
-    const currentMealType = await getCurrentMealType(req.campus.id, logoutTime).catch(
+    const currentMealType = await getCurrentMealType(campusId, logoutTime).catch(
       () => null,
     );
 
     if (currentMealType) {
       const currentMeal = await Meal.findOne({
-        campus: req.campus.id,
+        campus: campusId,
         mealType: currentMealType,
         date: todayString,
       }).catch(() => null);
@@ -729,13 +730,13 @@ export const logoutCampus = async (req, res) => {
       if (currentMeal) {
         await closeMealAtAppliedTime(
           currentMeal,
-          req.campus.lastActiveAt,
+          campus.lastActiveAt,
           logoutTime,
         ).catch(() => null);
       }
     } else {
       const todaysMeals = await Meal.findAll({
-        campus: req.campus.id,
+        campus: campusId,
         date: todayString,
       }).catch(() => []);
       const openExpiredMeals = todaysMeals.filter((meal) => {
@@ -752,23 +753,21 @@ export const logoutCampus = async (req, res) => {
 
       await Promise.all(
         openExpiredMeals.map((meal) =>
-          closeMealAtAppliedTime(meal, req.campus.lastActiveAt, logoutTime).catch(
+          closeMealAtAppliedTime(meal, campus.lastActiveAt, logoutTime).catch(
             () => null,
           ),
         ),
       );
     }
+
+    await Campus.updateById(campusId, {
+      isOnline: false,
+      lastActiveAt: null,
+    }).catch(() => null);
   }
 
-  await Campus.updateById(req.campus?.id, {
-    isOnline: false,
-    lastActiveAt: null,
-  }).catch(() => null);
-
   res
-    .cookie("campusToken", "", {
-      ...getSessionCookieOptions(),
-      expires: new Date(0),
-    })
+    .clearCookie("campusToken", getSessionCookieOptions())
+    .clearCookie("accessToken", getSessionCookieOptions())
     .json({ message: "Logged out" });
 };

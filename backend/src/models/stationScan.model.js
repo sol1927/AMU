@@ -1,8 +1,8 @@
-import { dbConnection } from "../server.js";
+import { getDB } from "../config/db.js";
 import { buildInClause, mapRow, mapRows, normalizeDate } from "./modelUtils.js";
 
 const addColumnIfMissing = async (tableName, columnName, definition) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     `
       SELECT 1
       FROM INFORMATION_SCHEMA.COLUMNS
@@ -18,13 +18,13 @@ const addColumnIfMissing = async (tableName, columnName, definition) => {
     return;
   }
 
-  await dbConnection.execute(
+  await getDB().execute(
     `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`,
   );
 };
 
 const dropForeignKeyIfExists = async (tableName, columnName, referencedTable) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     `
       SELECT CONSTRAINT_NAME
       FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
@@ -37,14 +37,14 @@ const dropForeignKeyIfExists = async (tableName, columnName, referencedTable) =>
   );
 
   for (const row of rows) {
-    await dbConnection.execute(
+    await getDB().execute(
       `ALTER TABLE ${tableName} DROP FOREIGN KEY ${row.CONSTRAINT_NAME}`,
     );
   }
 };
 
 const dropIndexIfExists = async (tableName, indexName) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     `
       SELECT 1
       FROM INFORMATION_SCHEMA.STATISTICS
@@ -60,11 +60,11 @@ const dropIndexIfExists = async (tableName, indexName) => {
     return;
   }
 
-  await dbConnection.execute(`ALTER TABLE ${tableName} DROP INDEX ${indexName}`);
+  await getDB().execute(`ALTER TABLE ${tableName} DROP INDEX ${indexName}`);
 };
 
 const addUniqueIndexIfMissing = async (tableName, indexName, columns) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     `
       SELECT 1
       FROM INFORMATION_SCHEMA.STATISTICS
@@ -80,7 +80,7 @@ const addUniqueIndexIfMissing = async (tableName, indexName, columns) => {
     return;
   }
 
-  await dbConnection.execute(
+  await getDB().execute(
     `ALTER TABLE ${tableName} ADD UNIQUE KEY ${indexName} (${columns.join(", ")})`,
   );
 };
@@ -108,7 +108,7 @@ const createTable = async () => {
       FOREIGN KEY (campus) REFERENCES campuses(id)
     );
   `;
-  await dbConnection.execute(query);
+  await getDB().execute(query);
   await addColumnIfMissing("station_scans", "studentId", "VARCHAR(255) NOT NULL DEFAULT ''");
   await addColumnIfMissing("station_scans", "studentName", "VARCHAR(255) NOT NULL DEFAULT 'Student'");
   await addColumnIfMissing("station_scans", "department", "VARCHAR(255) NULL");
@@ -122,7 +122,7 @@ const createTable = async () => {
   await addColumnIfMissing("station_scans", "campusId", "INT NULL");
   await addColumnIfMissing("station_scans", "campusName", "VARCHAR(255) NULL");
   await addColumnIfMissing("station_scans", "scannedAt", "DATETIME NULL");
-  await dbConnection.execute(`
+  await getDB().execute(`
     UPDATE station_scans ss
     LEFT JOIN cafestudents cs ON ss.student = cs.id
     LEFT JOIN campuses c ON ss.campus = c.id
@@ -169,7 +169,7 @@ const createTable = async () => {
       END
   `);
   await dropForeignKeyIfExists("station_scans", "student", "cafestudents");
-  await dbConnection.execute("ALTER TABLE station_scans MODIFY COLUMN student INT NULL");
+  await getDB().execute("ALTER TABLE station_scans MODIFY COLUMN student INT NULL");
   await dropIndexIfExists("station_scans", "unique_student_campus_date_mealType");
   await addUniqueIndexIfMissing("station_scans", "unique_studentId_campus_date_mealType", [
     "studentId",
@@ -219,12 +219,12 @@ const findAll = async (filter = {}) => {
       query += ` LIMIT ${safeLimit}`;
     }
   }
-  const [rows] = await dbConnection.execute(query, params);
+  const [rows] = await getDB().execute(query, params);
   return mapRows(rows);
 };
 
 const findById = async (id) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     "SELECT * FROM station_scans WHERE id = ?",
     [id],
   );
@@ -268,7 +268,7 @@ const create = async (data) => {
     mealType,
     normalizeDate(scannedAt),
   ];
-  const [result] = await dbConnection.execute(query, params);
+  const [result] = await getDB().execute(query, params);
   return { id: result.insertId, ...data };
 };
 
@@ -330,12 +330,12 @@ const updateById = async (id, data) => {
   if (fields.length === 0) return null;
   const query = `UPDATE station_scans SET ${fields.join(", ")} WHERE id = ?`;
   params.push(id);
-  await dbConnection.execute(query, params);
+  await getDB().execute(query, params);
   return findById(id);
 };
 
 const deleteById = async (id) => {
-  await dbConnection.execute("DELETE FROM station_scans WHERE id = ?", [id]);
+  await getDB().execute("DELETE FROM station_scans WHERE id = ?", [id]);
 };
 
 const deleteMany = async (filter = {}) => {

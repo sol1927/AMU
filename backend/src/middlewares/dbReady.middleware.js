@@ -1,21 +1,15 @@
-import {
-  dbConnection,
-  ensureDatabaseTables,
-  getDatabaseConnectionErrorMessage,
-} from "../server.js";
+import { getDB } from "../config/db.js";
+import { ensureDatabaseTables } from "../server.js";
 
 export const requireDatabaseConnection = async (_req, res, next) => {
-  if (dbConnection) {
-    try {
-      await dbConnection.ping();
-      await ensureDatabaseTables();
-      return next();
-    } catch {
-      // Connection failed
-    }
+  try {
+    const db = getDB();
+    await db.ping();
+    await ensureDatabaseTables();
+    return next();
+  } catch {
+    return res.status(503).json({
+      message: "Database not ready. Please try again.",
+    });
   }
-
-  return res.status(503).json({
-    message: getDatabaseConnectionErrorMessage(),
-  });
 };

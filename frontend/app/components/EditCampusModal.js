@@ -38,7 +38,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       setMessage("New password must be at least 6 characters");
       return;
     }
-
     if (password && password !== confirmPassword) {
       setMessage("Passwords do not match");
       return;
@@ -66,17 +65,11 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-      <div className="relative w-full max-w-sm rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg backdrop-blur-lg sm:w-80">
-        <button
-          type="button"
-          onClick={onCancel}
-          aria-label="Close edit campus modal"
-          title="Close"
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-black transition hover:bg-red-500 hover:text-white"
-        >
-          X
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md" onClick={onCancel}>
+      <div
+        className="relative w-full max-w-sm rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg backdrop-blur-lg sm:w-80"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="mb-4 text-center text-xl font-bold text-white">
           Edit Campus
         </h2>

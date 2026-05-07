@@ -51,10 +51,15 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
     }
   };
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center"
+      onClick={onCancel}
+    >
       <form
         onSubmit={handleSubmit}
+        autoComplete="off"
         className="modal-panel animate-fadeIn flex w-full max-w-xs flex-col gap-4 rounded-2xl p-6 shadow-lg sm:w-80"
+        onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-bold">Add Campus</h3>
 
@@ -81,6 +86,7 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
           onChange={(e) => setLocation(e.target.value)}
         />
         <input
+          autoComplete="off"
           className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           placeholder="Email"
           value={email}
@@ -89,6 +95,7 @@ export default function AddCampusModal({ onCancel, onSubmit }) {
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
             className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             placeholder="Password"
             value={password}

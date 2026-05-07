@@ -91,6 +91,7 @@ export default function ChangePasswordModal({ onClose }) {
             data.message,
             "We could not change your password. Please try again.",
           ),
+          data.message || "Failed to change password. Try again.",
         );
       }
 
@@ -107,14 +108,20 @@ export default function ChangePasswordModal({ onClose }) {
             err,
             "We could not change your password. Please try again.",
           ),
+        err?.message || "Failed to change password. Try again.",
       );
     }
   };
 
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
-      <div className="modal-panel flex w-full max-w-xs flex-col gap-4 rounded-2xl p-6 animate-fadeIn">
-        {" "}
+    <div
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="modal-panel flex w-full max-w-xs flex-col gap-4 rounded-2xl p-6 animate-fadeIn"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3 className="text-center text-lg font-semibold text-slate-900">
           Change Password
         </h3>

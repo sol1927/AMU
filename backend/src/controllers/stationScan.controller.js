@@ -16,7 +16,10 @@ import {
   getStudentIsInternship,
   normalizeStudent,
 } from "../utils/studentDefaults.js";
-import { getStudentCampusQuery } from "../utils/campusId.js";
+import {
+  getStudentCampusQuery,
+  getStudentCampusSyncQuery,
+} from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 const buildFastingBreakdown = (students = []) => ({
@@ -41,7 +44,11 @@ const createCampusSnapshot = (campus = {}) => ({
   location: campus.location || "",
 });
 
-const createStudentSnapshot = (student = {}, campus = {}, scannedAt = new Date()) => ({
+const createStudentSnapshot = (
+  student = {},
+  campus = {},
+  scannedAt = new Date(),
+) => ({
   studentId: student.studentId || "",
   studentName: student.name || "Student",
   name: student.name || "Student",
@@ -54,7 +61,10 @@ const createStudentSnapshot = (student = {}, campus = {}, scannedAt = new Date()
   scannedAt: scannedAt.toISOString(),
 });
 
-const buildMealSummarySnapshot = (campusStudents = [], servedStudentIds = []) => {
+const buildMealSummarySnapshot = (
+  campusStudents = [],
+  servedStudentIds = [],
+) => {
   const regularStudentsList = campusStudents.filter(
     (student) => !getStudentIsInternship(student),
   );
@@ -181,7 +191,11 @@ export const scanStudentStation = async (req, res) => {
       todayString,
     );
     const campusSnapshot = createCampusSnapshot(req.campus);
-    const studentSnapshot = createStudentSnapshot(normalizedStudent, req.campus, scanTime);
+    const studentSnapshot = createStudentSnapshot(
+      normalizedStudent,
+      req.campus,
+      scanTime,
+    );
 
     const stationScan = await StationScan.create({
       student: student.id,
@@ -216,12 +230,16 @@ export const scanStudentStation = async (req, res) => {
       );
       const studentSnapshots = [
         ...(existingMeal.studentSnapshots || []).filter(
-          (snapshot) => String(snapshot.studentId) !== String(student.studentId),
+          (snapshot) =>
+            String(snapshot.studentId) !== String(student.studentId),
         ),
         studentSnapshot,
       ];
       const existingAppliedWindow = existingMeal.appliedWindow || {};
-      const summarySnapshot = buildMealSummarySnapshot(campusStudents, students);
+      const summarySnapshot = buildMealSummarySnapshot(
+        campusStudents,
+        students,
+      );
       await Meal.updateById(existingMeal.id, {
         campusSnapshot: existingMeal.campusSnapshot || campusSnapshot,
         students,
@@ -233,7 +251,8 @@ export const scanStudentStation = async (req, res) => {
           end: existingAppliedWindow.end || appliedWindow.end,
           label:
             existingAppliedWindow.label || getMealWindowLabel(appliedWindow),
-          actualOpenedAt: existingAppliedWindow.actualOpenedAt || actualOpenedAt,
+          actualOpenedAt:
+            existingAppliedWindow.actualOpenedAt || actualOpenedAt,
           // Reopen the session if the campus logged out and then resumed scanning
           // before the applied session window finished.
           actualClosedAt: null,
@@ -278,7 +297,7 @@ export const scanStudentStation = async (req, res) => {
 export const getCampusDashboardStats = async (req, res) => {
   try {
     const campusId = req.campus.id;
-    const studentCampusQuery = getStudentCampusQuery(req.campus);
+    const studentSyncQuery = getStudentCampusSyncQuery(req.campus);
 
     const now = new Date();
     const { mealType, label, targetDate } = await getDashboardMealContext(
@@ -298,7 +317,7 @@ export const getCampusDashboardStats = async (req, res) => {
       semester,
       mealType,
     });
-    const summarySnapshot = meal?.summarySnapshot || null;
+
     const recentScans = await StationScan.findAll({
       campus: campusId,
       date: getDayString(mealDate),
@@ -306,16 +325,31 @@ export const getCampusDashboardStats = async (req, res) => {
       orderByCreatedAtDesc: true,
       limit: 5,
     });
-    let fallbackSummary = null;
 
-    if (!summarySnapshot) {
-      const campusStudents = await CafeStudent.findAll(studentCampusQuery);
-      fallbackSummary = buildMealSummarySnapshot(
-        campusStudents,
-        meal?.students || [],
+    // Always calculate the summary live from the student database to ensure
+    // accuracy (e.g., if students were synced or moved to internship recently).
+    // Stored snapshots in the 'meal' record can become stale.
+    // We use the Sync Query to match the counting logic used in the Admin Dashboard.
+    const campusStudents = await CafeStudent.findAll(studentSyncQuery);
+    const servedScans = await StationScan.findAll({
+      campus: campusId,
+      date: getDayString(mealDate),
+      mealType,
+    });
+
+    const servedStudentIds = servedScans.map((s) => s.studentId);
+
+    const activeSummary = buildMealSummarySnapshot(
+      campusStudents,
+      servedStudentIds,
+    );
+
+    // Optionally update the meal record with the fresh snapshot for admin history
+    if (meal && !meal.summarySnapshot) {
+      await Meal.updateById(meal.id, { summarySnapshot: activeSummary }).catch(
+        () => null,
       );
     }
-    const activeSummary = summarySnapshot || fallbackSummary;
 
     res.json({
       mealType,
@@ -327,7 +361,8 @@ export const getCampusDashboardStats = async (req, res) => {
       internshipStudents: activeSummary?.internshipStudents ?? 0,
       servedStudents: activeSummary?.servedStudents ?? 0,
       pendingStudents: activeSummary?.pendingStudents ?? 0,
-      fastingBreakdown: activeSummary?.fastingBreakdown || buildFastingBreakdown([]),
+      fastingBreakdown:
+        activeSummary?.fastingBreakdown || buildFastingBreakdown([]),
       regularFastingBreakdown:
         activeSummary?.regularFastingBreakdown || buildFastingBreakdown([]),
       internshipFastingBreakdown:

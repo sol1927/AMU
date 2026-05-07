@@ -14,6 +14,7 @@ export default function RequestOTPModal({
   onSuccess,
 }) {
   const { email, setEmail, name, setName } = useTempAdmin();
+  const [defaultEmail, setDefaultEmail] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("error");
   const [loading, setLoading] = useState(false);
@@ -23,9 +24,10 @@ export default function RequestOTPModal({
     if (show) {
       setName("");
       setEmail("");
+      setDefaultEmail("");
       setMessage("");
     }
-  }, [show, setName, setEmail]);
+  }, [show]);
 
   useEffect(() => {
     if (!message) return;
@@ -49,7 +51,7 @@ export default function RequestOTPModal({
       const res = await fetch(`${url}/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, defaultEmail }),
         credentials: "include",
         signal: controller.signal,
       });
@@ -100,10 +102,10 @@ export default function RequestOTPModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
-          Create Your Account
+          Update Admin Account
         </h2>
         <p className="mb-6 text-center text-sm text-slate-500">
-          Enter your details to receive an OTP
+          Enter the default credentials and your new email
         </p>
 
         {message && (
@@ -123,7 +125,18 @@ export default function RequestOTPModal({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your Name"
+            autoComplete="off"
+            placeholder="Name"
+            required
+            className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          />
+
+          <input
+            type="email"
+            value={defaultEmail}
+            onChange={(e) => setDefaultEmail(e.target.value)}
+            autoComplete="off"
+            placeholder="Current Email"
             required
             className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
@@ -132,7 +145,8 @@ export default function RequestOTPModal({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Your Email"
+            autoComplete="off"
+            placeholder="New Email"
             required
             className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
@@ -146,7 +160,7 @@ export default function RequestOTPModal({
                 : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-105"
             }`}
           >
-            {loading ? "Sending OTP..." : "Request OTP"}
+            {loading ? "Processing..." : "Create"}
           </button>
         </form>
 

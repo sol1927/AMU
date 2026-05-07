@@ -103,16 +103,12 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
         }, 1000);
       } else {
         setMessageType("error");
-        setMessage(
-          getApiMessage(data, "We could not set your password. Please try again."),
-        );
+        setMessage(getApiMessage(data, "Failed to set password. Try again."));
       }
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage(
-        getErrorMessage(error, "We could not set your password. Please try again."),
-      );
+      setMessage(getErrorMessage(error, "Failed to set password. Try again."));
     } finally {
       setLoading(false);
     }
@@ -126,7 +122,7 @@ export default function SetPasswordModal({ show, onClose, onOpenLogin }) {
       onClick={onClose}
     >
       <div
-        className="modal-panel relative mt-16 mr-4 max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl p-6 transition-all duration-300 sm:mt-20 sm:mr-6 sm:max-w-md sm:p-8"
+        className={`modal-panel relative mt-16 mr-4 max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl p-6 transition-all duration-300 sm:mt-20 sm:mr-6 sm:max-w-md sm:p-8`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">

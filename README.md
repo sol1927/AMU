@@ -6,15 +6,15 @@ Full-stack web application for managing campuses, students, meal schedules, meal
 
 ### Frontend
 
-- Next.js `16.1.4`
-- React `19.2.3`
+- Next.js `15.1.0`
+- React `19.0.0`
 - Tailwind CSS `4.1.18`
 - Axios `1.13.4`
 
 ### Backend
 
 - Node.js
-- Express `5.2.1`
+- Express `4.19.2`
 - MySQL with mysql2 `3.6.5`
 - JWT authentication with `jsonwebtoken` `9.0.3`
 - Email delivery with `nodemailer` `7.0.12`
@@ -29,7 +29,7 @@ The safest project-wide runtime requirement is driven by the backend dependency 
 
 ### Notes
 
-- Frontend dependency `next@16.1.4` requires Node.js `>= 20.9.0`.
+- Frontend dependency `next@15.1.0` requires Node.js `>= 20.9.0`.
 - Backend dependency `mysql2@3.6.5` requires Node.js `>= 18`.
 - This project is currently developed locally with Node.js `22.14.0` and npm `11.2.0`.
 
@@ -83,6 +83,8 @@ cp frontend/.env.example frontend/.env.local
 - `COOKIE_SECURE`: set to `false` for plain HTTP and `true` for HTTPS so auth cookies work correctly
 - `JWT_SECRET`: long random secret for JWT signing
 - `SALT_ROUNDS`: bcrypt cost factor such as `10` or `12`
+- `INITIAL_ADMIN_EMAIL`: email used by `npm run seed` to create the first admin account
+- `INITIAL_ADMIN_PASSWORD`: password used by `npm run seed` to create the first admin account
 - `EMAIL_USER`: SMTP sender email
 - `EMAIL_PASS`: SMTP password or app password
 
@@ -112,6 +114,8 @@ FRONTEND_URL=http://localhost:3000
 COOKIE_SECURE=false
 JWT_SECRET=replace_with_a_long_random_development_secret
 SALT_ROUNDS=10
+INITIAL_ADMIN_EMAIL=admin@example.com
+INITIAL_ADMIN_PASSWORD=change_me_on_first_login
 EMAIL_USER=email@gmail.com
 EMAIL_PASS=email-app-password
 ```
@@ -136,6 +140,8 @@ FRONTEND_URL=https://frontend.example.com
 COOKIE_SECURE=true
 JWT_SECRET=replace_with_a_long_random_production_secret
 SALT_ROUNDS=12
+INITIAL_ADMIN_EMAIL=admin@domain.com
+INITIAL_ADMIN_PASSWORD=change_me_on_first_login
 EMAIL_USER=notifications@example.com
 EMAIL_PASS=production-email-password
 ```
@@ -199,6 +205,17 @@ cd frontend
 npm run dev
 ```
 
+### 5. Seed the first admin
+
+After the backend tables exist and `INITIAL_ADMIN_EMAIL` plus `INITIAL_ADMIN_PASSWORD` are set in `backend/.env`, run:
+
+```bash
+cd backend
+npm run seed
+```
+
+The seed creates the default admin only if no admin exists yet, and that admin is forced to change the password on first login.
+
 Default development URLs:
 
 - Frontend: `http://localhost:3000`
@@ -221,6 +238,7 @@ Default development URLs:
 
 - `npm run dev`: start backend with Nodemon
 - `npm start`: start backend with Node
+- `npm run seed`: create the initial admin from `backend/.env`
 
 ### Frontend
 

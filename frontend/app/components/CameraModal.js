@@ -32,7 +32,9 @@ export default function CameraModal({ onCapture, onCancel }) {
         }
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch {}
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+      }
     };
 
     startCamera();

@@ -77,7 +77,7 @@ export default function VerifyOTPModal({
       if (res.ok) {
         setMessageType("success");
         setMessage(
-          getApiMessage(data, "The verification code was confirmed successfully."),
+          getApiMessage(data, "Verification successful."),
         );
         setTimeout(() => {
           onClose();
@@ -86,7 +86,7 @@ export default function VerifyOTPModal({
       } else {
         setMessageType("error");
         setMessage(
-          getApiMessage(data, "The verification code is not correct. Please try again."),
+          getApiMessage(data, "Incorrect code. Try again."),
         );
         triggerShake();
       }
@@ -94,7 +94,7 @@ export default function VerifyOTPModal({
       clearTimeout(timeoutId);
       setMessageType("error");
       setMessage(
-        getErrorMessage(error, "We could not verify the code. Please try again."),
+        getErrorMessage(error, "Verification failed. Try again."),
       );
       triggerShake();
     } finally {
@@ -124,7 +124,7 @@ export default function VerifyOTPModal({
       if (!res.ok) {
         setMessageType("error");
         setMessage(
-          getApiMessage(data, "We could not resend the verification code."),
+          getApiMessage(data, "Failed to resend code. Try again."),
         );
         triggerShake();
       } else {
@@ -135,7 +135,7 @@ export default function VerifyOTPModal({
       clearTimeout(timeoutId);
       setMessageType("error");
       setMessage(
-        getErrorMessage(error, "We could not resend the verification code."),
+        getErrorMessage(error, "Failed to resend code. Try again."),
       );
       triggerShake();
     } finally {

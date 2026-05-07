@@ -3,7 +3,6 @@
 import { React, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
-import { useTempAdmin } from "../context/TempAdminContext";
 import { useUser } from "../context/UserContext";
 import { useCampus } from "../context/CampusContext";
 import PropTypes from "prop-types";
@@ -20,7 +19,6 @@ export default function LoginModal({
   onLoginSuccess,
   onOpenSignup,
   onOpenForgotPassword,
-  onRequireDeviceOtp,
 }) {
   const { setCurrentUser } = useUser();
   const [email, setEmail] = useState("");
@@ -29,12 +27,10 @@ export default function LoginModal({
   const [messageType, setMessageType] = useState("error");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [shake, setShake] = useState(false);
   const { setCurrentCampus } = useCampus();
   const [isExiting, setIsExiting] = useState(false);
 
   const router = useRouter();
-  const { setEmail: setTempEmail } = useTempAdmin();
 
   useEffect(() => {
     if (!message) return;
@@ -47,14 +43,10 @@ export default function LoginModal({
       setEmail("");
       setPassword("");
       setMessage("");
+      setLoading(false);
       setIsExiting(false);
     }
   }, [show]);
-
-  const triggerShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,15 +56,11 @@ export default function LoginModal({
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
-      localStorage.setItem("deviceId", deviceId);
-      const deviceName = "My Device";
-
       const res = await fetch(`${url}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, deviceId, deviceName }),
+        body: JSON.stringify({ email, password }),
         signal: controller.signal,
       });
 
@@ -82,27 +70,25 @@ export default function LoginModal({
       if (!res.ok) {
         setMessageType("error");
         setMessage(
-          getFriendlyMessage(
-            data.message,
-            "We could not sign you in. Please try again.",
-          ),
+          getFriendlyMessage(data.message, "Login failed. Try again."),
         );
-        triggerShake();
         return;
       }
 
-      if (data.requireDeviceOtp) {
-        setTempEmail(email);
-        sessionStorage.setItem("tempAdminEmail", email);
-        onRequireDeviceOtp?.();
+      if (data.requirePasswordSetup) {
+        sessionStorage.setItem("bootstrapAdminEmail", email);
+        setMessageType("success");
+        setMessage(data.message);
+        onClose();
+        onOpenSignup?.();
         return;
       }
-
-      setCurrentUser({ ...data.user, role: data.role });
 
       if (data.role === "campus") {
+        setCurrentUser(null);
         setCurrentCampus(data.user);
       } else {
+        setCurrentUser({ ...data.user, role: data.role });
         setCurrentCampus(null);
       }
 
@@ -117,11 +103,7 @@ export default function LoginModal({
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage(
-        getRequestErrorMessage(error, "We could not sign you in. Please try again."),
-      );
-
-      triggerShake();
+      setMessage(getRequestErrorMessage(error, "Login failed. Try again."));
     } finally {
       setLoading(false);
     }
@@ -135,7 +117,7 @@ export default function LoginModal({
       onClick={onClose}
     >
       <div
-        className={`modal-panel relative mt-16 mr-4 w-full max-w-sm rounded-2xl p-6 transition-all duration-300 sm:mt-20 sm:mr-6 sm:max-w-md sm:p-8 ${isExiting ? "animate-fadeOut" : shake ? "animate-shake" : "animate-fadeIn"}`}
+        className={`modal-panel relative mt-16 mr-4 w-full max-w-sm rounded-2xl p-6 transition-all duration-300 sm:mt-20 sm:mr-6 sm:max-w-md sm:p-8 ${isExiting ? "animate-fadeOut" : "animate-fadeIn"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
@@ -157,20 +139,26 @@ export default function LoginModal({
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={handleSubmit}
+          autoComplete="off"
+          className="flex flex-col gap-4"
+        >
+          {" "}
           <input
             type="email"
             placeholder="Email"
+            autoComplete="off"
             value={email}
             required
             onChange={(e) => setEmail(e.target.value)}
             className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
-
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
+              autoComplete="new-password"
               value={password}
               required
               onChange={(e) => setPassword(e.target.value)}
@@ -188,7 +176,6 @@ export default function LoginModal({
               )}
             </button>
           </div>
-
           <div className="flex justify-end">
             <button
               type="button"
@@ -201,7 +188,6 @@ export default function LoginModal({
               Forgot password?
             </button>
           </div>
-
           <button
             type="submit"
             disabled={loading}
@@ -214,20 +200,6 @@ export default function LoginModal({
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-slate-500">
-          Don&apos;t have an account?{" "}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onOpenSignup();
-            }}
-            className="text-indigo-400 font-semibold hover:text-indigo-300"
-          >
-            Sign Up
-          </button>
-        </p>
       </div>
 
       {/* eslint-disable-next-line react/no-unknown-property */}
@@ -243,19 +215,6 @@ export default function LoginModal({
           }
         }
 
-        @keyframes shake {
-          0%,
-          100% {
-            transform: translateX(0);
-          }
-          25% {
-            transform: translateX(-6px);
-          }
-          75% {
-            transform: translateX(6px);
-          }
-        }
-
         @keyframes fadeOut {
           from {
             opacity: 1;
@@ -267,9 +226,6 @@ export default function LoginModal({
           }
         }
 
-        .animate-shake {
-          animation: shake 0.5s;
-        }
         .animate-fadeOut {
           animation: fadeOut 0.4s forwards;
         }

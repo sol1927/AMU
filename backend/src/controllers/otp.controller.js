@@ -14,7 +14,7 @@ const OTP_COOKIE_DURATION_MS = OTP_EXPIRY_MINUTES * 60 * 1000;
 
 export const requestOTP = async (req, res) => {
   try {
-    const { name, email } = req.body ?? {};
+    const { name, email, defaultEmail } = req.body ?? {};
     const normalizedName = formatFullName(name);
 
     if (!normalizedName) {
@@ -30,15 +30,38 @@ export const requestOTP = async (req, res) => {
     }
 
     const existingAdminAccount = await User.findOne({ role: "admin" });
+    const existingTempAdmin = await TempAdmin.findOne({ email });
+    const normalizedInitialEmail =
+      process.env.INITIAL_ADMIN_EMAIL?.toLowerCase().trim();
+    const storedAdminEmail = existingAdminAccount?.email?.toLowerCase().trim();
+    const providedDefaultEmail = defaultEmail?.toLowerCase().trim();
+
     if (existingAdminAccount) {
-      return res.status(403).json({
-        message:
-          "An admin account has already been created for this system. Please sign in with the existing admin account.",
-      });
+      const isBootstrapRecord = storedAdminEmail === normalizedInitialEmail;
+
+      if (isBootstrapRecord) {
+        // Security check: Only require the default email if this is the first attempt.
+        // If a TempAdmin record already exists, it means the user already passed this gate
+        // and is simply requesting a resend.
+        const isFirstAttempt = !existingTempAdmin;
+
+        if (isFirstAttempt && providedDefaultEmail !== normalizedInitialEmail) {
+          return res
+            .status(401)
+            .json({ message: "The current email is incorrect." });
+        }
+      } else {
+        return res.status(403).json({
+          message: "System initialization is already complete.",
+        });
+      }
     }
 
     const adminExists = await User.findOne({ email });
-    if (adminExists) {
+    if (
+      adminExists &&
+      (!existingAdminAccount || adminExists.id !== existingAdminAccount.id)
+    ) {
       return res.status(403).json({
         message:
           "An admin with this email already exists. Please login instead.",
@@ -246,24 +269,40 @@ export const setPassword = async (req, res) => {
     }
 
     const existingAdminAccount = await User.findOne({ role: "admin" });
-    if (existingAdminAccount) {
+    const normalizedInitialEmail =
+      process.env.INITIAL_ADMIN_EMAIL?.toLowerCase().trim();
+    const isDefaultAdminUpdate =
+      existingAdminAccount &&
+      existingAdminAccount.email.toLowerCase().trim() ===
+        normalizedInitialEmail;
+
+    if (existingAdminAccount && !isDefaultAdminUpdate) {
       await TempAdmin.deleteById(tempAdmin.id).catch(() => null);
       res.clearCookie("registerToken", {
         ...getCookieOptions(OTP_COOKIE_DURATION_MS),
         maxAge: 0,
       });
       return res.status(403).json({
-        message:
-          "An admin account has already been created for this system. Please sign in with the existing admin account.",
+        message: "System initialization is already complete.",
       });
     }
 
-    const admin = await User.create({
-      name: normalizedName,
-      email,
-      password,
-      role: "admin",
-    });
+    let admin;
+    if (isDefaultAdminUpdate) {
+      admin = await User.updateById(existingAdminAccount.id, {
+        name: normalizedName,
+        email,
+        password,
+        mustChangePassword: false,
+      });
+    } else {
+      admin = await User.create({
+        name: normalizedName,
+        email,
+        password,
+        role: "admin",
+      });
+    }
 
     await TempAdmin.deleteById(tempAdmin.id);
     res.clearCookie("registerToken", {

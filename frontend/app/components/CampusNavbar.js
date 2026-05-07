@@ -34,7 +34,6 @@ export default function CampusNavbar() {
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
-    setCurrentCampus(null);
 
     try {
       const res = await fetch(`${url}/campus/logout`, {
@@ -42,12 +41,13 @@ export default function CampusNavbar() {
         credentials: "include",
       });
 
-      if (!res.ok) {
-        return;
+      if (res.ok) {
+        setCurrentCampus(null);
+        window.location.replace("/");
       }
-
-      router.replace("/");
-    } catch {}
+    } catch {
+      setShowLogoutModal(false);
+    }
   };
 
   return (

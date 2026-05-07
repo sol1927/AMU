@@ -20,7 +20,6 @@ export default function VerifyDeviceOtp({
   const [messageType, setMessageType] = useState("error");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [shake, setShake] = useState(false);
 
   useEffect(() => {
     if (!email) {
@@ -39,16 +38,9 @@ export default function VerifyDeviceOtp({
     if (!show) {
       setOtp("");
       setMessage("");
-      setLoading(false);
       setResending(false);
-      setShake(false);
     }
   }, [show]);
-
-  const triggerShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
 
   const maskEmail = (email) => {
     if (!email) return "";
@@ -62,14 +54,13 @@ export default function VerifyDeviceOtp({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+    setLoading(true);
     if (otp.length !== 6) {
       setMessageType("error");
       setMessage("Please enter the 6-digit OTP");
-      triggerShake();
       return;
     }
 
-    setLoading(true);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -88,9 +79,11 @@ export default function VerifyDeviceOtp({
       if (!res.ok) {
         setMessageType("error");
         setMessage(
-          getApiMessage(data, "We could not verify this device. Please try again."),
+          getApiMessage(
+            data,
+            "Device verification failed. Try again.",
+          ),
         );
-        triggerShake();
         return;
       }
 
@@ -104,9 +97,11 @@ export default function VerifyDeviceOtp({
     } catch (error) {
       setMessageType("error");
       setMessage(
-        getErrorMessage(error, "We could not verify this device. Please try again."),
+        getErrorMessage(
+          error,
+          "Device verification failed. Try again.",
+        ),
       );
-      triggerShake();
     } finally {
       setLoading(false);
     }
@@ -130,9 +125,8 @@ export default function VerifyDeviceOtp({
       if (!res.ok) {
         setMessageType("error");
         setMessage(
-          getApiMessage(data, "We could not resend the verification code."),
+          getApiMessage(data, "Failed to resend code. Try again."),
         );
-        triggerShake();
         return;
       }
 
@@ -142,9 +136,8 @@ export default function VerifyDeviceOtp({
     } catch (error) {
       setMessageType("error");
       setMessage(
-        getErrorMessage(error, "We could not resend the verification code."),
+        getErrorMessage(error, "Failed to resend code. Try again."),
       );
-      triggerShake();
     } finally {
       setResending(false);
     }
@@ -158,9 +151,7 @@ export default function VerifyDeviceOtp({
       onClick={onClose}
     >
       <div
-        className={`modal-panel relative mt-20 mr-6 w-full max-w-md rounded-2xl p-8 transition-all duration-300 ${
-          shake ? "animate-shake" : "animate-fadeIn"
-        }`}
+        className={`modal-panel relative mt-20 mr-6 w-full max-w-md rounded-2xl p-8 transition-all duration-300 animate-fadeIn`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">

@@ -38,9 +38,7 @@ const attachAdminLogoToCampus = async (campus) => {
     return campus;
   }
 
-  const admin = campus.createdBy
-    ? await User.findById(campus.createdBy)
-    : null;
+  const admin = campus.createdBy ? await User.findById(campus.createdBy) : null;
 
   return {
     ...campus,
@@ -63,7 +61,10 @@ const buildFastingBreakdown = (students = []) => ({
   ).length,
 });
 
-const buildMealSummarySnapshot = (campusStudents = [], servedStudentIds = []) => {
+const buildMealSummarySnapshot = (
+  campusStudents = [],
+  servedStudentIds = [],
+) => {
   const regularStudentsList = campusStudents.filter(
     (student) => !getStudentIsInternship(student),
   );
@@ -149,7 +150,10 @@ const resolveActualMealWindow = async ({
   let closedAt = appliedWindow.actualClosedAt || null;
   const storedClosedAt = closedAt;
   const queryDayString = getDayString(queryDate);
-  const appliedStartAt = getAppliedWindowDate(queryDayString, appliedWindow.start);
+  const appliedStartAt = getAppliedWindowDate(
+    queryDayString,
+    appliedWindow.start,
+  );
   const appliedEndAt = getAppliedWindowDate(queryDayString, appliedWindow.end);
   const capOpenedAt = (value) => {
     if (!value) return null;
@@ -397,7 +401,11 @@ export const getMeals = async (req, res) => {
           onlineSince: campus.lastActiveAt,
         }).catch(() => null)) || meal;
     }
-    const snapshotCutoff = await getMealSnapshotCutoff(campus.id, mealType, queryDate);
+    const snapshotCutoff = await getMealSnapshotCutoff(
+      campus.id,
+      mealType,
+      queryDate,
+    );
     const sessionWindow = meal?.appliedWindow
       ? (() => {
           return {
@@ -406,7 +414,9 @@ export const getMeals = async (req, res) => {
           };
         })()
       : await getMealSessionWindow(campus.id, mealType, queryDate);
-    const trackingStartAt = campus.createdAt ? new Date(campus.createdAt) : null;
+    const trackingStartAt = campus.createdAt
+      ? new Date(campus.createdAt)
+      : null;
     const isBeforeSystemStart =
       Boolean(snapshotCutoff && sessionWindow?.end && trackingStartAt) &&
       sessionWindow.end < trackingStartAt;
@@ -433,7 +443,10 @@ export const getMeals = async (req, res) => {
     let summarySnapshot = meal?.summarySnapshot || null;
     if (isLiveSession && !summarySnapshot) {
       const campusStudents = await CafeStudent.findAll(studentCampusQuery);
-      summarySnapshot = buildMealSummarySnapshot(campusStudents, meal?.students || []);
+      summarySnapshot = buildMealSummarySnapshot(
+        campusStudents,
+        meal?.students || [],
+      );
     }
     if (
       shouldUseStoredHistoryOnly &&
@@ -464,9 +477,10 @@ export const getMeals = async (req, res) => {
               ? "snapshot_missing"
               : null;
 
-    const mealSchedule = hasSnapshotData || sessionStatus === "not_opened"
-      ? await getMealScheduleAt(campus.id, queryDate)
-      : null;
+    const mealSchedule =
+      hasSnapshotData || sessionStatus === "not_opened"
+        ? await getMealScheduleAt(campus.id, queryDate)
+        : null;
     const campusSnapshot = meal?.campusSnapshot || null;
 
     res.json({
@@ -488,19 +502,19 @@ export const getMeals = async (req, res) => {
           ? (summarySnapshot?.internshipStudents ?? null)
           : null,
         fastingBreakdown: hasSnapshotData
-          ? (summarySnapshot?.fastingBreakdown || null)
+          ? summarySnapshot?.fastingBreakdown || null
           : null,
         regularFastingBreakdown: hasSnapshotData
-          ? (summarySnapshot?.regularFastingBreakdown || null)
+          ? summarySnapshot?.regularFastingBreakdown || null
           : null,
         internshipFastingBreakdown: hasSnapshotData
-          ? (summarySnapshot?.internshipFastingBreakdown || null)
+          ? summarySnapshot?.internshipFastingBreakdown || null
           : null,
         servedFastingBreakdown: hasSnapshotData
-          ? (summarySnapshot?.servedFastingBreakdown || null)
+          ? summarySnapshot?.servedFastingBreakdown || null
           : null,
         notServedFastingBreakdown: hasSnapshotData
-          ? (summarySnapshot?.pendingFastingBreakdown || null)
+          ? summarySnapshot?.pendingFastingBreakdown || null
           : null,
         servedStudents: hasSnapshotData
           ? (summarySnapshot?.servedStudents ?? null)
@@ -552,10 +566,13 @@ export const getMealFilters = async (req, res) => {
               ? b.year - a.year
               : String(b.semester).localeCompare(String(a.semester)),
           )
-          .map((meal) => [`${meal.year}-${meal.semester}`, {
-            year: meal.year,
-            semester: meal.semester,
-          }]),
+          .map((meal) => [
+            `${meal.year}-${meal.semester}`,
+            {
+              year: meal.year,
+              semester: meal.semester,
+            },
+          ]),
       ).values(),
     );
 

@@ -1,4 +1,4 @@
-import { dbConnection } from "../server.js";
+import { getDB } from "../config/db.js";
 import { mapRow, mapRows } from "./modelUtils.js";
 
 const mapMealScheduleRow = (row) => ({
@@ -24,7 +24,7 @@ const createTable = async () => {
       FOREIGN KEY (campusId) REFERENCES campuses(id)
     );
   `;
-  await dbConnection.execute(query);
+  await getDB().execute(query);
 };
 
 const findAll = async (filter = {}) => {
@@ -35,12 +35,12 @@ const findAll = async (filter = {}) => {
     query += " AND campusId = ?";
     params.push(filter.campusId);
   }
-  const [rows] = await dbConnection.execute(query, params);
+  const [rows] = await getDB().execute(query, params);
   return mapRows(rows, mapMealScheduleRow);
 };
 
 const findById = async (id) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     "SELECT id, scheduleKey AS `key`, campusId, breakfast, lunch, dinner, createdAt, updatedAt FROM meal_schedules WHERE id = ?",
     [id],
   );
@@ -69,7 +69,7 @@ const create = async (data) => {
     JSON.stringify(lunch),
     JSON.stringify(dinner),
   ];
-  const [result] = await dbConnection.execute(query, params);
+  const [result] = await getDB().execute(query, params);
   return { id: result.insertId, ...data };
 };
 
@@ -99,12 +99,12 @@ const updateById = async (id, data) => {
   if (fields.length === 0) return null;
   const query = `UPDATE meal_schedules SET ${fields.join(", ")} WHERE id = ?`;
   params.push(id);
-  await dbConnection.execute(query, params);
+  await getDB().execute(query, params);
   return findById(id);
 };
 
 const deleteById = async (id) => {
-  await dbConnection.execute("DELETE FROM meal_schedules WHERE id = ?", [id]);
+  await getDB().execute("DELETE FROM meal_schedules WHERE id = ?", [id]);
 };
 
 export {

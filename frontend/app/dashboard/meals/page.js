@@ -555,7 +555,8 @@ export default function MealsPage() {
                       <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
                         Applied time:{" "}
                         <span className="font-bold">
-                          {mealSummary.appliedMealWindow?.label || "--:-- - --:--"}
+                          {mealSummary.appliedMealWindow?.label ||
+                            "--:-- - --:--"}
                         </span>
                       </div>
                       <div
@@ -567,7 +568,9 @@ export default function MealsPage() {
                           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
                             Cafe opening time:{" "}
                             <span className="font-bold">
-                              {formatDateTime(mealSummary.actualMealWindow?.openedAt)}
+                              {formatDateTime(
+                                mealSummary.actualMealWindow?.openedAt,
+                              )}
                             </span>
                           </div>
                         )}
@@ -676,7 +679,9 @@ export default function MealsPage() {
                                 : "bg-emerald-50/70 ring-emerald-200 hover:bg-emerald-50"
                             }`}
                           >
-                            <p className="text-sm text-emerald-700">Served Today</p>
+                            <p className="text-sm text-emerald-700">
+                              Served Today
+                            </p>
                             <p className="text-xs text-slate-400">
                               {snapshotMealLabel}
                             </p>
@@ -780,41 +785,41 @@ export default function MealsPage() {
                               </div>
                             </div>
                             <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                                Fasting
-                              </p>
-                              <p className="mt-4 text-2xl font-black leading-none text-amber-800 tabular-nums">
-                                {activeBreakdown?.fasting ?? 0}
-                              </p>
-                            </div>
+                              <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                                  Fasting
+                                </p>
+                                <p className="mt-4 text-2xl font-black leading-none text-amber-800 tabular-nums">
+                                  {activeBreakdown?.fasting ?? 0}
+                                </p>
+                              </div>
 
-                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
-                                Sunday Fasting
-                              </p>
-                              <p className="mt-4 text-2xl font-black leading-none text-violet-800 tabular-nums">
-                                {activeBreakdown?.sundayFasting ?? 0}
-                              </p>
-                            </div>
+                              <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                                  Sunday Fasting
+                                </p>
+                                <p className="mt-4 text-2xl font-black leading-none text-violet-800 tabular-nums">
+                                  {activeBreakdown?.sundayFasting ?? 0}
+                                </p>
+                              </div>
 
-                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                                Muslim Fasting
-                              </p>
-                              <p className="mt-4 text-2xl font-black leading-none text-emerald-800 tabular-nums">
-                                {activeBreakdown?.muslimFasting ?? 0}
-                              </p>
-                            </div>
+                              <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                                  Muslim Fasting
+                                </p>
+                                <p className="mt-4 text-2xl font-black leading-none text-emerald-800 tabular-nums">
+                                  {activeBreakdown?.muslimFasting ?? 0}
+                                </p>
+                              </div>
 
-                            <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-slate-100 p-4 ring-1 ring-slate-200">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-                                Not Fasting
-                              </p>
-                              <p className="mt-4 text-2xl font-black leading-none text-slate-900 tabular-nums">
-                                {activeBreakdown?.notFasting ?? 0}
-                              </p>
-                            </div>
+                              <div className="flex min-h-[132px] flex-col justify-between rounded-2xl bg-slate-100 p-4 ring-1 ring-slate-200">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                                  Not Fasting
+                                </p>
+                                <p className="mt-4 text-2xl font-black leading-none text-slate-900 tabular-nums">
+                                  {activeBreakdown?.notFasting ?? 0}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -825,9 +830,7 @@ export default function MealsPage() {
                           {getEmptyStateMessage()}
                         </div>
                       ) : null
-                    ) : (
-                      null
-                    )}
+                    ) : null}
                   </div>
                 </>
               ) : (

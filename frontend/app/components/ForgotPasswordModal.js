@@ -10,7 +10,6 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
   const [loading, setLoading] = useState(false);
-  const [shake, setShake] = useState(false);
 
   useEffect(() => {
     if (!message) return;
@@ -24,11 +23,6 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       setMessage("");
     }
   }, [show]);
-
-  const triggerShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,9 +45,8 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       if (!res.ok) {
         setMessageType("error");
         setMessage(
-          getApiMessage(data, "We could not send the reset link right now."),
+          getApiMessage(data, "Failed to send link. Try again."),
         );
-        triggerShake();
       } else {
         setMessageType("success");
         setMessage(
@@ -72,9 +65,8 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       clearTimeout(timeoutId);
       setMessageType("error");
       setMessage(
-        getErrorMessage(error, "We could not send the reset link right now."),
+        getErrorMessage(error, "Failed to send link. Try again."),
       );
-      triggerShake();
     } finally {
       setLoading(false);
     }
@@ -88,9 +80,7 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
       onClick={onClose}
     >
       <div
-        className={`modal-panel relative mt-20 mr-4 w-full max-w-sm rounded-2xl p-6 transition-all duration-300 sm:mt-24 sm:mr-6 sm:max-w-md sm:p-8 ${
-          shake ? "animate-shake" : "animate-fadeIn"
-        }`}
+        className={`modal-panel relative mt-20 mr-4 w-full max-w-sm rounded-2xl p-6 transition-all duration-300 sm:mt-24 sm:mr-6 sm:max-w-md sm:p-8 animate-fadeIn`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-3 text-center text-2xl font-bold text-slate-900">
@@ -160,22 +150,6 @@ export default function ForgotPasswordModal({ show, onClose, onOpenLogin }) {
           }
         }
 
-        @keyframes shake {
-          0%,
-          100% {
-            transform: translateX(0);
-          }
-          25% {
-            transform: translateX(-6px);
-          }
-          75% {
-            transform: translateX(6px);
-          }
-        }
-
-        .animate-shake {
-          animation: shake 0.5s;
-        }
       `}</style>
     </div>
   );

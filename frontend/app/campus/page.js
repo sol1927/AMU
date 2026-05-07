@@ -1,27 +1,40 @@
 "use client";
 
 import { React, useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import { useCampus } from "@/app/context/CampusContext";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 const getInitialDashboardSession = () => {
-  const hour = new Date().getHours();
+  const breakfastLabel = "\u1241\u122d\u1235";
+  const lunchLabel = "\u121d\u1233";
+  const dinnerLabel = "\u12a5\u122b\u1275";
+  const current = new Date();
+  const currentMinutes = current.getHours() * 60 + current.getMinutes();
 
-  if (hour >= 17) {
-    return { mealType: "dinner", mealLabel: "እራት" };
+  if (currentMinutes >= 17 * 60) {
+    return { mealType: "dinner", mealLabel: dinnerLabel };
   }
 
-  if (hour >= 11) {
-    return { mealType: "lunch", mealLabel: "ምሳ" };
+  if (currentMinutes >= 14 * 60) {
+    return { mealType: "dinner", mealLabel: dinnerLabel };
   }
 
-  if (hour >= 6) {
-    return { mealType: "breakfast", mealLabel: "ቁርስ" };
+  if (currentMinutes >= 11 * 60) {
+    return { mealType: "lunch", mealLabel: lunchLabel };
   }
 
-  return { mealType: "dinner", mealLabel: "እራት" };
+  if (currentMinutes >= 9 * 60) {
+    return { mealType: "lunch", mealLabel: lunchLabel };
+  }
+
+  if (currentMinutes >= 6 * 60) {
+    return { mealType: "breakfast", mealLabel: breakfastLabel };
+  }
+
+  return { mealType: "breakfast", mealLabel: breakfastLabel };
 };
 
 const capitalizeWords = (str) => {
@@ -33,6 +46,7 @@ const capitalizeWords = (str) => {
 };
 
 export default function CampusDashboardPage() {
+  const router = useRouter();
   const { currentCampus, loading } = useCampus();
   const [detailMode, setDetailMode] = useState("regular");
   const initialSession = getInitialDashboardSession();
@@ -162,6 +176,12 @@ export default function CampusDashboardPage() {
     return () => window.removeEventListener("offline", handleOffline);
   }, []);
 
+  useEffect(() => {
+    if (!loading && !currentCampus) {
+      router.replace("/");
+    }
+  }, [currentCampus, loading, router]);
+
   const getBreakdownTitle = () => {
     switch (detailMode) {
       case "internship":
@@ -209,9 +229,12 @@ export default function CampusDashboardPage() {
 
   if (!currentCampus) {
     return (
-      <p className="mt-24 p-6 text-center text-red-600">
-        Campus data not found. Please log in again.
-      </p>
+      <div className="page-shell flex h-screen w-full items-center justify-center">
+        <div className="relative flex items-center justify-center">
+          <div className="h-12 w-12 rounded-full border-4 border-slate-200"></div>
+          <div className="absolute h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-blue-600"></div>
+        </div>
+      </div>
     );
   }
 
@@ -219,7 +242,8 @@ export default function CampusDashboardPage() {
     <>
       <CampusNavbar />
       <div className="page-shell min-h-screen px-6 pb-12 pt-20 md:px-20 md:pt-28">
-        <section className="mb-12 text-center">
+        <section className="mb-12">
+          <div className="text-center">
           <h1 className="mb-4 text-3xl font-extrabold md:text-5xl">
             Welcome,{" "}
             <span className="text-blue-600">
@@ -232,45 +256,68 @@ export default function CampusDashboardPage() {
           <p className="mt-3 inline-flex rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 ring-1 ring-blue-200">
             Current Dashboard Session: {stats.mealLabel}
           </p>
+          </div>
         </section>
 
-        <section className="mx-auto mb-8 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="surface-card rounded-3xl p-8 transition-transform hover:-translate-y-1">
-            <h3 className="mb-2 text-lg font-semibold text-blue-600">
-              Total Students ({stats.mealLabel})
-            </h3>
-            <p className="text-4xl font-bold md:text-5xl">
-              {stats.totalStudents}
-            </p>
+        <section className="mx-auto mb-8 grid max-w-6xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_280px]">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="surface-card rounded-3xl p-8 transition-transform hover:-translate-y-1">
+              <h3 className="mb-2 text-lg font-semibold text-blue-600">
+                Total Students ({stats.mealLabel})
+              </h3>
+              <p className="text-4xl font-bold md:text-5xl">
+                {stats.totalStudents}
+              </p>
+            </div>
+
+            <div className="surface-card rounded-3xl p-8 transition-transform hover:-translate-y-1">
+              <h3 className="mb-2 text-lg font-semibold text-sky-600">
+                Regular Students ({stats.mealLabel})
+              </h3>
+              <p className="text-4xl font-bold md:text-5xl">
+                {stats.regularStudents}
+              </p>
+            </div>
+
+            <div className="surface-card rounded-3xl p-8 transition-transform hover:-translate-y-1">
+              <h3 className="mb-2 text-lg font-semibold text-fuchsia-600">
+                Internship Students ({stats.mealLabel})
+              </h3>
+              <p className="text-4xl font-bold md:text-5xl">
+                {stats.internshipStudents}
+              </p>
+            </div>
           </div>
 
-          <div className="surface-card rounded-3xl p-8 transition-transform hover:-translate-y-1">
-            <h3 className="mb-2 text-lg font-semibold text-sky-600">
-              Regular Students ({stats.mealLabel})
-            </h3>
-            <p className="text-4xl font-bold md:text-5xl">
-              {stats.regularStudents}
-            </p>
-          </div>
+          <aside className="surface-panel flex flex-col justify-between rounded-3xl p-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Quick Action
+              </p>
+              <h2 className="mt-3 text-2xl font-bold text-slate-900">
+                Refresh Dashboard
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Pull the latest scan totals and session status for{" "}
+                {stats.mealLabel}.
+              </p>
+            </div>
 
-          <div className="surface-card rounded-3xl p-8 transition-transform hover:-translate-y-1">
-            <h3 className="mb-2 text-lg font-semibold text-fuchsia-600">
-              Internship Students ({stats.mealLabel})
-            </h3>
-            <p className="text-4xl font-bold md:text-5xl">
-              {stats.internshipStudents}
-            </p>
-          </div>
-
-          <div className="surface-card rounded-3xl p-8 transition-transform hover:-translate-y-1">
-            <h3 className="mb-2 text-lg font-semibold text-emerald-600">
-              Served
-              <div>({stats.mealLabel})</div>
-            </h3>
-            <p className="text-4xl font-bold md:text-5xl">
-              {stats.servedStudents}
-            </p>
-          </div>
+            <button
+              onClick={() => fetchDashboardStats(true)}
+              disabled={isRefreshing}
+              className={`mt-6 flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 shadow-lg transition active:scale-95 ${
+                isRefreshing
+                  ? "cursor-not-allowed bg-slate-300 text-slate-600"
+                  : "app-primary-btn hover:-translate-y-0.5"
+              }`}
+            >
+              {isRefreshing && (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+              )}
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </aside>
         </section>
 
         <section className="mx-auto mb-8 grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -410,25 +457,6 @@ export default function CampusDashboardPage() {
           </div>
         </section>
 
-        <div className="mx-auto mb-4 max-w-4xl">
-          <div className="flex justify-end">
-            <button
-              onClick={() => fetchDashboardStats(true)}
-              disabled={isRefreshing}
-              className={`flex items-center gap-2 rounded-xl px-6 py-3 shadow-lg transition active:scale-95 ${
-                isRefreshing
-                  ? "cursor-not-allowed bg-slate-300 text-slate-600"
-                  : "app-primary-btn hover:-translate-y-0.5"
-              }`}
-            >
-              {isRefreshing && (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-              )}
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-        </div>
-
         <section className="mx-auto mb-10 max-w-4xl">
           <div className="surface-panel rounded-3xl p-6">
             <h2 className="mb-4 text-2xl font-bold text-slate-900">
@@ -467,3 +495,4 @@ export default function CampusDashboardPage() {
     </>
   );
 }
+

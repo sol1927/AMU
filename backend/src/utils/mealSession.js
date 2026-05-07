@@ -200,7 +200,7 @@ export const getMealScheduleAt = async (
 };
 
 export const getCurrentMealType = async (campusId, currentDate = new Date()) => {
-  const schedule = await getMealScheduleAt(campusId, currentDate);
+  const schedule = await getMealSchedule(campusId);
   const currentMinutes = getMinutesFromDate(currentDate);
 
   for (const mealType of MEAL_ORDER) {
@@ -222,15 +222,19 @@ export const getDashboardMealContext = async (
   campusId,
   currentDate = new Date(),
 ) => {
-  const schedule = await getMealScheduleAt(campusId, currentDate);
+  const schedule = await getMealSchedule(campusId);
   const current = new Date(currentDate);
   const currentMinutes = getMinutesFromDate(current);
 
-  const dinnerStart = parseTimeToMinutes(schedule.dinner.start);
-  const lunchStart = parseTimeToMinutes(schedule.lunch.start);
-  const breakfastStart = parseTimeToMinutes(schedule.breakfast.start);
+  const breakfastStart = parseTimeToMinutes(schedule.breakfast?.start);
+  const lunchStart = parseTimeToMinutes(schedule.lunch?.start);
+  const dinnerStart = parseTimeToMinutes(schedule.dinner?.start);
 
-  if (currentMinutes >= dinnerStart) {
+  if (
+    dinnerStart !== null &&
+    breakfastStart !== null &&
+    (currentMinutes >= dinnerStart || currentMinutes < breakfastStart)
+  ) {
     return {
       mealType: "dinner",
       label: getMealLabel("dinner"),
@@ -238,7 +242,12 @@ export const getDashboardMealContext = async (
     };
   }
 
-  if (currentMinutes >= lunchStart) {
+  if (
+    lunchStart !== null &&
+    dinnerStart !== null &&
+    currentMinutes >= lunchStart &&
+    currentMinutes < dinnerStart
+  ) {
     return {
       mealType: "lunch",
       label: getMealLabel("lunch"),
@@ -246,7 +255,12 @@ export const getDashboardMealContext = async (
     };
   }
 
-  if (currentMinutes >= breakfastStart) {
+  if (
+    breakfastStart !== null &&
+    lunchStart !== null &&
+    currentMinutes >= breakfastStart &&
+    currentMinutes < lunchStart
+  ) {
     return {
       mealType: "breakfast",
       label: getMealLabel("breakfast"),
@@ -254,13 +268,10 @@ export const getDashboardMealContext = async (
     };
   }
 
-  const previousDay = new Date(current);
-  previousDay.setDate(previousDay.getDate() - 1);
-
   return {
-    mealType: "dinner",
-    label: getMealLabel("dinner"),
-    targetDate: previousDay,
+    mealType: "breakfast",
+    label: getMealLabel("breakfast"),
+    targetDate: current,
   };
 };
 
@@ -378,7 +389,7 @@ export const syncCampusLiveMealWindow = async (
   const targetDay = new Date(currentDate);
   targetDay.setHours(0, 0, 0, 0);
   const targetDayString = getDayString(targetDay);
-  const mealSchedule = await getMealScheduleAt(campusId, currentDate);
+  const mealSchedule = await getMealSchedule(campusId);
   const appliedWindow = mealSchedule?.[currentMealType];
   const campusRecord = await Campus.findById(campusId);
   const campusStudents = campusRecord

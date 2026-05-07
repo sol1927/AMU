@@ -57,7 +57,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
         throw new Error(
           getFriendlyMessage(
             data.message,
-            "We could not send the code. Please try again.",
+            "Failed to send code. Try again.",
           ),
         );
       }
@@ -69,7 +69,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
         err?.message ||
           getRequestErrorMessage(
             err,
-            "We could not send the code. Please try again.",
+            "Failed to send code. Try again.",
           ),
       );
     } finally {
@@ -107,7 +107,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
         throw new Error(
           getFriendlyMessage(
             data.message,
-            "We could not verify the code. Please try again.",
+            "Verification failed. Try again.",
           ),
         );
       }
@@ -123,7 +123,7 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
         err?.message ||
           getRequestErrorMessage(
             err,
-            "We could not verify the code. Please try again.",
+            "Verification failed. Try again.",
           ),
       );
     } finally {
@@ -132,15 +132,14 @@ export default function EmailChangeModal({ onClose, setCurrentUser }) {
   };
 
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
-      <div className="modal-panel relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl p-4 shadow-lg animate-fadeIn sm:w-96">
-        {" "}
-        <button
-          onClick={onClose}
-          className="absolute right-3 top-3 text-slate-400 transition hover:text-slate-700"
-        >
-          ✕
-        </button>
+    <div
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="modal-panel relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl p-4 shadow-lg animate-fadeIn sm:w-96"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="mb-4 text-center text-xl font-bold text-slate-900">
           Change Email
         </h2>

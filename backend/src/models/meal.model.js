@@ -1,4 +1,4 @@
-import { dbConnection } from "../server.js";
+import { getDB } from "../config/db.js";
 import { mapRow, mapRows, parseJsonField } from "./modelUtils.js";
 
 const mapMealRow = (row) => ({
@@ -11,7 +11,7 @@ const mapMealRow = (row) => ({
 });
 
 const addColumnIfMissing = async (tableName, columnName, definition) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     `
       SELECT 1
       FROM INFORMATION_SCHEMA.COLUMNS
@@ -27,7 +27,7 @@ const addColumnIfMissing = async (tableName, columnName, definition) => {
     return;
   }
 
-  await dbConnection.execute(
+  await getDB().execute(
     `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`,
   );
 };
@@ -52,7 +52,7 @@ const createTable = async () => {
       FOREIGN KEY (campus) REFERENCES campuses(id)
     );
   `;
-  await dbConnection.execute(query);
+  await getDB().execute(query);
   await addColumnIfMissing("meals", "campusSnapshot", "JSON NULL");
   await addColumnIfMissing("meals", "studentSnapshots", "JSON NULL");
   await addColumnIfMissing("meals", "summarySnapshot", "JSON NULL");
@@ -81,12 +81,12 @@ const findAll = async (filter = {}) => {
     query += " AND semester = ?";
     params.push(filter.semester);
   }
-  const [rows] = await dbConnection.execute(query, params);
+  const [rows] = await getDB().execute(query, params);
   return mapRows(rows, mapMealRow);
 };
 
 const findById = async (id) => {
-  const [rows] = await dbConnection.execute(
+  const [rows] = await getDB().execute(
     "SELECT * FROM meals WHERE id = ?",
     [id],
   );
@@ -125,7 +125,7 @@ const create = async (data) => {
     JSON.stringify(summarySnapshot),
     JSON.stringify(students),
   ];
-  const [result] = await dbConnection.execute(query, params);
+  const [result] = await getDB().execute(query, params);
   return { id: result.insertId, ...data };
 };
 
@@ -175,12 +175,12 @@ const updateById = async (id, data) => {
   if (fields.length === 0) return null;
   const query = `UPDATE meals SET ${fields.join(", ")} WHERE id = ?`;
   params.push(id);
-  await dbConnection.execute(query, params);
+  await getDB().execute(query, params);
   return findById(id);
 };
 
 const deleteById = async (id) => {
-  await dbConnection.execute("DELETE FROM meals WHERE id = ?", [id]);
+  await getDB().execute("DELETE FROM meals WHERE id = ?", [id]);
 };
 
 export {

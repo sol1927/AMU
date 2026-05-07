@@ -53,11 +53,12 @@ export default function ConfirmCampusPasswordModal({
     onConfirm(enteredPassword);
   };
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center" onClick={onCancel}>
       <form
         ref={modalRef}
         onSubmit={handleSubmit}
         className="modal-panel flex w-full max-w-xs flex-col gap-4 rounded-2xl p-6 animate-fadeIn"
+        onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-center text-lg font-semibold text-slate-900">
           Confirm Campus Password

@@ -39,7 +39,13 @@ export default function DashboardLayout({ children }) {
     fetchDashboard();
   }, [router]);
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !currentUser) {
+      router.replace("/");
+    }
+  }, [currentUser, loading, router]);
+
+  if (loading || !currentUser) {
     return (
       <div className="page-shell flex h-screen w-full items-center justify-center">
         <div className="relative">
