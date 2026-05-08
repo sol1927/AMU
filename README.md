@@ -85,8 +85,7 @@ cp frontend/.env.example frontend/.env.local
 - `SALT_ROUNDS`: bcrypt cost factor such as `10` or `12`
 - `INITIAL_ADMIN_EMAIL`: email used by `npm run seed` to create the first admin account
 - `INITIAL_ADMIN_PASSWORD`: password used by `npm run seed` to create the first admin account
-- `EMAIL_USER`: SMTP sender email
-- `EMAIL_PASS`: SMTP password or app password
+- `RESEND_API_KEY`: Use resend api key
 
 ### Frontend variables
 
@@ -116,8 +115,7 @@ JWT_SECRET=replace_with_a_long_random_development_secret
 SALT_ROUNDS=10
 INITIAL_ADMIN_EMAIL=admin@example.com
 INITIAL_ADMIN_PASSWORD=change_me_on_first_login
-EMAIL_USER=email@gmail.com
-EMAIL_PASS=email-app-password
+RESEND_API_KEY=resend-api-key
 ```
 
 Backend production example:
@@ -142,8 +140,7 @@ JWT_SECRET=replace_with_a_long_random_production_secret
 SALT_ROUNDS=12
 INITIAL_ADMIN_EMAIL=admin@domain.com
 INITIAL_ADMIN_PASSWORD=change_me_on_first_login
-EMAIL_USER=notifications@example.com
-EMAIL_PASS=production-email-password
+RESEND_API_KEY=resend-api-key
 ```
 
 Frontend development example:
