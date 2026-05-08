@@ -14,7 +14,7 @@ const OTP_COOKIE_DURATION_MS = OTP_EXPIRY_MINUTES * 60 * 1000;
 
 export const requestOTP = async (req, res) => {
   try {
-    const { name, email, defaultEmail } = req.body ?? {};
+    const { name, email } = req.body ?? {};
     const normalizedName = formatFullName(name);
 
     if (!normalizedName) {
@@ -34,35 +34,11 @@ export const requestOTP = async (req, res) => {
       process.env.INITIAL_ADMIN_EMAIL?.toLowerCase().trim();
     const storedAdminEmail = existingAdminAccount?.email?.toLowerCase().trim();
 
-    const existingTempAdmin = await TempAdmin.findOne({ email });
-
-    
-
-
     // BLOCK ONLY IF SYSTEM IS ALREADY FINISHED
     if (existingAdminAccount && storedAdminEmail !== normalizedInitialEmail) {
       return res.status(403).json({
         message: "System initialization is already complete.",
       });
-    }
-
-    // ONLY CHECK DEFAULT EMAIL ON FIRST REQUEST (NOT RESEND)
-    const isFirstRequest = !existingTempAdmin;
-
-    if (isFirstRequest && existingAdminAccount) {
-      const providedDefaultEmail = defaultEmail?.toLowerCase().trim();
-
-      if (providedDefaultEmail !== normalizedInitialEmail) {
-        return res.status(401).json({
-          message: "The default email is incorrect.",
-        });
-      }
-
-      if (email.toLowerCase().trim() === providedDefaultEmail) {
-        return res.status(400).json({
-          message: "New email must be different from current email.",
-        });
-      }
     }
 
     const adminExists = await User.findOne({ email });

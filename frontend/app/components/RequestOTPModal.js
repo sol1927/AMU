@@ -14,7 +14,6 @@ export default function RequestOTPModal({
   onSuccess,
 }) {
   const { email, setEmail, name, setName } = useTempAdmin();
-  const [defaultEmail, setDefaultEmail] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("error");
   const [loading, setLoading] = useState(false);
@@ -24,7 +23,6 @@ export default function RequestOTPModal({
     if (show) {
       setName("");
       setEmail("");
-      setDefaultEmail("");
       setMessage("");
     }
   }, [show]);
@@ -44,18 +42,9 @@ export default function RequestOTPModal({
     e.preventDefault();
     setMessage("");
 
-    if (!name?.trim() || !email?.trim() || !defaultEmail?.trim()) {
+    if (!name?.trim() || !email?.trim()) {
       setMessageType("error");
       setMessage("All fields are required");
-      triggerShake();
-      return;
-    }
-
-    const normalize = (v) => v?.trim().toLowerCase();
-
-    if (normalize(email) === normalize(defaultEmail)) {
-      setMessageType("error");
-      setMessage("New email cannot be same as current email");
       triggerShake();
       return;
     }
@@ -72,7 +61,6 @@ export default function RequestOTPModal({
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
-          defaultEmail: defaultEmail.trim(),
         }),
         credentials: "include",
         signal: controller.signal,
@@ -127,7 +115,7 @@ export default function RequestOTPModal({
           Update Admin Account
         </h2>
         <p className="mb-6 text-center text-sm text-slate-500">
-          Enter the default credentials and your new email
+          Enter your name and new email{" "}
         </p>
 
         {message && (
@@ -149,16 +137,6 @@ export default function RequestOTPModal({
             onChange={(e) => setName(e.target.value)}
             autoComplete="off"
             placeholder="Name"
-            required
-            className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-          />
-
-          <input
-            type="email"
-            value={defaultEmail}
-            onChange={(e) => setDefaultEmail(e.target.value)}
-            autoComplete="off"
-            placeholder="Current Email"
             required
             className="modal-input w-full rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
