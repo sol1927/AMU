@@ -4,7 +4,10 @@ import Meal from "../models/meal.model.js";
 import Campus from "../models/campus.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import { getStudentCampusQuery } from "./campusId.js";
-import { getStudentFastingType, getStudentIsInternship } from "./studentDefaults.js";
+import {
+  getStudentFastingType,
+  getStudentIsInternship,
+} from "./studentDefaults.js";
 
 export const DEFAULT_MEAL_SCHEDULE = {
   breakfast: { start: "06:00", end: "09:00" },
@@ -42,7 +45,10 @@ const createCampusSnapshot = (campus = {}) => ({
   location: campus.location || "",
 });
 
-const buildMealSummarySnapshot = (campusStudents = [], servedStudentIds = []) => {
+const buildMealSummarySnapshot = (
+  campusStudents = [],
+  servedStudentIds = [],
+) => {
   const regularStudentsList = campusStudents.filter(
     (student) => !getStudentIsInternship(student),
   );
@@ -109,7 +115,9 @@ export const formatTimeLabel = (value) => value || "--:--";
 export const getMealWindowLabel = (mealWindow = {}) =>
   `${formatTimeLabel(mealWindow.start)} - ${formatTimeLabel(mealWindow.end)}`;
 
-export const formatMealScheduleForResponse = (schedule = DEFAULT_MEAL_SCHEDULE) =>
+export const formatMealScheduleForResponse = (
+  schedule = DEFAULT_MEAL_SCHEDULE,
+) =>
   MEAL_ORDER.reduce((accumulator, mealType) => {
     const mealWindow = schedule[mealType] || DEFAULT_MEAL_SCHEDULE[mealType];
 
@@ -181,25 +189,31 @@ export const getMealScheduleAt = async (
     return baseSchedule;
   }
 
-  return MEAL_ORDER.reduce((schedule, mealType) => {
-    const meal = meals.find((entry) => entry.mealType === mealType);
-    const appliedWindow = meal?.appliedWindow;
+  return MEAL_ORDER.reduce(
+    (schedule, mealType) => {
+      const meal = meals.find((entry) => entry.mealType === mealType);
+      const appliedWindow = meal?.appliedWindow;
 
-    if (!appliedWindow?.start || !appliedWindow?.end) {
+      if (!appliedWindow?.start || !appliedWindow?.end) {
+        return schedule;
+      }
+
+      schedule[mealType] = {
+        start: appliedWindow.start,
+        end: appliedWindow.end,
+        label: getMealWindowLabel(appliedWindow),
+      };
+
       return schedule;
-    }
-
-    schedule[mealType] = {
-      start: appliedWindow.start,
-      end: appliedWindow.end,
-      label: getMealWindowLabel(appliedWindow),
-    };
-
-    return schedule;
-  }, { ...baseSchedule });
+    },
+    { ...baseSchedule },
+  );
 };
 
-export const getCurrentMealType = async (campusId, currentDate = new Date()) => {
+export const getCurrentMealType = async (
+  campusId,
+  currentDate = new Date(),
+) => {
   const schedule = await getMealSchedule(campusId);
   const currentMinutes = getMinutesFromDate(currentDate);
 
@@ -321,7 +335,9 @@ export const getMealSessionStatusSync = (
 export const CAMPUS_LIVE_WINDOW_MS = 5 * 60 * 1000;
 
 export const isCampusLiveNow = (campus, currentDate = new Date()) => {
-  const lastActiveAt = campus?.lastActiveAt ? new Date(campus.lastActiveAt) : null;
+  const lastActiveAt = campus?.lastActiveAt
+    ? new Date(campus.lastActiveAt)
+    : null;
 
   return (
     Boolean(campus?.isOnline) &&
@@ -443,10 +459,8 @@ export const syncCampusLiveMealWindow = async (
         ...existingAppliedWindow,
         start: existingAppliedWindow.start || appliedWindow.start,
         end: existingAppliedWindow.end || appliedWindow.end,
-        label:
-          existingAppliedWindow.label || getMealWindowLabel(appliedWindow),
-        actualOpenedAt:
-          existingAppliedWindow.actualOpenedAt || actualOpenedAt,
+        label: existingAppliedWindow.label || getMealWindowLabel(appliedWindow),
+        actualOpenedAt: existingAppliedWindow.actualOpenedAt || actualOpenedAt,
         actualClosedAt: null,
       },
       campusSnapshot: existingMeal.campusSnapshot || campusSnapshot,
@@ -499,7 +513,11 @@ export const getMealSnapshotCutoff = async (
     return null;
   }
 
-  const sessionWindow = getMealSessionWindowSync(mealType, targetDate, schedule);
+  const sessionWindow = getMealSessionWindowSync(
+    mealType,
+    targetDate,
+    schedule,
+  );
   if (!sessionWindow) {
     return null;
   }
@@ -517,7 +535,10 @@ export const finalizeExpiredStationScans = async (
 ) => {
   const schedule = await getMealScheduleAt(campusId, currentDate);
   const stationScans = await StationScan.findAll({ campus: campusId });
-  const dashboardMealContext = await getDashboardMealContext(campusId, currentDate);
+  const dashboardMealContext = await getDashboardMealContext(
+    campusId,
+    currentDate,
+  );
   const activeDashboardMealType = dashboardMealContext?.mealType || null;
   const activeDashboardDayString = dashboardMealContext?.targetDate
     ? getDayString(dashboardMealContext.targetDate)
@@ -554,8 +575,10 @@ export const finalizeExpiredStationScans = async (
 
   for (const [mealKey, scans] of expiredScansByMealKey.entries()) {
     const separatorIndex = mealKey.lastIndexOf(":");
-    const date = separatorIndex >= 0 ? mealKey.slice(0, separatorIndex) : mealKey;
-    const mealType = separatorIndex >= 0 ? mealKey.slice(separatorIndex + 1) : "";
+    const date =
+      separatorIndex >= 0 ? mealKey.slice(0, separatorIndex) : mealKey;
+    const mealType =
+      separatorIndex >= 0 ? mealKey.slice(separatorIndex + 1) : "";
     const meal = await Meal.findOne({
       campus: campusId,
       date,
@@ -576,7 +599,8 @@ export const finalizeExpiredStationScans = async (
       const scanAt = new Date(scan.scannedAt || scan.createdAt || 0);
       return scanAt > latestAt ? scan : latest;
     }, scans[0]);
-    const actualClosedAt = latestScan?.scannedAt || latestScan?.createdAt || null;
+    const actualClosedAt =
+      latestScan?.scannedAt || latestScan?.createdAt || null;
 
     if (!actualClosedAt) {
       continue;

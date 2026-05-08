@@ -241,7 +241,7 @@ export default function StationScanPage() {
   const getStatusText = () => {
     if (!student) return "";
     return allowed
-      ? "\u1270\u1348\u1245\u12f6\u120d \u2705"
+      ? "\u1270\u1348\u1245\u12f7\u120d \u2705"
       : "\u12a0\u120d\u1270\u1348\u1240\u12f0\u121d \u274c";
   };
 

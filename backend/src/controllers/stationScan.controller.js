@@ -3,7 +3,6 @@ import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
 import {
   finalizeExpiredStationScans,
-  getCurrentMealType,
   getDashboardMealContext,
   getCurrentSemester,
   getCurrentYear,
@@ -137,12 +136,33 @@ export const scanStudentStation = async (req, res) => {
     await finalizeExpiredStationScans(req.campus.id);
     const studentCampusQuery = getStudentCampusQuery(req.campus);
 
-    const currentMealType = await getCurrentMealType(req.campus.id);
+    // normalize date
     const today = new Date(scanTime);
     today.setHours(0, 0, 0, 0);
     const todayString = getDayString(today);
 
-    if (!currentMealType) {
+    // get schedule
+    const mealSchedule = await getMealSchedule(req.campus.id);
+
+    // 🔥 determine active meal by time (NO getCurrentMealType)
+    const now = scanTime.getTime();
+
+    let currentMealType = null;
+    let appliedWindow = null;
+
+    for (const [mealType, window] of Object.entries(mealSchedule)) {
+      const start = getAppliedWindowDate(todayString, window?.start)?.getTime();
+      const end = getAppliedWindowDate(todayString, window?.end)?.getTime();
+
+      if (start && end && now >= start && now <= end) {
+        currentMealType = mealType;
+        appliedWindow = window;
+        break;
+      }
+    }
+
+    // 🚨 HARD BLOCK if outside meal time
+    if (!currentMealType || !appliedWindow) {
       return res.status(400).json({
         allowed: false,
         message: "Time is up",
@@ -183,8 +203,6 @@ export const scanStudentStation = async (req, res) => {
       });
     }
 
-    const mealSchedule = await getMealSchedule(req.campus.id);
-    const appliedWindow = mealSchedule[currentMealType];
     const actualOpenedAt = getBoundedOpenedAt(
       req.campus.lastActiveAt || scanTime,
       appliedWindow,
