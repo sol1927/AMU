@@ -30,16 +30,6 @@ export const requestOTP = async (req, res) => {
     }
 
     const existingAdminAccount = await User.findOne({ role: "admin" });
-    const normalizedInitialEmail =
-      process.env.INITIAL_ADMIN_EMAIL?.toLowerCase().trim();
-    const storedAdminEmail = existingAdminAccount?.email?.toLowerCase().trim();
-
-    // BLOCK ONLY IF SYSTEM IS ALREADY FINISHED
-    if (existingAdminAccount && storedAdminEmail !== normalizedInitialEmail) {
-      return res.status(403).json({
-        message: "System initialization is already complete.",
-      });
-    }
 
     const adminExists = await User.findOne({ email });
     if (
