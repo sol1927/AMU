@@ -101,7 +101,7 @@ const buildServedOnlySummarySnapshot = (studentSnapshots = []) => {
   return {
     totalStudents: null,
     regularStudents: null,
-    internshipStudents: null,
+    internshipStudents: null, // eslint-disable-line no-unused-vars
     servedStudents: servedStudents.length,
     pendingStudents: null,
     fastingBreakdown: null,
@@ -439,7 +439,7 @@ export const getMeals = async (req, res) => {
       scheduleStatus,
       actualMealWindow,
       campus,
-      currentDate: addisNow,
+      currentDate: scanTime,
     });
     if (sessionStatus === "active") {
       actualMealWindow.closedAt = null;
