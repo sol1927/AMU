@@ -81,7 +81,7 @@ const buildMealSummarySnapshot = (
   return {
     totalStudents: campusStudents.length,
     regularStudents: regularStudentsList.length,
-    internshipStudents: internshipStudentsList.length,
+    internshipStudents: internshipStudentsList.length, // eslint-disable-line no-unused-vars
     servedStudents: servedRegularStudentsList.length,
     pendingStudents: pendingRegularStudentsList.length,
     fastingBreakdown: buildFastingBreakdown(campusStudents),

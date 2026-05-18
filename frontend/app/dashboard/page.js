@@ -26,13 +26,16 @@ const formatActivityTime = (value, fallback = "Not opened yet") => {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Africa/Addis_Ababa",
   });
 };
 
 const getAppliedWindowStatus = (appliedWindowLabel) => {
   if (!appliedWindowLabel) return "--:-- - --:--";
 
-  const parts = String(appliedWindowLabel).split("-").map((part) => part.trim());
+  const parts = String(appliedWindowLabel)
+    .split("-")
+    .map((part) => part.trim());
   if (parts.length !== 2) return appliedWindowLabel;
 
   const [endHour, endMinute] = parts[1].split(":").map(Number);
@@ -40,11 +43,14 @@ const getAppliedWindowStatus = (appliedWindowLabel) => {
     return appliedWindowLabel;
   }
 
-  const now = new Date();
-  const endTime = new Date(now);
+  // Compare using Addis Ababa time to stay consistent with the campus clock
+  const nowInAddis = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
+  );
+  const endTime = new Date(nowInAddis);
   endTime.setHours(endHour, endMinute, 0, 0);
 
-  return now > endTime ? "Completed" : appliedWindowLabel;
+  return nowInAddis > endTime ? "Completed" : appliedWindowLabel;
 };
 
 const isAppliedWindowCompleted = (appliedWindowLabel) =>
@@ -53,7 +59,9 @@ const isAppliedWindowCompleted = (appliedWindowLabel) =>
 const getAppliedWindowPhase = (appliedWindowLabel) => {
   if (!appliedWindowLabel) return "unknown";
 
-  const parts = String(appliedWindowLabel).split("-").map((part) => part.trim());
+  const parts = String(appliedWindowLabel)
+    .split("-")
+    .map((part) => part.trim());
   if (parts.length !== 2) return "active";
 
   const [startHour, startMinute] = parts[0].split(":").map(Number);
@@ -68,21 +76,25 @@ const getAppliedWindowPhase = (appliedWindowLabel) => {
     return "active";
   }
 
-  const now = new Date();
-  const startTime = new Date(now);
+  const addisNow = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
+  );
+  const startTime = new Date(addisNow);
   startTime.setHours(startHour, startMinute, 0, 0);
-  const endTime = new Date(now);
+  const endTime = new Date(addisNow);
   endTime.setHours(endHour, endMinute, 0, 0);
 
-  if (now < startTime) return "before_start";
-  if (now > endTime) return "completed";
+  if (addisNow < startTime) return "before_start";
+  if (addisNow > endTime) return "completed";
   return "active";
 };
 
 const getAppliedWindowStartTime = (appliedWindowLabel) => {
   if (!appliedWindowLabel) return null;
 
-  const parts = String(appliedWindowLabel).split("-").map((part) => part.trim());
+  const parts = String(appliedWindowLabel)
+    .split("-")
+    .map((part) => part.trim());
   if (parts.length !== 2) return null;
 
   const [startHour, startMinute] = parts[0].split(":").map(Number);
@@ -297,14 +309,16 @@ export default function AdminDashboardPage() {
                           <p className="mt-1 text-xs text-amber-600">
                             Waiting for applied time
                           </p>
-                        ) : !isAppliedWindowCompleted(
+                        ) : (
+                          !isAppliedWindowCompleted(
                             campus.currentSessionAppliedWindow,
                           ) && (
                             <p className="mt-1 text-xs text-slate-500">
                               {campus.currentSessionLabel || "Session"} opened{" "}
                               {getLiveCampusOpenedTime(campus)}
                             </p>
-                          )}
+                          )
+                        )}
                       </div>
                     </div>
                   </div>

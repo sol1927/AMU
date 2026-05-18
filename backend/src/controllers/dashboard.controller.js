@@ -82,7 +82,7 @@ const buildMealSummarySnapshot = (
   return {
     totalStudents: campusStudents.length,
     regularStudents: regularStudentsList.length,
-    internshipStudents: internshipStudentsList.length,
+    internshipStudents: internshipStudentsList.length, // eslint-disable-line no-unused-vars
     servedStudents: servedRegularStudentsList.length,
     pendingStudents: pendingRegularStudentsList.length,
     fastingBreakdown: buildFastingBreakdown(campusStudents),
@@ -96,9 +96,6 @@ const buildMealSummarySnapshot = (
 const buildServedOnlySummarySnapshot = (studentSnapshots = []) => {
   const servedStudents = studentSnapshots.filter(
     (student) => !getStudentIsInternship(student),
-  );
-  const internshipStudents = studentSnapshots.filter((student) =>
-    getStudentIsInternship(student),
   );
 
   return {
@@ -290,10 +287,14 @@ export const getAdminDashboard = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const year = getCurrentYear();
-    const semester = getCurrentSemester();
+    const scanTime = new Date();
+    const todayString = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Addis_Ababa",
+    }).format(scanTime);
+    const today = new Date(`${todayString}T00:00:00+03:00`);
+
+    const year = getCurrentYear(today);
+    const semester = getCurrentSemester(today);
 
     const campuses = await Campus.findAll({ createdBy: req.userId });
 
@@ -356,6 +357,12 @@ export const getMeals = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    const scanTime = new Date();
+    // Get the current wall-clock time in Addis Ababa to pass to utilities
+    const addisNow = new Date(
+      scanTime.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
+    );
+
     const { campusId, year, semester, date, mealType } = req.query;
 
     if (!campusId || !date || !mealType) {
@@ -390,10 +397,11 @@ export const getMeals = async (req, res) => {
       campus.id,
       mealType,
       queryDate,
+      addisNow,
     );
     if (scheduleStatus === "active" && isCampusLiveNow(campus)) {
       meal =
-        (await syncCampusLiveMealWindow(campus.id, new Date(), {
+        (await syncCampusLiveMealWindow(campus.id, scanTime, {
           onlineSince: campus.lastActiveAt,
         }).catch(() => null)) || meal;
     }
@@ -431,7 +439,7 @@ export const getMeals = async (req, res) => {
       scheduleStatus,
       actualMealWindow,
       campus,
-      currentDate: new Date(),
+      currentDate: addisNow,
     });
     if (sessionStatus === "active") {
       actualMealWindow.closedAt = null;

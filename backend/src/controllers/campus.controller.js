@@ -5,10 +5,7 @@ import CafeStudent from "../models/cafeStudent.model.js";
 import StationScan from "../models/stationScan.model.js";
 import Meal from "../models/meal.model.js";
 import { formatFullName } from "../utils/formatName.js";
-import {
-  getStudentCampusSyncQuery,
-  parseCampusId,
-} from "../utils/campusId.js";
+import { getStudentCampusSyncQuery, parseCampusId } from "../utils/campusId.js";
 import {
   getDashboardMealContext,
   getDayString,
@@ -18,9 +15,7 @@ import {
   isCampusLiveNow,
 } from "../utils/mealSession.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
-import {
-  getSessionCookieOptions,
-} from "../utils/sessionSecurity.js";
+import { getSessionCookieOptions } from "../utils/sessionSecurity.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -107,9 +102,7 @@ const attachAdminLogoToCampus = async (campus) => {
     return campus;
   }
 
-  const admin = campus.createdBy
-    ? await User.findById(campus.createdBy)
-    : null;
+  const admin = campus.createdBy ? await User.findById(campus.createdBy) : null;
 
   return {
     ...campus,
@@ -161,7 +154,9 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    const existingCampusEmail = await Campus.findOne({ email: normalizedEmail });
+    const existingCampusEmail = await Campus.findOne({
+      email: normalizedEmail,
+    });
     if (existingCampusEmail) {
       return res.status(400).json({
         message: "A campus with this email already exists.",
@@ -229,9 +224,13 @@ export const getCampuses = async (req, res) => {
           getStudentCampusSyncQuery(campus),
         );
         const mealSchedule = await getMealSchedule(campus.id);
+        const now = new Date();
+        const addisNow = new Date(
+          now.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
+        );
         const { mealType, label, targetDate } = await getDashboardMealContext(
           campus.id,
-          new Date(),
+          addisNow,
         );
         const activityDate = new Date(targetDate);
         activityDate.setHours(0, 0, 0, 0);
@@ -281,7 +280,10 @@ export const getCampuses = async (req, res) => {
     res.json({ campuses: campusesWithStats });
   } catch (err) {
     logInternalError("fetch-campuses", err);
-    sendServerError(res, "We could not load campuses right now. Please try again.");
+    sendServerError(
+      res,
+      "We could not load campuses right now. Please try again.",
+    );
   }
 };
 
@@ -596,7 +598,9 @@ export const verifyCampusPassword = async (req, res) => {
 export const updateCampusProfile = async (req, res) => {
   try {
     const { name, email, password, currentPassword, location } = req.body;
-    const campus = await Campus.findById(req.campus.id, { includePassword: true });
+    const campus = await Campus.findById(req.campus.id, {
+      includePassword: true,
+    });
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
@@ -711,10 +715,14 @@ export const logoutCampus = async (req, res) => {
   const campusId = campus?.id;
 
   if (campusId) {
-    const todayString = getDayString(logoutTime);
-    const currentMealType = await getCurrentMealType(campusId, logoutTime).catch(
-      () => null,
-    );
+    const todayString = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Addis_Ababa",
+    }).format(logoutTime);
+
+    const currentMealType = await getCurrentMealType(
+      campusId,
+      logoutTime,
+    ).catch(() => null);
 
     if (currentMealType) {
       const currentMeal = await Meal.findOne({
