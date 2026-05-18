@@ -96,14 +96,10 @@ const buildMealSummarySnapshot = (
 const getAppliedWindowDate = (dayString, timeValue) => {
   if (!dayString || typeof timeValue !== "string") return null;
 
-  const [hour, minute] = timeValue.split(":").map(Number);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  // Explicitly parse the time in the campus timezone (UTC+3 for Ethiopia)
+  const date = new Date(`${dayString}T${timeValue}:00+03:00`);
 
-  const date = new Date(`${dayString}T00:00:00`);
-
-  date.setHours(hour, minute, 0, 0);
-
-  return date;
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const getBoundedOpenedAt = (candidate, appliedWindow, dayString) => {
@@ -134,10 +130,10 @@ export const scanStudentStation = async (req, res) => {
     await finalizeExpiredStationScans(req.campus.id);
     const studentCampusQuery = getStudentCampusQuery(req.campus);
 
-    // normalize date
-    const today = new Date(scanTime);
-    today.setHours(0, 0, 0, 0);
-    const todayString = getDayString(today);
+    // Get the date string relative to the campus timezone
+    const todayString = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Addis_Ababa",
+    }).format(scanTime);
 
     // get schedule
     const mealSchedule = await getMealSchedule(req.campus.id);

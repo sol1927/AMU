@@ -29,14 +29,10 @@ const getAppliedWindowDate = (dayString, timeValue) => {
     return null;
   }
 
-  const [hour, minute] = timeValue.split(":").map(Number);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return null;
-  }
+  // Explicitly parse the time in the campus timezone (UTC+3 for Ethiopia)
+  const date = new Date(`${dayString}T${timeValue}:00+03:00`);
 
-  const date = new Date(`${dayString}T00:00:00`);
-  date.setHours(hour, minute, 0, 0);
-  return date;
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const clampToAppliedWindow = (value, appliedWindow, dayString) => {
