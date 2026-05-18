@@ -101,7 +101,7 @@ const buildServedOnlySummarySnapshot = (studentSnapshots = []) => {
   return {
     totalStudents: null,
     regularStudents: null,
-    internshipStudents: null, // eslint-disable-line no-unused-vars
+    internshipStudents: null,
     servedStudents: servedStudents.length,
     pendingStudents: null,
     fastingBreakdown: null,

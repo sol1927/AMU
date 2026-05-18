@@ -102,9 +102,12 @@ const getAppliedWindowStartTime = (appliedWindowLabel) => {
     return null;
   }
 
-  const startTime = new Date();
-  startTime.setHours(startHour, startMinute, 0, 0);
-  return startTime;
+  // Return an ISO string relative to Addis to prevent browser local time interference
+  const nowInAddis = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Africa/Addis_Ababa",
+  });
+  const isoString = `${nowInAddis}T${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}:00+03:00`;
+  return new Date(isoString);
 };
 
 const getLiveCampusOpenedTime = (campus) => {

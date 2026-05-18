@@ -316,9 +316,12 @@ export const getCampusDashboardStats = async (req, res) => {
     const studentSyncQuery = getStudentCampusSyncQuery(req.campus);
 
     const now = new Date();
+    const addisNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
+    );
     const { mealType, label, targetDate } = await getDashboardMealContext(
       campusId,
-      now,
+      addisNow,
     );
     const mealDate = new Date(targetDate);
     mealDate.setHours(0, 0, 0, 0);

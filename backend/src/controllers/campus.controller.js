@@ -256,9 +256,11 @@ export const getCampuses = async (req, res) => {
           });
         }
 
+        // Prefer the live schedule label if the campus is active, 
+        // so admin changes are reflected immediately.
         const currentSessionAppliedWindow =
-          currentMeal?.appliedWindow?.label ||
-          getMealWindowLabel(mealSchedule?.[mealType]);
+          getMealWindowLabel(mealSchedule?.[mealType]) ||
+          currentMeal?.appliedWindow?.label;
         const brandedCampus = await attachAdminLogoToCampus(effectiveCampus);
 
         return {
