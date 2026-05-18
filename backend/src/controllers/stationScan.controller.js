@@ -1,6 +1,7 @@
 import StationScan from "../models/stationScan.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
+import { zonedTimeToUtc } from "date-fns-tz";
 import {
   finalizeExpiredStationScans,
   getDashboardMealContext,
@@ -93,19 +94,17 @@ const buildMealSummarySnapshot = (
   };
 };
 
+const TIME_ZONE = "Africa/Addis_Ababa";
+
 const getAppliedWindowDate = (dayString, timeValue) => {
-  if (!dayString || typeof timeValue !== "string") {
-    return null;
-  }
+  if (!dayString || typeof timeValue !== "string") return null;
 
   const [hour, minute] = timeValue.split(":").map(Number);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return null;
-  }
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
 
-  const date = new Date(`${dayString}T00:00:00`);
-  date.setHours(hour, minute, 0, 0);
-  return date;
+  const dateTime = `${dayString} ${timeValue}`;
+
+  return zonedTimeToUtc(dateTime, TIME_ZONE);
 };
 
 const getBoundedOpenedAt = (candidate, appliedWindow, dayString) => {
