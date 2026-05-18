@@ -82,7 +82,7 @@ const buildMealSummarySnapshot = (
   return {
     totalStudents: campusStudents.length,
     regularStudents: regularStudentsList.length,
-    internshipStudents: internshipStudentsList.length, // eslint-disable-line no-unused-vars
+    internshipStudents: internshipStudentsList.length,
     servedStudents: servedRegularStudentsList.length,
     pendingStudents: pendingRegularStudentsList.length,
     fastingBreakdown: buildFastingBreakdown(campusStudents),
@@ -117,7 +117,6 @@ const getAppliedWindowDate = (dayString, timeValue) => {
     return null;
   }
 
-  // Explicitly parse the time in the campus timezone (UTC+3 for Ethiopia)
   const date = new Date(`${dayString}T${timeValue}:00+03:00`);
 
   return Number.isNaN(date.getTime()) ? null : date;
@@ -358,7 +357,6 @@ export const getMeals = async (req, res) => {
     }
 
     const scanTime = new Date();
-    // Get the current wall-clock time in Addis Ababa to pass to utilities
     const addisNow = new Date(
       scanTime.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
     );

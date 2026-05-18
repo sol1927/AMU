@@ -58,7 +58,10 @@ export default function DashboardStudentsPage() {
   }, []);
 
   const sortedCampuses = useMemo(
-    () => [...campuses].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
+    () =>
+      [...campuses].sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || "")),
+      ),
     [campuses],
   );
 
@@ -143,7 +146,9 @@ export default function DashboardStudentsPage() {
                   <div className="mt-5 flex gap-3">
                     <button
                       type="button"
-                      onClick={() => router.push(`/dashboard/students/${campus._id}`)}
+                      onClick={() =>
+                        router.push(`/dashboard/students/${campus._id}`)
+                      }
                       className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
                     >
                       Open Students

@@ -102,7 +102,6 @@ const getAppliedWindowStartTime = (appliedWindowLabel) => {
     return null;
   }
 
-  // Return an ISO string relative to Addis to prevent browser local time interference
   const nowInAddis = new Date().toLocaleDateString("en-CA", {
     timeZone: "Africa/Addis_Ababa",
   });

@@ -81,7 +81,7 @@ const buildMealSummarySnapshot = (
   return {
     totalStudents: campusStudents.length,
     regularStudents: regularStudentsList.length,
-    internshipStudents: internshipStudentsList.length, // eslint-disable-line no-unused-vars
+    internshipStudents: internshipStudentsList.length,
     servedStudents: servedRegularStudentsList.length,
     pendingStudents: pendingRegularStudentsList.length,
     fastingBreakdown: buildFastingBreakdown(campusStudents),
@@ -96,7 +96,6 @@ const buildMealSummarySnapshot = (
 const getAppliedWindowDate = (dayString, timeValue) => {
   if (!dayString || typeof timeValue !== "string") return null;
 
-  // Explicitly parse the time in the campus timezone (UTC+3 for Ethiopia)
   const date = new Date(`${dayString}T${timeValue}:00+03:00`);
 
   return Number.isNaN(date.getTime()) ? null : date;
@@ -130,19 +129,14 @@ export const scanStudentStation = async (req, res) => {
     await finalizeExpiredStationScans(req.campus.id);
     const studentCampusQuery = getStudentCampusQuery(req.campus);
 
-    // Get the date string relative to the campus timezone
     const todayString = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Africa/Addis_Ababa",
     }).format(scanTime);
 
-    // Create a Date object representing the start of today in the campus timezone
-    // This is crucial for getCurrentYear and getCurrentSemester
     const today = new Date(`${todayString}T00:00:00+03:00`);
 
-    // get schedule
     const mealSchedule = await getMealSchedule(req.campus.id);
 
-    // 🔥 determine active meal by time (NO getCurrentMealType)
     const now = scanTime.getTime();
 
     let currentMealType = null;
@@ -269,8 +263,7 @@ export const scanStudentStation = async (req, res) => {
             existingAppliedWindow.label || getMealWindowLabel(appliedWindow),
           actualOpenedAt:
             existingAppliedWindow.actualOpenedAt || actualOpenedAt,
-          // Reopen the session if the campus logged out and then resumed scanning
-          // before the applied session window finished.
+          
           actualClosedAt: null,
         },
       });
@@ -345,10 +338,6 @@ export const getCampusDashboardStats = async (req, res) => {
       limit: 5,
     });
 
-    // Always calculate the summary live from the student database to ensure
-    // accuracy (e.g., if students were synced or moved to internship recently).
-    // Stored snapshots in the 'meal' record can become stale.
-    // We use the Sync Query to match the counting logic used in the Admin Dashboard.
     const campusStudents = await CafeStudent.findAll(studentSyncQuery);
     const servedScans = await StationScan.findAll({
       campus: campusId,
@@ -363,7 +352,6 @@ export const getCampusDashboardStats = async (req, res) => {
       servedStudentIds,
     );
 
-    // Optionally update the meal record with the fresh snapshot for admin history
     if (meal && !meal.summarySnapshot) {
       await Meal.updateById(meal.id, { summarySnapshot: activeSummary }).catch(
         () => null,

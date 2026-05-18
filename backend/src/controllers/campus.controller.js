@@ -24,7 +24,6 @@ const getAppliedWindowDate = (dayString, timeValue) => {
     return null;
   }
 
-  // Explicitly parse the time in the campus timezone (UTC+3 for Ethiopia)
   const date = new Date(`${dayString}T${timeValue}:00+03:00`);
 
   return Number.isNaN(date.getTime()) ? null : date;

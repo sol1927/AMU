@@ -59,7 +59,9 @@ export default function DashboardCampusStudentsPage() {
 
         setCampus(matchedCampus);
       } catch (err) {
-        setError(getErrorMessage(err, "We could not load campus details right now."));
+        setError(
+          getErrorMessage(err, "We could not load campus details right now."),
+        );
       }
     };
 
@@ -163,7 +165,9 @@ export default function DashboardCampusStudentsPage() {
       return;
     }
 
-    setSelectedStudents(filteredAndSortedStudents.map((student) => student._id));
+    setSelectedStudents(
+      filteredAndSortedStudents.map((student) => student._id),
+    );
     setSelectAll(true);
   };
 
@@ -239,7 +243,10 @@ export default function DashboardCampusStudentsPage() {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(
-          getApiMessage(data, "We could not update internship status right now."),
+          getApiMessage(
+            data,
+            "We could not update internship status right now.",
+          ),
         );
       }
 
@@ -283,7 +290,9 @@ export default function DashboardCampusStudentsPage() {
                 <h1 className="text-2xl font-bold leading-none">Students</h1>
                 <p className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium leading-none text-slate-600">
                   {filteredAndSortedStudents.length}{" "}
-                  {filteredAndSortedStudents.length === 1 ? "student" : "students"}
+                  {filteredAndSortedStudents.length === 1
+                    ? "student"
+                    : "students"}
                 </p>
                 <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-slate-500 lg:flex-1">
                   <span className="rounded-full bg-cyan-100 px-3 py-1 font-semibold text-cyan-700 shadow-sm">
@@ -313,7 +322,9 @@ export default function DashboardCampusStudentsPage() {
                   {refreshingStudents ? "Refreshing..." : "Refresh"}
                 </button>
                 <button
-                  onClick={() => router.push(`/dashboard/students/${campusId}/groups`)}
+                  onClick={() =>
+                    router.push(`/dashboard/students/${campusId}/groups`)
+                  }
                   className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-700"
                 >
                   Batch
@@ -415,7 +426,9 @@ export default function DashboardCampusStudentsPage() {
               key={student._id}
               className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm sm:flex-nowrap sm:gap-4"
             >
-              <span className="w-10 font-medium text-slate-900">{index + 1}</span>
+              <span className="w-10 font-medium text-slate-900">
+                {index + 1}
+              </span>
               <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
                 {student.profileUrl ? (
                   <img
@@ -457,9 +470,13 @@ export default function DashboardCampusStudentsPage() {
             </div>
           ))}
 
-          {!loading && initialLoadDone && filteredAndSortedStudents.length === 0 && (
-            <p className="mt-12 text-center text-slate-500">Student not found</p>
-          )}
+          {!loading &&
+            initialLoadDone &&
+            filteredAndSortedStudents.length === 0 && (
+              <p className="mt-12 text-center text-slate-500">
+                Student not found
+              </p>
+            )}
         </div>
 
         {error && <p className="mt-4 text-red-600">{error}</p>}

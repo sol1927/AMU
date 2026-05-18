@@ -87,23 +87,32 @@ export default function DashboardCampusStudentGroupsPage() {
 
       if (!studentsRes.ok) {
         throw new Error(
-          getApiMessage(studentsData, "We could not load student counts right now."),
+          getApiMessage(
+            studentsData,
+            "We could not load student counts right now.",
+          ),
         );
       }
 
       const nextBatches = batchesData.batches || [];
-      const counts = (studentsData.students || []).reduce((accumulator, student) => {
-        const batchKey = String(student.batch ?? "");
-        if (!batchKey) return accumulator;
-        accumulator[batchKey] = (accumulator[batchKey] || 0) + 1;
-        return accumulator;
-      }, {});
+      const counts = (studentsData.students || []).reduce(
+        (accumulator, student) => {
+          const batchKey = String(student.batch ?? "");
+          if (!batchKey) return accumulator;
+          accumulator[batchKey] = (accumulator[batchKey] || 0) + 1;
+          return accumulator;
+        },
+        {},
+      );
 
       setBatches(nextBatches);
       setBatchCounts(counts);
       setError("");
     } catch (err) {
-      const message = getErrorMessage(err, "We could not load batches right now.");
+      const message = getErrorMessage(
+        err,
+        "We could not load batches right now.",
+      );
       setError(message);
       showToast(message);
     } finally {
