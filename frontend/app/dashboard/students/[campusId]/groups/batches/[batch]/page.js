@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { React, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function DashboardBatchStudentsPage() {
-  const router = useRouter();
   const params = useParams();
   const campusId = params?.campusId;
   const batch = params?.batch;

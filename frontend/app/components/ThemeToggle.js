@@ -1,5 +1,6 @@
 "use client";
 
+import { React } from "react";
 import { BsMoonStarsFill, BsSunFill } from "react-icons/bs";
 import { useTheme } from "../context/ThemeContext";
 
