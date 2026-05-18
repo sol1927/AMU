@@ -405,8 +405,12 @@ export const getMeals = async (req, res) => {
     const sessionWindow = meal?.appliedWindow
       ? (() => {
           return {
-            start: new Date(`${queryDayString}T${meal.appliedWindow.start}:00`),
-            end: new Date(`${queryDayString}T${meal.appliedWindow.end}:00`),
+            start: new Date(
+              `${queryDayString}T${meal.appliedWindow.start}:00+03:00`,
+            ),
+            end: new Date(
+              `${queryDayString}T${meal.appliedWindow.end}:00+03:00`,
+            ),
           };
         })()
       : await getMealSessionWindow(campus.id, mealType, queryDate);

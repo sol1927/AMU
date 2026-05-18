@@ -135,6 +135,10 @@ export const scanStudentStation = async (req, res) => {
       timeZone: "Africa/Addis_Ababa",
     }).format(scanTime);
 
+    // Create a Date object representing the start of today in the campus timezone
+    // This is crucial for getCurrentYear and getCurrentSemester
+    const today = new Date(`${todayString}T00:00:00+03:00`);
+
     // get schedule
     const mealSchedule = await getMealSchedule(req.campus.id);
 
