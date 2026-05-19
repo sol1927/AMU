@@ -2,18 +2,23 @@ import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
   host: "smtp-relay.brevo.com",
-  port: 587,
-  secure: false,
+  port: 465,
+  secure: true, // FIX: more stable on Render/cloud servers
   auth: {
     user: process.env.BREVO_SMTP_USER,
     pass: process.env.BREVO_SMTP_KEY,
   },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 15000,
 });
 
 export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
   try {
+    if (!toEmail) throw new Error("Recipient email is required");
+
     const result = await transporter.sendMail({
-      from: "GibiGebeta <gibigebeta@gmail.com>",
+      from: "GibiGebeta <gibigebeta@gmail.com>", // OK for now (your verified sender)
       to: toEmail,
       subject,
       html: htmlContent,
@@ -25,8 +30,6 @@ export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
     console.error("--- Brevo SMTP Error Detail ---");
     console.error("Message:", error?.message);
     console.error("Code:", error?.code);
-    console.error("Error:", error);
-    console.error("--------------------------------");
 
     const wrappedError = new Error(
       error?.message || "Failed to send email via Brevo SMTP",

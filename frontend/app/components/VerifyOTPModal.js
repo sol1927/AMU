@@ -60,7 +60,7 @@ export default function VerifyOTPModal({
     }
     setLoading(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const res = await fetch(`${url}/auth/verify-otp`, {
@@ -76,26 +76,20 @@ export default function VerifyOTPModal({
 
       if (res.ok) {
         setMessageType("success");
-        setMessage(
-          getApiMessage(data, "Verification successful."),
-        );
+        setMessage(getApiMessage(data, "Verification successful."));
         setTimeout(() => {
           onClose();
           onSuccess?.();
         }, 1000);
       } else {
         setMessageType("error");
-        setMessage(
-          getApiMessage(data, "Incorrect code. Try again."),
-        );
+        setMessage(getApiMessage(data, "Incorrect code. Try again."));
         triggerShake();
       }
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage(
-        getErrorMessage(error, "Verification failed. Try again."),
-      );
+      setMessage(getErrorMessage(error, "Verification failed. Try again."));
       triggerShake();
     } finally {
       setLoading(false);
@@ -107,7 +101,7 @@ export default function VerifyOTPModal({
     setResending(true);
     setOtp("");
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const res = await fetch(`${url}/auth/request-otp`, {
@@ -123,9 +117,7 @@ export default function VerifyOTPModal({
 
       if (!res.ok) {
         setMessageType("error");
-        setMessage(
-          getApiMessage(data, "Failed to resend code. Try again."),
-        );
+        setMessage(getApiMessage(data, "Failed to resend code. Try again."));
         triggerShake();
       } else {
         setMessageType("success");
@@ -134,9 +126,7 @@ export default function VerifyOTPModal({
     } catch (error) {
       clearTimeout(timeoutId);
       setMessageType("error");
-      setMessage(
-        getErrorMessage(error, "Failed to resend code. Try again."),
-      );
+      setMessage(getErrorMessage(error, "Failed to resend code. Try again."));
       triggerShake();
     } finally {
       setResending(false);

@@ -62,7 +62,7 @@ export default function VerifyDeviceOtp({
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const res = await fetch(`${url}/auth/verify-device-otp`, {
@@ -79,10 +79,7 @@ export default function VerifyDeviceOtp({
       if (!res.ok) {
         setMessageType("error");
         setMessage(
-          getApiMessage(
-            data,
-            "Device verification failed. Try again.",
-          ),
+          getApiMessage(data, "Device verification failed. Try again."),
         );
         return;
       }
@@ -97,10 +94,7 @@ export default function VerifyDeviceOtp({
     } catch (error) {
       setMessageType("error");
       setMessage(
-        getErrorMessage(
-          error,
-          "Device verification failed. Try again.",
-        ),
+        getErrorMessage(error, "Device verification failed. Try again."),
       );
     } finally {
       setLoading(false);
@@ -110,7 +104,7 @@ export default function VerifyDeviceOtp({
   const handleResend = async () => {
     setResending(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const res = await fetch(`${url}/auth/resend-device-otp`, {
@@ -124,9 +118,7 @@ export default function VerifyDeviceOtp({
 
       if (!res.ok) {
         setMessageType("error");
-        setMessage(
-          getApiMessage(data, "Failed to resend code. Try again."),
-        );
+        setMessage(getApiMessage(data, "Failed to resend code. Try again."));
         return;
       }
 
@@ -135,9 +127,7 @@ export default function VerifyDeviceOtp({
       setOtp("");
     } catch (error) {
       setMessageType("error");
-      setMessage(
-        getErrorMessage(error, "Failed to resend code. Try again."),
-      );
+      setMessage(getErrorMessage(error, "Failed to resend code. Try again."));
     } finally {
       setResending(false);
     }
