@@ -4,6 +4,7 @@ import Meal from "../models/meal.model.js";
 import Campus from "../models/campus.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import { getStudentCampusQuery } from "./campusId.js";
+import { filterStudentsForCafeNumber } from "./cafeScope.js";
 import {
   getStudentFastingType,
   getStudentIsInternship,
@@ -42,6 +43,7 @@ const createCampusSnapshot = (campus = {}) => ({
   campusRef: campus.id ?? null,
   campusId: campus.campusId ?? null,
   campusName: campus.name || "Campus",
+  cafeNumber: campus.selectedCafeNumber ?? null,
   location: campus.location || "",
 });
 
@@ -401,6 +403,10 @@ export const syncCampusLiveMealWindow = async (
   if (!currentMealType) {
     return null;
   }
+  const cafeNumber = Number(options.cafeNumber);
+  if (!Number.isInteger(cafeNumber) || cafeNumber < 1) {
+    return null;
+  }
 
   const targetDay = new Date(currentDate);
   targetDay.setHours(0, 0, 0, 0);
@@ -409,9 +415,16 @@ export const syncCampusLiveMealWindow = async (
   const appliedWindow = mealSchedule?.[currentMealType];
   const campusRecord = await Campus.findById(campusId);
   const campusStudents = campusRecord
-    ? await CafeStudent.findAll(getStudentCampusQuery(campusRecord))
+    ? filterStudentsForCafeNumber(
+        await CafeStudent.findAll(getStudentCampusQuery(campusRecord)),
+        campusRecord,
+        cafeNumber,
+      )
     : [];
-  const campusSnapshot = createCampusSnapshot(campusRecord || { id: campusId });
+  const campusSnapshot = createCampusSnapshot({
+    ...(campusRecord || { id: campusId }),
+    selectedCafeNumber: cafeNumber,
+  });
 
   if (!appliedWindow?.start || !appliedWindow?.end) {
     return null;
@@ -440,6 +453,7 @@ export const syncCampusLiveMealWindow = async (
 
   const existingMeal = await Meal.findOne({
     campus: campusId,
+    cafeNumber,
     mealType: currentMealType,
     date: targetDayString,
   });
@@ -472,6 +486,7 @@ export const syncCampusLiveMealWindow = async (
 
   return Meal.create({
     campus: campusId,
+    cafeNumber,
     mealType: currentMealType,
     date: targetDayString,
     year: getCurrentYear(targetDay),

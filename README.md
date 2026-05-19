@@ -17,7 +17,7 @@ Full-stack web application for managing campuses, students, meal schedules, meal
 - Express `4.19.2`
 - MySQL with mysql2 `3.6.5`
 - JWT authentication with `jsonwebtoken` `9.0.3`
-- Email delivery with `nodemailer` `7.0.12`
+- Email delivery with `resend` `6.12.3`
 
 ## Version Requirements
 
@@ -73,11 +73,11 @@ cp frontend/.env.example frontend/.env.local
 - `DB_USER`: MySQL username
 - `DB_PASSWORD`: MySQL password
 - `DB_NAME`: MySQL database name
-- `EXTERNAL_DB_HOST`: optional external university MySQL host used for student sync
-- `EXTERNAL_DB_PORT`: optional external university MySQL port, usually `3306`
-- `EXTERNAL_DB_USER`: optional external university MySQL username
-- `EXTERNAL_DB_PASSWORD`: optional external university MySQL password
-- `EXTERNAL_DB_NAME`: optional external university database name
+- `EXTERNAL_DB_HOST`: external university MySQL host used for student sync
+- `EXTERNAL_DB_PORT`: external university MySQL port, usually `3306`
+- `EXTERNAL_DB_USER`: external university MySQL username
+- `EXTERNAL_DB_PASSWORD`: external university MySQL password
+- `EXTERNAL_DB_NAME`: external university database name
 - `EXTERNAL_DB_TABLE`: external source table or view name for student sync
 - `FRONTEND_URL`: frontend origin allowed by CORS, for example `http://localhost:3000` or `https://frontend.example.com`
 - `COOKIE_SECURE`: set to `false` for plain HTTP and `true` for HTTPS so auth cookies work correctly
@@ -85,7 +85,7 @@ cp frontend/.env.example frontend/.env.local
 - `SALT_ROUNDS`: bcrypt cost factor such as `10` or `12`
 - `INITIAL_ADMIN_EMAIL`: email used by `npm run seed` to create the first admin account
 - `INITIAL_ADMIN_PASSWORD`: password used by `npm run seed` to create the first admin account
-- `RESEND_API_KEY`: Use resend api key
+- `RESEND_API_KEY`: Resend API key used for OTP, password reset, device verification, and email-change emails
 
 ### Frontend variables
 
@@ -154,6 +154,85 @@ Frontend production example:
 ```env
 NEXT_PUBLIC_API_URL=https://api.example.com/api
 ```
+
+### Email setup
+
+The backend currently sends emails through `Resend`, not SMTP.
+
+Required backend variable:
+
+- `RESEND_API_KEY`
+
+Email-dependent flows include:
+
+- admin OTP and account bootstrap flows
+- device verification OTP
+- forgot-password / reset-password flow
+- admin email-change verification
+
+## External Student Database
+
+Student sync reads from the external database configured by these backend
+variables:
+
+- `EXTERNAL_DB_HOST`
+- `EXTERNAL_DB_PORT`
+- `EXTERNAL_DB_USER`
+- `EXTERNAL_DB_PASSWORD`
+- `EXTERNAL_DB_NAME`
+- `EXTERNAL_DB_TABLE`
+
+The current external field mapping is defined in
+`backend/src/models/externalStudent.model.js`.
+
+### Required external columns
+
+External student table or view must provide these source columns:
+
+- `stId`: mapped to local `studentId`
+- `fullName`: mapped to local `name`
+- `batchYear`: mapped to local `batch`
+- `deptName`: mapped to local `department`
+
+### Optional external columns
+
+- `campId`: mapped to local `campusId`
+
+If `campId` exists, campus sync filters students by the campus ID assigned to
+the campus account. This is the recommended setup.
+
+### Currently not mapped from the external source
+
+These local student fields are supported by the system, but are not currently
+read from the external table by default:
+
+- `profileUrl`
+- `fastingType`
+- `isInternship`
+
+Those values are either managed inside the local system or defaulted during
+normalization.
+
+### Example external query shape
+
+The sync logic effectively expects data similar to:
+
+```sql
+SELECT
+  stId AS studentId,
+  fullName AS name,
+  batchYear AS batch,
+  deptName AS department,
+  campId AS campusId
+FROM external_students
+WHERE campId = ?
+```
+
+### Notes
+
+- The external table name must contain only letters, numbers, and underscores.
+- The mapped source column names must also contain only letters, numbers, and underscores.
+- If the external database is missing required columns, student sync will fail.
 
 ## Local Setup
 
@@ -227,7 +306,7 @@ Default development URLs:
 - Set `COOKIE_SECURE=false` for plain HTTP or `true` for HTTPS
 - Set `NEXT_PUBLIC_API_URL` to deployed backend API URL
 - Use strong production secrets for `JWT_SECRET`
-- Use a real SMTP or app-password-enabled email account
+- Use a real Resend API key for production email delivery
 
 ## Available Scripts
 

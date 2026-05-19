@@ -99,6 +99,7 @@ const createTable = async () => {
       campus INT NOT NULL,
       campusId INT,
       campusName VARCHAR(255),
+      cafeNumber INT,
       date VARCHAR(10) NOT NULL,
       mealType ENUM('breakfast', 'lunch', 'dinner') NOT NULL,
       scannedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -121,6 +122,7 @@ const createTable = async () => {
   await addColumnIfMissing("station_scans", "isInternship", "BOOLEAN DEFAULT FALSE");
   await addColumnIfMissing("station_scans", "campusId", "INT NULL");
   await addColumnIfMissing("station_scans", "campusName", "VARCHAR(255) NULL");
+  await addColumnIfMissing("station_scans", "cafeNumber", "INT NULL");
   await addColumnIfMissing("station_scans", "scannedAt", "DATETIME NULL");
   await getDB().execute(`
     UPDATE station_scans ss
@@ -198,6 +200,10 @@ const findAll = async (filter = {}) => {
     query += " AND date = ?";
     params.push(filter.date);
   }
+  if (filter.cafeNumber !== undefined && filter.cafeNumber !== null) {
+    query += " AND cafeNumber = ?";
+    params.push(filter.cafeNumber);
+  }
   if (filter.mealType) {
     query += " AND mealType = ?";
     params.push(filter.mealType);
@@ -245,13 +251,14 @@ const create = async (data) => {
     campus,
     campusId = null,
     campusName = null,
+    cafeNumber = null,
     date,
     mealType,
     scannedAt = new Date(),
   } = data;
   const query = `
-    INSERT INTO station_scans (student, studentId, studentName, department, batch, fastingType, isInternship, campus, campusId, campusName, date, mealType, scannedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO station_scans (student, studentId, studentName, department, batch, fastingType, isInternship, campus, campusId, campusName, cafeNumber, date, mealType, scannedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     student,
@@ -264,6 +271,7 @@ const create = async (data) => {
     campus,
     campusId,
     campusName,
+    cafeNumber,
     date,
     mealType,
     normalizeDate(scannedAt),
@@ -314,6 +322,10 @@ const updateById = async (id, data) => {
   if (data.campusName !== undefined) {
     fields.push("campusName = ?");
     params.push(data.campusName);
+  }
+  if (data.cafeNumber !== undefined) {
+    fields.push("cafeNumber = ?");
+    params.push(data.cafeNumber);
   }
   if (data.date) {
     fields.push("date = ?");

@@ -32,11 +32,76 @@ const addColumnIfMissing = async (tableName, columnName, definition) => {
   );
 };
 
+const dropIndexIfExists = async (tableName, indexName) => {
+  const [rows] = await getDB().execute(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+        AND INDEX_NAME = ?
+      LIMIT 1
+    `,
+    [tableName, indexName],
+  );
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  await getDB().execute(`ALTER TABLE ${tableName} DROP INDEX ${indexName}`);
+};
+
+const addUniqueIndexIfMissing = async (tableName, indexName, columns) => {
+  const [rows] = await getDB().execute(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+        AND INDEX_NAME = ?
+      LIMIT 1
+    `,
+    [tableName, indexName],
+  );
+
+  if (rows.length > 0) {
+    return;
+  }
+
+  await getDB().execute(
+    `ALTER TABLE ${tableName} ADD UNIQUE KEY ${indexName} (${columns.join(", ")})`,
+  );
+};
+
+const addIndexIfMissing = async (tableName, indexName, columns) => {
+  const [rows] = await getDB().execute(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+        AND INDEX_NAME = ?
+      LIMIT 1
+    `,
+    [tableName, indexName],
+  );
+
+  if (rows.length > 0) {
+    return;
+  }
+
+  await getDB().execute(
+    `ALTER TABLE ${tableName} ADD INDEX ${indexName} (${columns.join(", ")})`,
+  );
+};
+
 const createTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS meals (
       id INT AUTO_INCREMENT PRIMARY KEY,
       campus INT NOT NULL,
+      cafeNumber INT,
       mealType ENUM('breakfast', 'lunch', 'dinner') NOT NULL,
       date DATE NOT NULL,
       year INT NOT NULL,
@@ -48,7 +113,7 @@ const createTable = async () => {
       students JSON,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_campus_date_mealType (campus, date, mealType),
+      UNIQUE KEY unique_campus_cafe_date_mealType (campus, cafeNumber, date, mealType),
       FOREIGN KEY (campus) REFERENCES campuses(id)
     );
   `;
@@ -56,6 +121,15 @@ const createTable = async () => {
   await addColumnIfMissing("meals", "campusSnapshot", "JSON NULL");
   await addColumnIfMissing("meals", "studentSnapshots", "JSON NULL");
   await addColumnIfMissing("meals", "summarySnapshot", "JSON NULL");
+  await addColumnIfMissing("meals", "cafeNumber", "INT NULL");
+  await addIndexIfMissing("meals", "idx_meals_campus", ["campus"]);
+  await dropIndexIfExists("meals", "unique_campus_date_mealType");
+  await addUniqueIndexIfMissing("meals", "unique_campus_cafe_date_mealType", [
+    "campus",
+    "cafeNumber",
+    "date",
+    "mealType",
+  ]);
 };
 
 const findAll = async (filter = {}) => {
@@ -68,6 +142,10 @@ const findAll = async (filter = {}) => {
   if (filter.date) {
     query += " AND date = ?";
     params.push(filter.date);
+  }
+  if (filter.cafeNumber !== undefined && filter.cafeNumber !== null) {
+    query += " AND cafeNumber = ?";
+    params.push(filter.cafeNumber);
   }
   if (filter.mealType) {
     query += " AND mealType = ?";
@@ -99,6 +177,7 @@ const findOne = async (filter = {}) => (await findAll(filter))[0] || null;
 const create = async (data) => {
   const {
     campus,
+    cafeNumber = null,
     mealType,
     date,
     year,
@@ -110,11 +189,12 @@ const create = async (data) => {
     students = [],
   } = data;
   const query = `
-    INSERT INTO meals (campus, mealType, date, year, semester, campusSnapshot, appliedWindow, studentSnapshots, summarySnapshot, students)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO meals (campus, cafeNumber, mealType, date, year, semester, campusSnapshot, appliedWindow, studentSnapshots, summarySnapshot, students)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     campus,
+    cafeNumber,
     mealType,
     date,
     year,
@@ -135,6 +215,10 @@ const updateById = async (id, data) => {
   if (data.campus) {
     fields.push("campus = ?");
     params.push(data.campus);
+  }
+  if (data.cafeNumber !== undefined) {
+    fields.push("cafeNumber = ?");
+    params.push(data.cafeNumber);
   }
   if (data.mealType) {
     fields.push("mealType = ?");

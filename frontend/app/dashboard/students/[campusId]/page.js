@@ -4,6 +4,7 @@ import { React, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
+import { downloadCsv } from "@/app/utils/exportCsv";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -24,6 +25,7 @@ export default function DashboardCampusStudentsPage() {
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
   const [bulkInternshipAction, setBulkInternshipAction] = useState("");
   const [savingBulkInternship, setSavingBulkInternship] = useState(false);
+  const [exportingStudents, setExportingStudents] = useState(false);
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
@@ -219,6 +221,39 @@ export default function DashboardCampusStudentsPage() {
     }
   };
 
+  const handleExportStudents = () => {
+    try {
+      setExportingStudents(true);
+
+      const rows = [
+        [
+          "Name",
+          "Student ID",
+          "Department",
+          "Batch",
+          "Fasting Type",
+          "Internship",
+        ],
+        ...filteredAndSortedStudents.map((student) => [
+          student.name || "",
+          student.studentId || "",
+          student.department || "",
+          student.batch ?? "",
+          student.fastingType || "",
+          student.isInternship ? "Yes" : "No",
+        ]),
+      ];
+
+      const safeCampusName = String(campus?.name || "campus").replace(
+        /[^a-z0-9]+/gi,
+        "-",
+      );
+      downloadCsv(`${safeCampusName}-${campusId}-students.csv`, rows);
+    } finally {
+      setExportingStudents(false);
+    }
+  };
+
   const handleBulkInternshipUpdate = async () => {
     if (!bulkInternshipAction || !campusId) return;
 
@@ -322,6 +357,12 @@ export default function DashboardCampusStudentsPage() {
                   {refreshingStudents ? "Refreshing..." : "Refresh"}
                 </button>
                 <button
+                  onClick={handleExportStudents}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Export CSV
+                </button>
+                <button
                   onClick={() =>
                     router.push(`/dashboard/students/${campusId}/groups`)
                   }
@@ -398,15 +439,15 @@ export default function DashboardCampusStudentsPage() {
           </div>
 
           {!loading && filteredAndSortedStudents.length > 0 && (
-            <div className="mb-2 flex items-center gap-4 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500">
+            <div className="mb-2 hidden items-center gap-4 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 sm:flex">
               <span className="w-10">#</span>
               <span className="w-9"></span>
-              <span className="w-[180px]">Name</span>
-              <span className="w-[120px]">Student ID</span>
-              <span className="w-[120px]">Department</span>
-              <span className="w-[80px]">Batch</span>
-              <span className="w-[140px]">Fasting</span>
-              <span className="w-[100px]">Internship</span>
+              <span className="w-44">Name</span>
+              <span className="w-30">Student ID</span>
+              <span className="w-30">Department</span>
+              <span className="w-20">Batch</span>
+              <span className="w-35">Fasting</span>
+              <span className="w-25">Internship</span>
               <div className="ml-auto flex w-6 justify-end">
                 <input
                   type="checkbox"
@@ -424,43 +465,87 @@ export default function DashboardCampusStudentsPage() {
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm sm:flex-nowrap sm:gap-4"
+              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[auto_auto_minmax(0,180px)_120px_120px_80px_140px_100px_auto] sm:items-center"
             >
-              <span className="w-10 font-medium text-slate-900">
-                {index + 1}
-              </span>
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
-                {student.profileUrl ? (
-                  <img
-                    src={student.profileUrl}
-                    alt={student.name}
-                    className="h-full w-full rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="font-semibold text-gray-600">
-                    {student.name?.[0] || "S"}
-                  </span>
-                )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  #
+                </span>
+                <span className="font-medium text-slate-900">{index + 1}</span>
               </div>
-              <span className="w-[180px] truncate font-medium">
-                {student.name}
-              </span>
-              <span className="w-[120px] truncate">{student.studentId}</span>
-              <span className="w-[120px] truncate">{student.department}</span>
-              <span className="w-[80px] truncate">{student.batch}</span>
-              <span className="w-[140px] truncate">
-                {getFastingLabel(student.fastingType)}
-              </span>
-              <span className="w-[100px]">
-                {student.isInternship ? (
-                  <span className="font-semibold text-yellow-400">
-                    Internship
-                  </span>
-                ) : (
-                  <span className="text-slate-400">-</span>
-                )}
-              </span>
-              <div className="ml-auto flex w-6 justify-end">
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Photo
+                </span>
+                <div className="h-9 w-9 overflow-hidden rounded-full bg-gray-200">
+                  {student.profileUrl ? (
+                    <img
+                      src={student.profileUrl}
+                      alt={student.name}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center font-semibold text-gray-600">
+                      {student.name?.[0] || "S"}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Name
+                </span>
+                <span className="truncate font-medium">{student.name}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Student ID
+                </span>
+                <span className="truncate">{student.studentId}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Department
+                </span>
+                <span className="truncate">{student.department}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Batch
+                </span>
+                <span className="truncate">{student.batch}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Fasting
+                </span>
+                <span className="truncate">
+                  {getFastingLabel(student.fastingType)}
+                </span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Internship
+                </span>
+                <span>
+                  {student.isInternship ? (
+                    <span className="font-semibold text-yellow-400">
+                      Internship
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </span>
+              </div>
+
+              <div className="ml-auto flex w-full justify-end sm:w-6">
                 <input
                   type="checkbox"
                   checked={selectedStudents.includes(student._id)}

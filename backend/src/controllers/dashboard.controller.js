@@ -18,12 +18,17 @@ import {
 import {
   getStudentFastingType,
   getStudentIsInternship,
+  normalizeStudent,
 } from "../utils/studentDefaults.js";
 import {
   getStudentCampusQuery,
   getStudentCampusSyncQuery,
 } from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
+import {
+  filterStudentsForCafeNumber,
+  getCafeDisplayName,
+} from "../utils/cafeScope.js";
 
 const findOwnedCampus = async (campusId, userId) => {
   const campus = await Campus.findById(campusId);
@@ -361,7 +366,7 @@ export const getMeals = async (req, res) => {
       scanTime.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
     );
 
-    const { campusId, year, semester, date, mealType } = req.query;
+    const { campusId, year, semester, date, mealType, cafeNumber } = req.query;
 
     if (!campusId || !date || !mealType) {
       return res.status(400).json({
@@ -373,6 +378,10 @@ export const getMeals = async (req, res) => {
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
+    const normalizedCafeNumber =
+      cafeNumber !== undefined && cafeNumber !== null && cafeNumber !== ""
+        ? Number(cafeNumber)
+        : null;
 
     const studentCampusQuery = getStudentCampusQuery(campus);
     const queryDate = getDateFromDayString(date);
@@ -386,6 +395,7 @@ export const getMeals = async (req, res) => {
 
     let meal = await Meal.findOne({
       campus: Number(campusId),
+      cafeNumber: normalizedCafeNumber,
       year: resolvedYear,
       semester: resolvedSemester,
       date: queryDayString,
@@ -448,7 +458,11 @@ export const getMeals = async (req, res) => {
 
     let summarySnapshot = meal?.summarySnapshot || null;
     if (isLiveSession && !summarySnapshot) {
-      const campusStudents = await CafeStudent.findAll(studentCampusQuery);
+      const campusStudents = filterStudentsForCafeNumber(
+        await CafeStudent.findAll(studentCampusQuery),
+        campus,
+        normalizedCafeNumber,
+      );
       summarySnapshot = buildMealSummarySnapshot(
         campusStudents,
         meal?.students || [],
@@ -493,6 +507,10 @@ export const getMeals = async (req, res) => {
       summary: {
         campusId: campusSnapshot?.campusId || campus.campusId,
         campusName: campusSnapshot?.campusName || campus.name,
+        cafeNumber: campusSnapshot?.cafeNumber ?? normalizedCafeNumber ?? null,
+        cafeDisplayName:
+          campusSnapshot?.cafeDisplayName ||
+          getCafeDisplayName(campus.name, normalizedCafeNumber),
         date: queryDate,
         mealType,
         year: resolvedYear,
@@ -543,6 +561,97 @@ export const getMeals = async (req, res) => {
       res,
       "We could not load meal history right now. Please try again.",
     );
+  }
+};
+
+export const getMealStudents = async (req, res) => {
+  try {
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { campusId, date, mealType, cafeNumber, year, semester } = req.query;
+    if (!campusId || !date || !mealType) {
+      return res.status(400).json({
+        message: "campusId, date, and mealType are required",
+      });
+    }
+
+    const campus = await findOwnedCampus(campusId, req.userId);
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
+
+    const normalizedCafeNumber =
+      cafeNumber !== undefined && cafeNumber !== null && cafeNumber !== ""
+        ? Number(cafeNumber)
+        : null;
+
+    const queryDate = getDateFromDayString(date);
+    const queryDayString = getDayString(queryDate);
+    const resolvedYear =
+      year && !Number.isNaN(Number(year))
+        ? Number(year)
+        : getCurrentYear(queryDate);
+    const resolvedSemester = semester || getCurrentSemester(queryDate);
+
+    const meal = await Meal.findOne({
+      campus: Number(campusId),
+      cafeNumber: normalizedCafeNumber,
+      year: resolvedYear,
+      semester: resolvedSemester,
+      date: queryDayString,
+      mealType,
+    });
+
+    if (!meal) {
+      return res.status(404).json({ message: "Meal history not found" });
+    }
+
+    let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
+    students = filterStudentsForCafeNumber(
+      students,
+      campus,
+      normalizedCafeNumber,
+    );
+
+    const servedStudentIds = new Set(
+      (Array.isArray(meal.students) ? meal.students : []).map(String),
+    );
+
+    const snapshotsByStudentId = new Map(
+      (Array.isArray(meal.studentSnapshots) ? meal.studentSnapshots : []).map(
+        (snapshot) => [String(snapshot.studentId), snapshot],
+      ),
+    );
+
+    const exportStudents = students
+      .map((student) => {
+        const normalized = normalizeStudent(student);
+        const id = String(normalized.studentId || "");
+        const snapshot = snapshotsByStudentId.get(id);
+
+        return {
+          studentId: normalized.studentId || "",
+          name: normalized.name || "",
+          department: normalized.department || "",
+          batch: normalized.batch ?? "",
+          fastingType: normalized.fastingType || "",
+          isInternship: normalized.isInternship || false,
+          status: servedStudentIds.has(id) ? "served" : "pending",
+          scannedAt: snapshot?.scannedAt || "",
+        };
+      })
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+
+    res.json({
+      students: exportStudents,
+      campusName: campus.name,
+      cafeNumber: normalizedCafeNumber,
+    });
+  } catch (err) {
+    logInternalError("dashboard-meal-students", err);
+    sendServerError(res, "We could not load meal student data right now.");
   }
 };
 

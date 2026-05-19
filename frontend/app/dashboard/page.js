@@ -206,7 +206,17 @@ export default function AdminDashboardPage() {
   );
 
   const liveCampuses = useMemo(
-    () => campuses.filter((campus) => campus.isLive),
+    () =>
+      campuses.flatMap((campus) =>
+        Array.isArray(campus.liveCafeSessions) && campus.liveCafeSessions.length > 0
+          ? campus.liveCafeSessions.map((session) => ({
+              ...campus,
+              ...session,
+            }))
+          : campus.isLive
+            ? [campus]
+            : [],
+      ),
     [campuses],
   );
 
@@ -274,7 +284,7 @@ export default function AdminDashboardPage() {
               ) : liveCampuses.length > 0 ? (
                 liveCampuses.slice(0, 4).map((campus) => (
                   <div
-                    key={campus._id}
+                    key={`${campus._id}-${campus.cafeNumber || "main"}`}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
                   >
                     <div className="flex items-center gap-3">
@@ -291,7 +301,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-slate-900">
-                          {campus.name}
+                          {campus.displayName || campus.name}
                         </p>
                         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600">
                           Campus ID {campus.campusId ?? "Not set"}
@@ -398,6 +408,10 @@ export default function AdminDashboardPage() {
                       </p>
                       <p className="text-sm text-slate-600">
                         {campus.location || "Location not set"}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">
+                        {campus.cafeCount || 1} cafe
+                        {(campus.cafeCount || 1) === 1 ? "" : "s"}
                       </p>
                     </div>
                   </div>

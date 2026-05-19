@@ -24,7 +24,7 @@ export default function CampusStudentGroupsPage() {
   };
 
   const fetchBatches = useCallback(async () => {
-    if (!currentCampus) return;
+    if (!currentCampus?.selectedCafeNumber) return;
     setLoading(true);
     try {
       const [batchesRes, studentsRes] = await Promise.all([
@@ -94,7 +94,8 @@ export default function CampusStudentGroupsPage() {
               <span className="text-blue-600">{currentCampus.name}</span>
             </h1>
             <p className="mt-1 text-sm text-slate-600 md:text-base">
-              Manage batches and student groups easily
+              Manage the batches assigned to Cafe{" "}
+              {currentCampus?.selectedCafeNumber || "--"}
             </p>
           </div>
 
@@ -120,22 +121,30 @@ export default function CampusStudentGroupsPage() {
           )}
 
           {!loading &&
-            batches.map((batch) => (
+            batches.map((batchItem) => (
               <div
-                key={batch}
+                key={batchItem.batch}
                 className="surface-card flex flex-col justify-between rounded-2xl p-6 transition-transform hover:-translate-y-1"
               >
                 <div className="mb-4">
-                  <h3 className="text-xl font-bold">{batch}</h3>
+                  <h3 className="text-xl font-bold">{batchItem.batch}</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    {batchCounts[String(batch)] || 0}{" "}
-                    {(batchCounts[String(batch)] || 0) === 1 ? "student" : "students"}
+                    {batchCounts[String(batchItem.batch)] ||
+                      batchItem.studentCount ||
+                      0}{" "}
+                    {(batchCounts[String(batchItem.batch)] ||
+                      batchItem.studentCount ||
+                      0) === 1
+                      ? "student"
+                      : "students"}
                   </p>
                 </div>
                 <div className="mt-auto flex gap-2">
                   <button
                     onClick={() =>
-                      router.push(`/campus/students/groups/batches/${batch}`)
+                      router.push(
+                        `/campus/students/groups/batches/${batchItem.batch}`,
+                      )
                     }
                     className="flex-1 rounded bg-emerald-600 px-4 py-2 text-white transition hover:bg-emerald-700"
                   >

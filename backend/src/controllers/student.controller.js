@@ -8,6 +8,13 @@ import Campus from "../models/campus.model.js";
 import { normalizeStudent } from "../utils/studentDefaults.js";
 import { getStudentCampusQuery, parseCampusId } from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
+import {
+  buildCafeNumbers,
+  filterStudentsForCafeNumber,
+  getAssignedCafeNumberForBatch,
+  normalizeBatchCafeAssignments,
+  normalizeCafeCount,
+} from "../utils/cafeScope.js";
 
 const parseBatch = (input) => {
   const batch = Number(input);
@@ -61,7 +68,9 @@ const getStudentSyncUserMessage = (error) => {
   }
 
   if (
-    error?.message?.startsWith("External student DB is not configured. Missing:")
+    error?.message?.startsWith(
+      "External student DB is not configured. Missing:",
+    )
   ) {
     return "Student sync settings are incomplete. Please update them and try again.";
   }
@@ -98,6 +107,9 @@ export const getCampusStudents = async (req, res) => {
     }
 
     let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
+    students = req.cafeNumber
+      ? filterStudentsForCafeNumber(students, campus, req.cafeNumber)
+      : students;
 
     if (
       fastingType &&
@@ -123,6 +135,42 @@ export const getCampusStudents = async (req, res) => {
     });
   } catch {
     res.status(500).json({ message: "Failed to fetch students" });
+  }
+};
+
+export const getCampusStudentsAll = async (req, res) => {
+  try {
+    const campus = await resolveScopedCampus(req);
+    const search = req.query.search || "";
+    const fastingType = req.query.fastingType;
+
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
+
+    let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
+
+    if (
+      fastingType &&
+      ["not_fasting", "fasting", "sunday_fasting", "muslim_fasting"].includes(
+        fastingType,
+      )
+    ) {
+      students = students.filter(
+        (student) => student.fastingType === fastingType,
+      );
+    }
+
+    students = students
+      .filter((student) => matchesSearch(student, search))
+      .sort(byName);
+
+    res.json({
+      students: students.map((student) => normalizeStudent(student)),
+      totalStudents: students.length,
+    });
+  } catch {
+    res.status(500).json({ message: "Failed to fetch all campus students" });
   }
 };
 
@@ -444,11 +492,37 @@ export const getCampusBatches = async (req, res) => {
       return res.status(404).json({ message: "Campus not found" });
     }
 
-    const batches = await CafeStudent.distinct(
-      "batch",
-      getStudentCampusQuery(campus),
+    let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
+    students = req.cafeNumber
+      ? filterStudentsForCafeNumber(students, campus, req.cafeNumber)
+      : students;
+
+    const batchMap = students.reduce((accumulator, student) => {
+      const batchValue = Number(student.batch);
+      if (Number.isNaN(batchValue)) {
+        return accumulator;
+      }
+
+      const batchKey = String(batchValue);
+      if (!accumulator.has(batchKey)) {
+        accumulator.set(batchKey, {
+          batch: batchValue,
+          studentCount: 0,
+          assignedCafeNumber: getAssignedCafeNumberForBatch(campus, batchValue),
+        });
+      }
+
+      accumulator.get(batchKey).studentCount += 1;
+      return accumulator;
+    }, new Map());
+
+    const batches = Array.from(batchMap.values()).sort(
+      (a, b) => a.batch - b.batch,
     );
-    res.json({ batches: batches.sort((a, b) => a - b) });
+    res.json({
+      batches,
+      cafeNumbers: buildCafeNumbers(campus.cafeCount),
+    });
   } catch {
     res.status(500).json({ message: "Failed to fetch batches" });
   }
@@ -474,6 +548,9 @@ export const getStudentsByBatch = async (req, res) => {
       ...getStudentCampusQuery(campus),
       batch: batchNum,
     });
+    students = req.cafeNumber
+      ? filterStudentsForCafeNumber(students, campus, req.cafeNumber)
+      : students;
 
     if (
       fastingType &&
@@ -504,6 +581,71 @@ export const getStudentsByBatch = async (req, res) => {
     });
   } catch {
     res.status(500).json({ message: "Failed to fetch students" });
+  }
+};
+
+export const assignBatchToCafeNumber = async (req, res) => {
+  try {
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const campus = await Campus.findById(req.params.id);
+    if (!campus || Number(campus.createdBy) !== Number(req.userId)) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
+
+    const batchNum = parseBatch(req.params.batch);
+    const cafeNumber = Number(req.body?.cafeNumber);
+    const availableCafeNumbers = buildCafeNumbers(campus.cafeCount);
+
+    if (batchNum === null) {
+      return res.status(400).json({ message: "Batch must be a number" });
+    }
+
+    if (!availableCafeNumbers.includes(cafeNumber)) {
+      return res.status(400).json({
+        message: "Please choose a valid cafe number for this campus.",
+      });
+    }
+
+    const students = await CafeStudent.findAll({
+      ...getStudentCampusQuery(campus),
+      batch: batchNum,
+    });
+
+    if (students.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No students found in this batch" });
+    }
+
+    const nextAssignments = normalizeBatchCafeAssignments(
+      {
+        ...(campus.batchCafeAssignments || {}),
+        [String(batchNum)]: cafeNumber,
+      },
+      normalizeCafeCount(campus.cafeCount),
+    );
+
+    const updatedCampus = await Campus.updateById(campus.id, {
+      batchCafeAssignments: nextAssignments,
+      cafeCount: campus.cafeCount,
+    });
+
+    return res.json({
+      message: `Batch ${batchNum} now serves at Cafe ${cafeNumber}.`,
+      batch: batchNum,
+      assignedCafeNumber: cafeNumber,
+      batchCafeAssignments:
+        updatedCampus.batchCafeAssignments || nextAssignments,
+    });
+  } catch (err) {
+    logInternalError("assign-batch-to-cafe-number", err);
+    sendServerError(
+      res,
+      "We could not save that cafe number right now. Please try again.",
+    );
   }
 };
 
@@ -755,12 +897,16 @@ export const syncCafeStudents = async (req, res) => {
     }
 
     if (universityStudents.length === 0) {
-      const existingCampusCafeStudents = await CafeStudent.findAll({ campusId });
+      const existingCampusCafeStudents = await CafeStudent.findAll({
+        campusId,
+      });
       if (existingCampusCafeStudents.length > 0) {
         await CafeStudent.deleteMany({ campusId });
       }
 
-      const currentCafeStudentCount = await CafeStudent.countDocuments({ campusId });
+      const currentCafeStudentCount = await CafeStudent.countDocuments({
+        campusId,
+      });
       return res.json({
         message: "No students were found in the university database.",
         syncedCount: 0,
@@ -782,7 +928,9 @@ export const syncCafeStudents = async (req, res) => {
       }))
       .filter((student) => student.studentId);
 
-    const studentIds = normalizedUniversityStudents.map((student) => student.studentId);
+    const studentIds = normalizedUniversityStudents.map(
+      (student) => student.studentId,
+    );
     const existingCampusCafeStudents = await CafeStudent.findAll({ campusId });
     const existingStudentMap = new Map(
       existingCampusCafeStudents.map((student) => [
@@ -860,7 +1008,9 @@ export const syncCafeStudents = async (req, res) => {
       normalizedUniversityStudents.length -
       studentsToInsert.length -
       updatedCount;
-    const currentCafeStudentCount = await CafeStudent.countDocuments({ campusId });
+    const currentCafeStudentCount = await CafeStudent.countDocuments({
+      campusId,
+    });
     const removedCount = studentsToDeactivate.length;
 
     return res.json({

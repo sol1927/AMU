@@ -8,9 +8,17 @@ import {
   getSessionCookieOptions,
 } from "../utils/sessionSecurity.js";
 import { logInternalError } from "../utils/safeError.js";
+import { buildCafeNumbers } from "../utils/cafeScope.js";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
+const signCampusToken = (campusId, cafeNumber = null) =>
+  jwt.sign(
+    cafeNumber
+      ? { id: campusId, role: "campus", cafeNumber: Number(cafeNumber) }
+      : { id: campusId, role: "campus" },
+    process.env.JWT_SECRET,
+  );
 
 const getAccountModel = (role) => (role === "admin" ? User : Campus);
 
@@ -102,7 +110,10 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ id: user.id, role }, process.env.JWT_SECRET);
+    const token =
+      role === "campus"
+        ? signCampusToken(user.id)
+        : jwt.sign({ id: user.id, role }, process.env.JWT_SECRET);
 
     const cookieName = role === "admin" ? "accessToken" : "campusToken";
     res.cookie(cookieName, token, getSessionCookieOptions());
@@ -117,7 +128,11 @@ export const login = async (req, res) => {
       if (admin?.logo) {
         user = { ...user, logo: admin.logo };
       }
-      await syncCampusLiveMealWindow(user.id, loginTime).catch(() => null);
+      user = {
+        ...user,
+        selectedCafeNumber: null,
+        cafeNumbers: buildCafeNumbers(user.cafeCount),
+      };
     }
 
     delete user.password;

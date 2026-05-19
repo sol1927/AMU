@@ -10,6 +10,9 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   );
   const [name, setName] = useState(campus.name);
   const [location, setLocation] = useState(campus.location || "");
+  const [cafeCount, setCafeCount] = useState(
+    campus.cafeCount ? String(campus.cafeCount) : "1",
+  );
   const [email, setEmail] = useState(campus.email);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -43,7 +46,14 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       return;
     }
 
-    const payload = { id: campus._id, campusId, name, location, email };
+    const payload = {
+      id: campus._id,
+      campusId,
+      name,
+      location,
+      email,
+      cafeCount,
+    };
     if (password) {
       payload.password = password;
     }
@@ -110,6 +120,14 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           placeholder="Location (optional)"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+          className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <input
+          type="number"
+          min="1"
+          placeholder="Number of Cafes"
+          value={cafeCount}
+          onChange={(e) => setCafeCount(e.target.value)}
           className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <input
@@ -189,6 +207,7 @@ EditCampusModal.propTypes = {
     campusId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     name: PropTypes.string.isRequired,
     location: PropTypes.string,
+    cafeCount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     email: PropTypes.string.isRequired,
   }).isRequired,
   onCancel: PropTypes.func.isRequired,

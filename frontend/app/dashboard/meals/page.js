@@ -2,6 +2,7 @@
 
 import { React, useCallback, useEffect, useState } from "react";
 import AdminNavbar from "@/app/components/AdminNavbar";
+import { downloadCsv } from "@/app/utils/exportCsv";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -150,15 +151,28 @@ const getStatusClasses = (status) => {
   }
 };
 
+const escapeCsvValue = (value) => {
+  if (value === null || value === undefined) return "";
+
+  const stringValue = String(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+
+  return stringValue;
+};
+
 export default function MealsPage() {
   const [campuses, setCampuses] = useState([]);
   const [selectedCampus, setSelectedCampus] = useState("");
+  const [selectedCafeNumber, setSelectedCafeNumber] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedMealType, setSelectedMealType] = useState("breakfast");
   const [mealSummary, setMealSummary] = useState(null);
   const [detailMode, setDetailMode] = useState("total");
   const [loadingCampuses, setLoadingCampuses] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [exportingStudents, setExportingStudents] = useState(false);
   const [error, setError] = useState("");
   const [mealSchedule, setMealSchedule] = useState(null);
 
@@ -247,6 +261,8 @@ export default function MealsPage() {
 
         if (campusList.length > 0) {
           setSelectedCampus(campusList[0]._id);
+          const firstCampusCafeNumbers = campusList[0].cafeNumbers || [1];
+          setSelectedCafeNumber(String(firstCampusCafeNumbers[0] || 1));
         }
       } catch {
         setError("Failed to load campuses");
@@ -301,6 +317,18 @@ export default function MealsPage() {
   }, [selectedCampus, selectedDate]);
 
   useEffect(() => {
+    const matchedCampus = campuses.find(
+      (campus) => campus._id === selectedCampus,
+    );
+    if (!matchedCampus) return;
+
+    const availableCafeNumbers = matchedCampus.cafeNumbers || [1];
+    if (!availableCafeNumbers.includes(Number(selectedCafeNumber))) {
+      setSelectedCafeNumber(String(availableCafeNumbers[0] || 1));
+    }
+  }, [campuses, selectedCampus, selectedCafeNumber]);
+
+  useEffect(() => {
     setDetailMode("total");
   }, [mealSummary]);
 
@@ -347,6 +375,200 @@ export default function MealsPage() {
     pending: mealSummary?.notServedStudents ?? 0,
   };
 
+  const handleExportSummary = () => {
+    if (!mealSummary) return;
+
+    const rows = [
+      ["Campus", mealSummary.campusName || ""],
+      [
+        "Cafe",
+        mealSummary.cafeDisplayName || `Cafe ${mealSummary.cafeNumber || ""}`,
+      ],
+      ["Cafe Number", mealSummary.cafeNumber || ""],
+      [
+        "Date",
+        mealSummary.date
+          ? new Date(mealSummary.date).toISOString().split("T")[0]
+          : "",
+      ],
+      ["Meal Type", getMealLabel(mealSummary.mealType)],
+      ["Status", getStatusLabel(mealSummary.sessionStatus)],
+      ["Applied Time", mealSummary.appliedMealWindow?.label || ""],
+      ["Opened Time", mealSummary.actualMealWindow?.openedAt || ""],
+      ["Closed Time", validActualClosedAt || ""],
+      ["Total Students", mealSummary.totalStudents ?? ""],
+      ["Regular Students", mealSummary.regularStudents ?? ""],
+      ["Internship Students", mealSummary.internshipStudents ?? ""],
+      ["Served Students", mealSummary.servedStudents ?? ""],
+      ["Pending Students", mealSummary.notServedStudents ?? ""],
+      ["Total Fasting", mealSummary.fastingBreakdown?.fasting ?? ""],
+      [
+        "Total Sunday Fasting",
+        mealSummary.fastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Total Muslim Fasting",
+        mealSummary.fastingBreakdown?.muslimFasting ?? "",
+      ],
+      ["Total Not Fasting", mealSummary.fastingBreakdown?.notFasting ?? ""],
+      ["Regular Fasting", mealSummary.regularFastingBreakdown?.fasting ?? ""],
+      [
+        "Regular Sunday Fasting",
+        mealSummary.regularFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Regular Muslim Fasting",
+        mealSummary.regularFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Regular Not Fasting",
+        mealSummary.regularFastingBreakdown?.notFasting ?? "",
+      ],
+      [
+        "Internship Fasting",
+        mealSummary.internshipFastingBreakdown?.fasting ?? "",
+      ],
+      [
+        "Internship Sunday Fasting",
+        mealSummary.internshipFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Internship Muslim Fasting",
+        mealSummary.internshipFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Internship Not Fasting",
+        mealSummary.internshipFastingBreakdown?.notFasting ?? "",
+      ],
+      ["Served Fasting", mealSummary.servedFastingBreakdown?.fasting ?? ""],
+      [
+        "Served Sunday Fasting",
+        mealSummary.servedFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Served Muslim Fasting",
+        mealSummary.servedFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Served Not Fasting",
+        mealSummary.servedFastingBreakdown?.notFasting ?? "",
+      ],
+      ["Pending Fasting", mealSummary.notServedFastingBreakdown?.fasting ?? ""],
+      [
+        "Pending Sunday Fasting",
+        mealSummary.notServedFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Pending Muslim Fasting",
+        mealSummary.notServedFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Pending Not Fasting",
+        mealSummary.notServedFastingBreakdown?.notFasting ?? "",
+      ],
+    ];
+
+    const csvContent = rows
+      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeCampusName = String(mealSummary.campusName || "campus").replace(
+      /[^a-z0-9]+/gi,
+      "-",
+    );
+    const safeMealType = String(mealSummary.mealType || "meal").replace(
+      /[^a-z0-9]+/gi,
+      "-",
+    );
+    const safeDate = mealSummary.date
+      ? new Date(mealSummary.date).toISOString().split("T")[0]
+      : "date";
+
+    link.href = objectUrl;
+    link.download = `${safeCampusName}-cafe-${mealSummary.cafeNumber || "all"}-${safeDate}-${safeMealType}-summary.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+  };
+
+  const handleExportMealStudents = async () => {
+    if (!mealSummary) return;
+
+    setExportingStudents(true);
+    try {
+      const params = new URLSearchParams({
+        campusId: selectedCampus,
+        date: selectedDate,
+        mealType: selectedMealType,
+        cafeNumber: selectedCafeNumber,
+      });
+
+      const res = await fetch(
+        `${url}/dashboard/meals/students?${params.toString()}`,
+        {
+          credentials: "include",
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data?.message || "We could not load meal student data right now.",
+        );
+      }
+
+      const rows = [
+        [
+          "Name",
+          "Student ID",
+          "Department",
+          "Batch",
+          "Fasting Type",
+          "Internship",
+          "Status",
+          "Scanned At",
+        ],
+        ...(data.students || []).map((student) => [
+          student.name || "",
+          student.studentId || "",
+          student.department || "",
+          student.batch ?? "",
+          student.fastingType || "",
+          student.isInternship ? "Yes" : "No",
+          student.status || "",
+          student.scannedAt || "",
+        ]),
+      ];
+
+      const safeCampusName = String(mealSummary.campusName || "campus").replace(
+        /[^a-z0-9]+/gi,
+        "-",
+      );
+      const safeMealType = String(mealSummary.mealType || "meal").replace(
+        /[^a-z0-9]+/gi,
+        "-",
+      );
+      const safeDate = mealSummary.date
+        ? new Date(mealSummary.date).toISOString().split("T")[0]
+        : "date";
+
+      downloadCsv(
+        `${safeCampusName}-cafe-${mealSummary.cafeNumber || "all"}-${safeDate}-${safeMealType}-students.csv`,
+        rows,
+      );
+    } catch (err) {
+      setError(err.message || "We could not export meal students right now.");
+    } finally {
+      setExportingStudents(false);
+    }
+  };
+
   const fetchMealSummary = useCallback(async () => {
     if (!selectedCampus || !selectedDate || !selectedMealType) {
       setError("Please choose a campus, date, and meal session first.");
@@ -367,6 +589,7 @@ export default function MealsPage() {
         mealType: selectedMealType,
         year: String(year),
         semester,
+        cafeNumber: selectedCafeNumber,
       });
 
       const res = await fetch(`${url}/dashboard/meals?${params.toString()}`, {
@@ -464,6 +687,26 @@ export default function MealsPage() {
                   />
                 </label>
 
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
+                    Cafe Number
+                  </span>
+                  <select
+                    value={selectedCafeNumber}
+                    onChange={(e) => setSelectedCafeNumber(e.target.value)}
+                    className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
+                  >
+                    {(
+                      campuses.find((campus) => campus._id === selectedCampus)
+                        ?.cafeNumbers || [1]
+                    ).map((number) => (
+                      <option key={number} value={number}>
+                        Cafe {number}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
                 <label className="block md:col-span-2">
                   <span className="mb-2 block text-sm font-medium text-slate-700">
                     Session
@@ -523,7 +766,7 @@ export default function MealsPage() {
               {mealSummary ? (
                 <>
                   <h2 className="mt-3 text-2xl font-black leading-tight md:text-3xl">
-                    {mealSummary.campusName}
+                    {mealSummary.cafeDisplayName || mealSummary.campusName}
                   </h2>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <p className="text-sm text-slate-600">
@@ -549,6 +792,21 @@ export default function MealsPage() {
                         {loadingSummary ? "Refreshing..." : "Refresh Live Data"}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={handleExportMealStudents}
+                      disabled={exportingStudents}
+                      className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {exportingStudents ? "Exporting..." : "Export Students"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportSummary}
+                      className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Export CSV
+                    </button>
                   </div>
                   {shouldShowSessionMeta && (
                     <>

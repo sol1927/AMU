@@ -6,6 +6,7 @@ import { useCampus } from "@/app/context/CampusContext";
 import { useRouter } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
+import { downloadCsv } from "@/app/utils/exportCsv";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -21,6 +22,8 @@ export default function CampusStudentsPage() {
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
   const [bulkInternshipAction, setBulkInternshipAction] = useState("");
   const [savingBulkInternship, setSavingBulkInternship] = useState(false);
+  const [exportingStudents, setExportingStudents] = useState(false);
+  const [totalStudents, setTotalStudents] = useState(0);
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
@@ -33,7 +36,10 @@ export default function CampusStudentsPage() {
     setTimeout(() => setToast(null), 2000);
   };
 
+  const [viewMode, setViewMode] = useState("cafe");
+
   const fetchStudents = async (query = "", fasting = "") => {
+    if (!currentCampus) return;
     setLoading(true);
 
     try {
@@ -41,7 +47,9 @@ export default function CampusStudentsPage() {
       if (query) params.append("search", query);
       if (fasting) params.append("fastingType", fasting);
 
-      const res = await fetch(`${url}/campus/students?${params.toString()}`, {
+      const endpoint =
+        viewMode === "all" ? "/campus/students/all" : "/campus/students";
+      const res = await fetch(`${url}${endpoint}?${params.toString()}`, {
         credentials: "include",
       });
 
@@ -53,6 +61,7 @@ export default function CampusStudentsPage() {
       }
 
       setStudents(data.students || []);
+      setTotalStudents(Number(data.totalStudents) || 0);
       setError("");
     } catch (err) {
       setError(getErrorMessage(err, "We could not load students right now."));
@@ -74,7 +83,7 @@ export default function CampusStudentsPage() {
 
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [currentCampus, viewMode]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -178,6 +187,48 @@ export default function CampusStudentsPage() {
     }
   };
 
+  const handleExportCampusStudents = () => {
+    if (!currentCampus) return;
+
+    try {
+      setExportingStudents(true);
+
+      const rows = [
+        [
+          "Name",
+          "Student ID",
+          "Department",
+          "Batch",
+          "Fasting Type",
+          "Internship",
+        ],
+        ...(viewMode === "all" ? students : filteredAndSortedStudents).map(
+          (student) => [
+            student.name || "",
+            student.studentId || "",
+            student.department || "",
+            student.batch ?? "",
+            student.fastingType || "",
+            student.isInternship ? "Yes" : "No",
+          ],
+        ),
+      ];
+
+      const safeCampusName = String(currentCampus?.name || "campus").replace(
+        /[^a-z0-9]+/gi,
+        "-",
+      );
+      downloadCsv(
+        viewMode === "all"
+          ? `${safeCampusName}-campus-all-students.csv`
+          : `${safeCampusName}-campus-${currentCampus?.selectedCafeNumber || "all"}-students.csv`,
+        rows,
+      );
+    } finally {
+      setExportingStudents(false);
+    }
+  };
+
   const handleBulkInternshipUpdate = async () => {
     if (!bulkInternshipAction) return;
 
@@ -257,14 +308,49 @@ export default function CampusStudentsPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl font-bold leading-none">Students</h1>
                 <p className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-                  {filteredAndSortedStudents.length}{" "}
-                  {filteredAndSortedStudents.length === 1
-                    ? "student"
-                    : "students"}
+                  {viewMode === "all" ? (
+                    <>
+                      Showing {filteredAndSortedStudents.length} campus students
+                    </>
+                  ) : (
+                    <>
+                      Showing {filteredAndSortedStudents.length} cafe students
+                    </>
+                  )}
                 </p>
+                <p className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
+                  Campus total: {totalStudents}
+                </p>
+                {viewMode === "cafe" ? (
+                  <p className="rounded-full bg-cyan-50 px-3 py-1 text-sm font-semibold text-cyan-700">
+                    Cafe {currentCampus?.selectedCafeNumber || "--"}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setViewMode("cafe")}
+                  disabled={viewMode === "cafe"}
+                  className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
+                    viewMode === "cafe"
+                      ? "bg-slate-300 text-slate-700 cursor-not-allowed"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Cafe Students
+                </button>
+                <button
+                  onClick={() => setViewMode("all")}
+                  disabled={viewMode === "all"}
+                  className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
+                    viewMode === "all"
+                      ? "bg-slate-300 text-slate-700 cursor-not-allowed"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  All Students
+                </button>
                 <button
                   onClick={handleRefreshStudents}
                   disabled={refreshingStudents}
@@ -275,6 +361,19 @@ export default function CampusStudentsPage() {
                   }`}
                 >
                   {refreshingStudents ? "Refreshing..." : "Refresh"}
+                </button>
+                <button
+                  onClick={handleExportCampusStudents}
+                  disabled={
+                    exportingStudents || filteredAndSortedStudents.length === 0
+                  }
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {exportingStudents
+                    ? "Exporting..."
+                    : viewMode === "all"
+                      ? "Export All Students"
+                      : "Export Cafe Students"}
                 </button>
                 <button
                   onClick={() => router.push("/campus/students/groups")}
@@ -351,15 +450,15 @@ export default function CampusStudentsPage() {
           </div>
 
           {!loading && filteredAndSortedStudents.length > 0 && (
-            <div className="mb-2 flex items-center gap-4 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500">
+            <div className="mb-2 hidden items-center gap-4 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 sm:flex">
               <span className="w-10">#</span>
               <span className="w-9"></span>
-              <span className="w-[180px]">Name</span>
-              <span className="w-[120px]">Student ID</span>
-              <span className="w-[120px]">Department</span>
-              <span className="w-[80px]">Batch</span>
-              <span className="w-[140px]">Fasting</span>
-              <span className="w-[100px]">Internship</span>
+              <span className="w-44">Name</span>
+              <span className="w-30">Student ID</span>
+              <span className="w-30">Department</span>
+              <span className="w-20">Batch</span>
+              <span className="w-35">Fasting</span>
+              <span className="w-25">Internship</span>
               <div className="ml-auto flex w-6 justify-end">
                 <input
                   type="checkbox"
@@ -377,43 +476,87 @@ export default function CampusStudentsPage() {
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm sm:flex-nowrap sm:gap-4"
+              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[auto_auto_minmax(0,180px)_120px_120px_80px_140px_100px_auto] sm:items-center"
             >
-              <span className="w-10 font-medium text-slate-900">
-                {index + 1}
-              </span>
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
-                {student.profileUrl ? (
-                  <img
-                    src={student.profileUrl}
-                    alt={student.name}
-                    className="h-full w-full rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="font-semibold text-gray-600">
-                    {student.name?.[0] || "S"}
-                  </span>
-                )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  #
+                </span>
+                <span className="font-medium text-slate-900">{index + 1}</span>
               </div>
-              <span className="w-[180px] truncate font-medium">
-                {student.name}
-              </span>
-              <span className="w-[120px] truncate">{student.studentId}</span>
-              <span className="w-[120px] truncate">{student.department}</span>
-              <span className="w-[80px] truncate">{student.batch}</span>
-              <span className="w-[140px] truncate">
-                {getFastingLabel(student.fastingType)}
-              </span>
-              <span className="w-[100px]">
-                {student.isInternship ? (
-                  <span className="font-semibold text-yellow-400">
-                    Internship
-                  </span>
-                ) : (
-                  <span className="text-slate-400">-</span>
-                )}
-              </span>
-              <div className="ml-auto flex w-6 justify-end">
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Photo
+                </span>
+                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                  {student.profileUrl ? (
+                    <img
+                      src={student.profileUrl}
+                      alt={student.name}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center font-semibold text-gray-600">
+                      {student.name?.[0] || "S"}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Name
+                </span>
+                <span className="truncate font-medium">{student.name}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Student ID
+                </span>
+                <span className="truncate">{student.studentId}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Department
+                </span>
+                <span className="truncate">{student.department}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Batch
+                </span>
+                <span className="truncate">{student.batch}</span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Fasting
+                </span>
+                <span className="truncate">
+                  {getFastingLabel(student.fastingType)}
+                </span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Internship
+                </span>
+                <span>
+                  {student.isInternship ? (
+                    <span className="font-semibold text-yellow-400">
+                      Internship
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </span>
+              </div>
+
+              <div className="ml-auto flex w-full justify-end sm:w-6">
                 <input
                   type="checkbox"
                   checked={selectedStudents.includes(student._id)}

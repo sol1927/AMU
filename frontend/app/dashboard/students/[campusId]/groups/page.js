@@ -2,6 +2,7 @@
 
 import { React, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -17,6 +18,9 @@ export default function DashboardCampusStudentGroupsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [assigningBatch, setAssigningBatch] = useState(null);
+  const [availableCafeNumbers, setAvailableCafeNumbers] = useState([1]);
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -40,7 +44,7 @@ export default function DashboardCampusStudentGroupsPage() {
         }
 
         const matchedCampus = (data.campuses || []).find(
-          (item) => item._id === campusId,
+          (item) => String(item._id ?? item.id) === String(campusId),
         );
 
         if (!matchedCampus) {
@@ -48,6 +52,7 @@ export default function DashboardCampusStudentGroupsPage() {
         }
 
         setCampus(matchedCampus);
+        setAvailableCafeNumbers(matchedCampus?.cafeNumbers || [1]);
       } catch (err) {
         const message = getErrorMessage(
           err,
@@ -107,6 +112,7 @@ export default function DashboardCampusStudentGroupsPage() {
 
       setBatches(nextBatches);
       setBatchCounts(counts);
+      setAvailableCafeNumbers(batchesData.cafeNumbers || campus?.cafeNumbers || [1]);
       setError("");
     } catch (err) {
       const message = getErrorMessage(
@@ -118,11 +124,23 @@ export default function DashboardCampusStudentGroupsPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusId]);
+  }, [campusId, campus?.cafeNumbers]);
 
   useEffect(() => {
     fetchBatches();
   }, [fetchBatches]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".batch-menu")) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <>
@@ -152,6 +170,16 @@ export default function DashboardCampusStudentGroupsPage() {
                   <p className="mt-1 text-sm text-slate-600 md:text-base">
                     Manage batches and student groups from the admin dashboard
                   </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2 xl:justify-start">
+                    {availableCafeNumbers.map((number) => (
+                      <span
+                        key={number}
+                        className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700"
+                      >
+                        Cafe {number}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -178,25 +206,106 @@ export default function DashboardCampusStudentGroupsPage() {
             )}
 
             {!loading &&
-              batches.map((batch) => (
+              batches.map((batchItem) => (
                 <div
-                  key={batch}
-                  className="surface-card flex flex-col justify-between rounded-2xl p-6 transition-transform hover:-translate-y-1"
+                  key={batchItem.batch}
+                  className="surface-card relative flex flex-col justify-between rounded-2xl p-6 transition-transform hover:-translate-y-1"
                 >
+                  <div className="batch-menu absolute right-4 top-4">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenMenuId(
+                          openMenuId === batchItem.batch ? null : batchItem.batch,
+                        )
+                      }
+                      className="rounded-xl border border-slate-200 bg-white p-2 transition hover:bg-slate-50"
+                    >
+                      <BsThreeDotsVertical className="h-4 w-4 text-slate-500" />
+                    </button>
+
+                    {openMenuId === batchItem.batch ? (
+                      <div className="absolute right-0 top-full z-20 mt-2 w-36 rounded-2xl border border-slate-200 bg-white p-1 shadow-xl">
+                        {availableCafeNumbers.map((number) => (
+                          <button
+                            key={number}
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                setAssigningBatch(batchItem.batch);
+                                const res = await fetch(
+                                  `${url}/dashboard/campuses/${campusId}/students/batches/${batchItem.batch}/cafe-number`,
+                                  {
+                                    method: "PATCH",
+                                    credentials: "include",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({ cafeNumber: number }),
+                                  },
+                                );
+                                const data = await res.json();
+
+                                if (!res.ok) {
+                                  throw new Error(
+                                    getApiMessage(
+                                      data,
+                                      "We could not assign that cafe number right now.",
+                                    ),
+                                  );
+                                }
+
+                                setBatches((prev) =>
+                                  prev.map((item) =>
+                                    item.batch === batchItem.batch
+                                      ? { ...item, assignedCafeNumber: number }
+                                      : item,
+                                  ),
+                                );
+                                showToast(`Batch ${batchItem.batch} -> Cafe ${number}`, "success");
+                              } catch (err) {
+                                showToast(
+                                  getErrorMessage(
+                                    err,
+                                    "We could not assign that cafe number right now.",
+                                  ),
+                                );
+                              } finally {
+                                setAssigningBatch(null);
+                                setOpenMenuId(null);
+                              }
+                            }}
+                            className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                          >
+                            {assigningBatch === batchItem.batch
+                              ? "Saving..."
+                              : `Send to Cafe ${number}`}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="mb-4">
-                    <h3 className="text-xl font-bold">{batch}</h3>
+                    <h3 className="text-xl font-bold">{batchItem.batch}</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      {batchCounts[String(batch)] || 0}{" "}
-                      {(batchCounts[String(batch)] || 0) === 1
+                      {batchCounts[String(batchItem.batch)] ||
+                        batchItem.studentCount ||
+                        0}{" "}
+                      {(batchCounts[String(batchItem.batch)] ||
+                        batchItem.studentCount ||
+                        0) === 1
                         ? "student"
                         : "students"}
+                    </p>
+                    <p className="mt-3 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 inline-flex">
+                      Assigned Cafe {batchItem.assignedCafeNumber || "Not set"}
                     </p>
                   </div>
                   <div className="mt-auto flex gap-2">
                     <button
                       onClick={() =>
                         router.push(
-                          `/dashboard/students/${campusId}/groups/batches/${batch}`,
+                          `/dashboard/students/${campusId}/groups/batches/${batchItem.batch}`,
                         )
                       }
                       className="flex-1 rounded bg-emerald-600 px-4 py-2 text-white transition hover:bg-emerald-700"

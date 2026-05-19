@@ -1,6 +1,7 @@
 import Campus from "../models/campus.model.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import CafeStudent from "../models/cafeStudent.model.js";
 import StationScan from "../models/stationScan.model.js";
 import Meal from "../models/meal.model.js";
@@ -16,6 +17,12 @@ import {
 } from "../utils/mealSession.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 import { getSessionCookieOptions } from "../utils/sessionSecurity.js";
+import {
+  buildCafeNumbers,
+  getCafeDisplayName,
+  normalizeBatchCafeAssignments,
+  normalizeCafeCount,
+} from "../utils/cafeScope.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -115,7 +122,7 @@ export const createCampus = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { campusId, name, email, password, location } = req.body;
+    const { campusId, name, email, password, location, cafeCount } = req.body;
     const parsedCampusId = parseCampusId(campusId);
     const normalizedEmail = email?.toLowerCase().trim();
 
@@ -179,6 +186,7 @@ export const createCampus = async (req, res) => {
       password,
       location: location ? formatFullName(location.trim()) : "",
       createdBy: req.userId,
+      cafeCount: normalizeCafeCount(cafeCount),
     });
     const brandedCampus = await attachAdminLogoToCampus(campus);
 
@@ -261,6 +269,27 @@ export const getCampuses = async (req, res) => {
           getMealWindowLabel(mealSchedule?.[mealType]) ||
           currentMeal?.appliedWindow?.label;
         const brandedCampus = await attachAdminLogoToCampus(effectiveCampus);
+        const liveCafeSessions = (
+          await Meal.findAll({
+            campus: campus.id,
+            mealType,
+            date: getDayString(activityDate),
+          })
+        )
+          .filter(
+            (mealEntry) =>
+              mealEntry.cafeNumber &&
+              mealEntry.appliedWindow?.actualOpenedAt &&
+              !mealEntry.appliedWindow?.actualClosedAt,
+          )
+          .map((mealEntry) => ({
+            cafeNumber: mealEntry.cafeNumber,
+            displayName: getCafeDisplayName(
+              brandedCampus.name,
+              mealEntry.cafeNumber,
+            ),
+            openingTime: mealEntry.appliedWindow?.actualOpenedAt || null,
+          }));
 
         return {
           ...brandedCampus,
@@ -274,6 +303,7 @@ export const getCampuses = async (req, res) => {
           currentSessionAppliedWindow,
           openingTime: actualOpenedAt,
           closingTime: actualClosedAt,
+          liveCafeSessions,
         };
       }),
     );
@@ -294,7 +324,7 @@ export const updateCampus = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { campusId, name, email, password, location } = req.body;
+    const { campusId, name, email, password, location, cafeCount } = req.body;
     const campus = await findOwnedCampus(req.params.id, req.userId, true);
 
     if (!campus) {
@@ -362,6 +392,13 @@ export const updateCampus = async (req, res) => {
 
     if (location !== undefined) {
       updates.location = location ? formatFullName(location.trim()) : "";
+    }
+    if (cafeCount !== undefined) {
+      updates.cafeCount = normalizeCafeCount(cafeCount);
+      updates.batchCafeAssignments = normalizeBatchCafeAssignments(
+        campus.batchCafeAssignments || {},
+        updates.cafeCount,
+      );
     }
 
     if (password) {
@@ -523,6 +560,10 @@ export const getCampusDashboard = async (req, res) => {
         email: brandedCampus.email,
         location: brandedCampus.location,
         logo: brandedCampus.logo,
+        cafeCount: normalizeCafeCount(brandedCampus.cafeCount),
+        cafeNumbers: buildCafeNumbers(brandedCampus.cafeCount),
+        selectedCafeNumber: req.cafeNumber || null,
+        cafeDisplayName: getCafeDisplayName(brandedCampus.name, req.cafeNumber),
       },
     });
   } catch {
@@ -710,6 +751,47 @@ export const updateCampusProfile = async (req, res) => {
   }
 };
 
+const signCampusToken = (campusId, cafeNumber) =>
+  jwt.sign(
+    { id: campusId, role: "campus", cafeNumber: Number(cafeNumber) },
+    process.env.JWT_SECRET,
+  );
+
+export const selectCampusCafeNumber = async (req, res) => {
+  try {
+    const { cafeNumber } = req.body;
+    const normalizedCafeNumber = Number(cafeNumber);
+    const availableCafeNumbers = buildCafeNumbers(req.campus?.cafeCount);
+
+    if (!availableCafeNumbers.includes(normalizedCafeNumber)) {
+      return res.status(400).json({
+        message: "Please choose a valid cafe number for this campus.",
+      });
+    }
+
+    res
+      .cookie(
+        "campusToken",
+        signCampusToken(req.campus.id, normalizedCafeNumber),
+        getSessionCookieOptions(),
+      )
+      .json({
+        message: "Cafe number selected successfully.",
+        selectedCafeNumber: normalizedCafeNumber,
+        cafeDisplayName: getCafeDisplayName(
+          req.campus.name,
+          normalizedCafeNumber,
+        ),
+      });
+  } catch (err) {
+    logInternalError("select-campus-cafe-number", err);
+    sendServerError(
+      res,
+      "We could not save the cafe number right now. Please try again.",
+    );
+  }
+};
+
 export const logoutCampus = async (req, res) => {
   const logoutTime = new Date();
   const campus = req.campus;
@@ -728,6 +810,7 @@ export const logoutCampus = async (req, res) => {
     if (currentMealType) {
       const currentMeal = await Meal.findOne({
         campus: campusId,
+        cafeNumber: req.cafeNumber ?? null,
         mealType: currentMealType,
         date: todayString,
       }).catch(() => null);
@@ -742,6 +825,7 @@ export const logoutCampus = async (req, res) => {
     } else {
       const todaysMeals = await Meal.findAll({
         campus: campusId,
+        ...(req.cafeNumber ? { cafeNumber: req.cafeNumber } : {}),
         date: todayString,
       }).catch(() => []);
       const openExpiredMeals = todaysMeals.filter((meal) => {

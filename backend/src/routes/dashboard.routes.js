@@ -4,6 +4,7 @@ import {
   getAdminDashboard,
   getMeals,
   getMealFilters,
+  getMealStudents,
 } from "../controllers/dashboard.controller.js";
 import {
   getMealSchedule,
@@ -23,12 +24,14 @@ import {
   getStudentsByBatch,
   bulkUpdateFasting,
   bulkToggleInternshipStudents,
+  assignBatchToCafeNumber,
 } from "../controllers/student.controller.js";
 
 const router = express.Router();
 
 router.get("/", verifyToken, getAdminDashboard);
 router.get("/meals", verifyToken, getMeals);
+router.get("/meals/students", verifyToken, getMealStudents);
 router.get("/meal-filters", verifyToken, getMealFilters);
 router.get("/meal-schedule/:campusId", verifyToken, getMealSchedule);
 router.put("/meal-schedule/:campusId", verifyToken, updateMealSchedule);
@@ -36,6 +39,11 @@ router.post("/campuses", verifyToken, createCampus);
 router.get("/campuses", verifyToken, getCampuses);
 router.get("/campuses/:id/students", verifyToken, getCampusStudents);
 router.get("/campuses/:id/students/batches", verifyToken, getCampusBatches);
+router.patch(
+  "/campuses/:id/students/batches/:batch/cafe-number",
+  verifyToken,
+  assignBatchToCafeNumber,
+);
 router.get(
   "/campuses/:id/students/batch/:batch",
   verifyToken,

@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import Campus from "../models/campus.model.js";
 import { syncCampusLiveMealWindow } from "../utils/mealSession.js";
+import { buildCafeNumbers, normalizeCafeCount } from "../utils/cafeScope.js";
 
 const ACTIVE_TOUCH_WINDOW_MS = 60 * 1000;
 
@@ -31,13 +32,40 @@ export const protectCampus = async (req, res, next) => {
       campus.lastActiveAt = now;
     }
 
-    await syncCampusLiveMealWindow(campus.id, now, {
-      onlineSince: previousLastActiveAt,
-    }).catch(() => null);
+    const selectedCafeNumber = Number(decoded.cafeNumber);
+    const normalizedSelectedCafeNumber =
+      Number.isInteger(selectedCafeNumber) && selectedCafeNumber > 0
+        ? selectedCafeNumber
+        : null;
 
-    req.campus = campus;
+    if (normalizedSelectedCafeNumber) {
+      await syncCampusLiveMealWindow(campus.id, now, {
+        onlineSince: previousLastActiveAt,
+        cafeNumber: normalizedSelectedCafeNumber,
+      }).catch(() => null);
+    }
+
+    req.campus = {
+      ...campus,
+      cafeCount: normalizeCafeCount(campus.cafeCount),
+      cafeNumbers: buildCafeNumbers(campus.cafeCount),
+      selectedCafeNumber: normalizedSelectedCafeNumber,
+    };
+    req.cafeNumber = normalizedSelectedCafeNumber;
     next();
   } catch {
     return res.status(401).json({ message: "Session expired" });
   }
+};
+
+export const requireCampusCafeSelection = (req, res, next) => {
+  if (req.cafeNumber) {
+    return next();
+  }
+
+  return res.status(428).json({
+    message: "Please choose a cafe number before continuing.",
+    requireCafeSelection: true,
+    cafeNumbers: req.campus?.cafeNumbers || [],
+  });
 };

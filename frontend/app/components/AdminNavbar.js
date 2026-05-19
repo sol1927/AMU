@@ -160,6 +160,16 @@ export default function AdminNavbar() {
             <button
               onClick={() => {
                 setOpenMenu(false);
+                router.push("/dashboard/users");
+              }}
+              className="w-full px-5 py-3 text-left transition hover:bg-slate-50"
+            >
+              Users
+            </button>
+
+            <button
+              onClick={() => {
+                setOpenMenu(false);
                 router.push("/dashboard/meals");
               }}
               className="w-full px-5 py-3 text-left transition hover:bg-slate-50"

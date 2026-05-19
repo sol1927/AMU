@@ -20,6 +20,10 @@ import {
   getStudentCampusSyncQuery,
 } from "../utils/campusId.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
+import {
+  filterStudentsForCafeNumber,
+  getCafeDisplayName,
+} from "../utils/cafeScope.js";
 
 const buildFastingBreakdown = (students = []) => ({
   fasting: students.filter(
@@ -40,6 +44,8 @@ const createCampusSnapshot = (campus = {}) => ({
   campusRef: campus.id ?? null,
   campusId: campus.campusId ?? null,
   campusName: campus.name || "Campus",
+  cafeNumber: campus.selectedCafeNumber ?? null,
+  cafeDisplayName: getCafeDisplayName(campus.name, campus.selectedCafeNumber),
   location: campus.location || "",
 });
 
@@ -57,6 +63,8 @@ const createStudentSnapshot = (
   isInternship: getStudentIsInternship(student),
   campusId: campus.campusId ?? null,
   campusName: campus.name || "Campus",
+  cafeNumber: campus.selectedCafeNumber ?? null,
+  cafeDisplayName: getCafeDisplayName(campus.name, campus.selectedCafeNumber),
   scannedAt: scannedAt.toISOString(),
 });
 
@@ -170,6 +178,19 @@ export const scanStudentStation = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
+    const accessibleStudents = filterStudentsForCafeNumber(
+      [student],
+      req.campus,
+      req.cafeNumber,
+    );
+
+    if (accessibleStudents.length === 0) {
+      return res.status(403).json({
+        allowed: false,
+        message: `This student is not assigned to Cafe ${req.cafeNumber}.`,
+      });
+    }
+
     const normalizedStudent = normalizeStudent(student);
 
     if (getStudentIsInternship(normalizedStudent)) {
@@ -218,6 +239,7 @@ export const scanStudentStation = async (req, res) => {
       campus: req.campus.id,
       campusId: req.campus.campusId ?? null,
       campusName: req.campus.name || "Campus",
+      cafeNumber: req.cafeNumber,
       date: todayString,
       mealType: currentMealType,
       scannedAt: scanTime,
@@ -225,11 +247,16 @@ export const scanStudentStation = async (req, res) => {
 
     const existingMeal = await Meal.findOne({
       campus: req.campus.id,
+      cafeNumber: req.cafeNumber,
       mealType: currentMealType,
       date: todayString,
     });
 
-    const campusStudents = await CafeStudent.findAll(studentCampusQuery);
+    const campusStudents = filterStudentsForCafeNumber(
+      await CafeStudent.findAll(studentCampusQuery),
+      req.campus,
+      req.cafeNumber,
+    );
 
     if (existingMeal) {
       const students = Array.from(
@@ -270,6 +297,7 @@ export const scanStudentStation = async (req, res) => {
     } else {
       await Meal.create({
         campus: req.campus.id,
+        cafeNumber: req.cafeNumber,
         mealType: currentMealType,
         date: todayString,
         year: getCurrentYear(today),
@@ -324,6 +352,7 @@ export const getCampusDashboardStats = async (req, res) => {
 
     const meal = await Meal.findOne({
       campus: campusId,
+      cafeNumber: req.cafeNumber,
       date: getDayString(mealDate),
       year,
       semester,
@@ -332,15 +361,21 @@ export const getCampusDashboardStats = async (req, res) => {
 
     const recentScans = await StationScan.findAll({
       campus: campusId,
+      cafeNumber: req.cafeNumber,
       date: getDayString(mealDate),
       mealType,
       orderByCreatedAtDesc: true,
       limit: 5,
     });
 
-    const campusStudents = await CafeStudent.findAll(studentSyncQuery);
+    const campusStudents = filterStudentsForCafeNumber(
+      await CafeStudent.findAll(studentSyncQuery),
+      req.campus,
+      req.cafeNumber,
+    );
     const servedScans = await StationScan.findAll({
       campus: campusId,
+      cafeNumber: req.cafeNumber,
       date: getDayString(mealDate),
       mealType,
     });
@@ -363,6 +398,8 @@ export const getCampusDashboardStats = async (req, res) => {
       mealLabel: label,
       mealSchedule,
       mealDate,
+      cafeNumber: req.cafeNumber,
+      cafeDisplayName: getCafeDisplayName(req.campus.name, req.cafeNumber),
       totalStudents: activeSummary?.totalStudents ?? 0,
       regularStudents: activeSummary?.regularStudents ?? 0,
       internshipStudents: activeSummary?.internshipStudents ?? 0,

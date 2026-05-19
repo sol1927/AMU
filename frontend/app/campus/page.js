@@ -101,7 +101,7 @@ export default function CampusDashboardPage() {
 
   const fetchDashboardStats = useCallback(
     async (manual = false) => {
-      if (!currentCampus) return;
+      if (!currentCampus?.selectedCafeNumber) return;
       if (manual) setIsRefreshing(true);
 
       try {
@@ -247,11 +247,16 @@ export default function CampusDashboardPage() {
           <h1 className="mb-4 text-3xl font-extrabold md:text-5xl">
             Welcome,{" "}
             <span className="text-blue-600">
-              {capitalizeWords(currentCampus?.name || "Campus")}
+              {capitalizeWords(
+                currentCampus?.cafeDisplayName || currentCampus?.name || "Campus",
+              )}
             </span>
           </h1>
           <p className="text-lg text-slate-600 md:text-xl">
             Monitor students and meals at a glance.
+          </p>
+          <p className="mt-3 text-sm font-semibold text-cyan-700">
+            Serving at Cafe {currentCampus?.selectedCafeNumber || "--"}
           </p>
           <p className="mt-3 inline-flex rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 ring-1 ring-blue-200">
             Current Dashboard Session: {stats.mealLabel}

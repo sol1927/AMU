@@ -1,10 +1,27 @@
 import { getDB } from "../config/db.js";
 import bcrypt from "bcryptjs";
-import { mapRow, mapRows, normalizeDate, omitPassword } from "./modelUtils.js";
+import {
+  mapRow,
+  mapRows,
+  normalizeDate,
+  omitPassword,
+  parseJsonField,
+} from "./modelUtils.js";
+import {
+  buildCafeNumbers,
+  normalizeBatchCafeAssignments,
+  normalizeCafeCount,
+} from "../utils/cafeScope.js";
 
 const mapCampusRow = (row) => ({
   ...row,
   logo: row.logo_url ? { url: row.logo_url } : undefined,
+  cafeCount: normalizeCafeCount(row.cafeCount),
+  batchCafeAssignments: normalizeBatchCafeAssignments(
+    parseJsonField(row.batchCafeAssignments, {}),
+    row.cafeCount,
+  ),
+  cafeNumbers: buildCafeNumbers(row.cafeCount),
 });
 
 const sanitizeCampus = (row, includePassword = false) =>
@@ -31,6 +48,8 @@ const createTable = async () => {
       role ENUM('campus', 'admin') DEFAULT 'campus',
       isOnline BOOLEAN DEFAULT FALSE,
       lastActiveAt DATETIME,
+      cafeCount INT DEFAULT 1,
+      batchCafeAssignments JSON,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY unique_name_createdBy (name, createdBy),
@@ -41,11 +60,41 @@ const createTable = async () => {
   await getDB().execute(
     "ALTER TABLE campuses MODIFY COLUMN logo_url MEDIUMTEXT NULL",
   );
+  const [cafeCountRows] = await getDB().execute(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'campuses'
+        AND COLUMN_NAME = 'cafeCount'
+      LIMIT 1
+    `,
+  );
+  if (cafeCountRows.length === 0) {
+    await getDB().execute(
+      "ALTER TABLE campuses ADD COLUMN cafeCount INT DEFAULT 1",
+    );
+  }
+  const [batchAssignmentRows] = await getDB().execute(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'campuses'
+        AND COLUMN_NAME = 'batchCafeAssignments'
+      LIMIT 1
+    `,
+  );
+  if (batchAssignmentRows.length === 0) {
+    await getDB().execute(
+      "ALTER TABLE campuses ADD COLUMN batchCafeAssignments JSON NULL",
+    );
+  }
 };
 
 const findAll = async (filter = {}, options = {}) => {
   let query =
-    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, createdAt, updatedAt FROM campuses WHERE 1=1";
+    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, cafeCount, batchCafeAssignments, createdAt, updatedAt FROM campuses WHERE 1=1";
   const params = [];
   if (filter.createdBy) {
     query += " AND createdBy = ?";
@@ -78,7 +127,7 @@ const findAll = async (filter = {}, options = {}) => {
 
 const findById = async (id, options = {}) => {
   const [rows] = await getDB().execute(
-    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, createdAt, updatedAt FROM campuses WHERE id = ?",
+    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, cafeCount, batchCafeAssignments, createdAt, updatedAt FROM campuses WHERE id = ?",
     [id],
   );
   return sanitizeCampus(rows[0] || null, options.includePassword);
@@ -99,11 +148,13 @@ const create = async (data) => {
     role = "campus",
     isOnline = false,
     lastActiveAt,
+    cafeCount = 1,
+    batchCafeAssignments = {},
   } = data;
   const hashedPassword = await bcrypt.hash(password, 10);
   const query = `
-    INSERT INTO campuses (campusId, name, email, password, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO campuses (campusId, name, email, password, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, cafeCount, batchCafeAssignments)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     campusId,
@@ -117,6 +168,8 @@ const create = async (data) => {
     role,
     isOnline,
     normalizeDate(lastActiveAt),
+    normalizeCafeCount(cafeCount),
+    JSON.stringify(normalizeBatchCafeAssignments(batchCafeAssignments, cafeCount)),
   ];
   const [result] = await getDB().execute(query, params);
   return findById(result.insertId);
@@ -175,6 +228,21 @@ const updateById = async (id, data, options = {}) => {
   if (data.lastActiveAt !== undefined) {
     fields.push("lastActiveAt = ?");
     params.push(normalizeDate(data.lastActiveAt));
+  }
+  if (data.cafeCount !== undefined) {
+    fields.push("cafeCount = ?");
+    params.push(normalizeCafeCount(data.cafeCount));
+  }
+  if (data.batchCafeAssignments !== undefined) {
+    fields.push("batchCafeAssignments = ?");
+    params.push(
+      JSON.stringify(
+        normalizeBatchCafeAssignments(
+          data.batchCafeAssignments,
+          data.cafeCount,
+        ),
+      ),
+    );
   }
   if (fields.length === 0) return null;
   const query = `UPDATE campuses SET ${fields.join(", ")} WHERE id = ?`;

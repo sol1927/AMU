@@ -88,6 +88,33 @@ export const CampusProvider = ({ children }) => {
     };
   }, [currentCampus]);
 
+  const selectCafeNumber = useCallback(async (cafeNumber) => {
+    const res = await fetch(`${url}/campus/select-cafe-number`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cafeNumber }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || "Failed to save cafe number.");
+    }
+
+    setCurrentCampus((prev) =>
+      prev
+        ? {
+            ...prev,
+            selectedCafeNumber: data.selectedCafeNumber,
+            cafeDisplayName: data.cafeDisplayName,
+          }
+        : prev,
+    );
+
+    return data;
+  }, []);
+
   return (
     <CampusContext.Provider
       value={{
@@ -95,6 +122,7 @@ export const CampusProvider = ({ children }) => {
         setCurrentCampus,
         loading,
         refreshCampus: fetchCampus,
+        selectCafeNumber,
       }}
     >
       {children}
