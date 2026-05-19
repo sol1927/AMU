@@ -1,30 +1,38 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  host: "smtp-relay.brevo.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.BREVO_SMTP_USER,
+    pass: process.env.BREVO_SMTP_KEY,
+  },
+});
 
 export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
   try {
-    const result = await resend.emails.send({
-      from: "GibiGebeta <onboarding@resend.dev>",
-      to: [toEmail],
+    const result = await transporter.sendMail({
+      from: "GibiGebeta <gibigebeta@gmail.com>",
+      to: toEmail,
       subject,
       html: htmlContent,
     });
 
-    console.log("Email sent successfully");
+    console.log("Email sent successfully (Brevo SMTP)");
     return result;
   } catch (error) {
-    console.error("--- Resend API Error Detail ---");
+    console.error("--- Brevo SMTP Error Detail ---");
     console.error("Message:", error?.message);
-    console.error("Name:", error?.name);
+    console.error("Code:", error?.code);
     console.error("Error:", error);
     console.error("--------------------------------");
 
     const wrappedError = new Error(
-      error?.message || "Failed to send email via Resend",
+      error?.message || "Failed to send email via Brevo SMTP",
     );
 
-    wrappedError.code = "RESEND_ERROR";
+    wrappedError.code = "BREVO_SMTP_ERROR";
 
     throw wrappedError;
   }
