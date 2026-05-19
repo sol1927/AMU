@@ -773,7 +773,6 @@ export const selectCampusCafeNumber = async (req, res) => {
       });
     }
 
-    // If switching from an existing cafe, close the previous meal session
     if (req.cafeNumber && req.cafeNumber !== normalizedCafeNumber) {
       const now = new Date();
       const todayString = getDayString(now);

@@ -17,7 +17,7 @@ Full-stack web application for managing campuses, students, meal schedules, meal
 - Express `4.19.2`
 - MySQL with mysql2 `3.6.5`
 - JWT authentication with `jsonwebtoken` `9.0.3`
-- Email delivery with `resend` `6.12.3`
+- Email delivery with `nodemailer`
 
 ## Version Requirements
 
@@ -85,7 +85,8 @@ cp frontend/.env.example frontend/.env.local
 - `SALT_ROUNDS`: bcrypt cost factor such as `10` or `12`
 - `INITIAL_ADMIN_EMAIL`: email used by `npm run seed` to create the first admin account
 - `INITIAL_ADMIN_PASSWORD`: password used by `npm run seed` to create the first admin account
-- `RESEND_API_KEY`: Resend API key used for OTP, password reset, device verification, and email-change emails
+- `GMAIL_USER`: Gmail address used to send system emails
+- `GMAIL_APP_PASSWORD`: 16-character Google App Password
 
 ### Frontend variables
 
@@ -115,7 +116,8 @@ JWT_SECRET=replace_with_a_long_random_development_secret
 SALT_ROUNDS=10
 INITIAL_ADMIN_EMAIL=admin@example.com
 INITIAL_ADMIN_PASSWORD=change_me_on_first_login
-RESEND_API_KEY=resend-api-key
+GMAIL_USER=your-email@gmail.com
+GMAIL_APP_PASSWORD=your-app-password
 ```
 
 Backend production example:
@@ -140,7 +142,8 @@ JWT_SECRET=replace_with_a_long_random_production_secret
 SALT_ROUNDS=12
 INITIAL_ADMIN_EMAIL=admin@domain.com
 INITIAL_ADMIN_PASSWORD=change_me_on_first_login
-RESEND_API_KEY=resend-api-key
+GMAIL_USER=your-email@gmail.com
+GMAIL_APP_PASSWORD=your-app-password
 ```
 
 Frontend development example:
@@ -157,11 +160,12 @@ NEXT_PUBLIC_API_URL=https://api.example.com/api
 
 ### Email setup
 
-The backend currently sends emails through `Resend`, not SMTP.
+The backend sends emails through Gmail using SMTP and an App Password.
 
-Required backend variable:
+Required backend variables:
 
-- `RESEND_API_KEY`
+- `GMAIL_USER`
+- `GMAIL_APP_PASSWORD`
 
 Email-dependent flows include:
 
@@ -302,11 +306,8 @@ Default development URLs:
 
 - Set `NODE_ENV=production` in the backend environment
 - Use a production MySQL connection
-- Set `FRONTEND_URL` to deployed frontend domain
-- Set `COOKIE_SECURE=false` for plain HTTP or `true` for HTTPS
-- Set `NEXT_PUBLIC_API_URL` to deployed backend API URL
 - Use strong production secrets for `JWT_SECRET`
-- Use a real Resend API key for production email delivery
+- Use a valid Gmail account and App Password for production email delivery
 
 ## Available Scripts
 

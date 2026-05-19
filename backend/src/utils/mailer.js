@@ -33,7 +33,6 @@ export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
     console.error("Message:", error.message);
     console.error("Code:", error.code);
 
-    // keep original error for debugging
     throw new Error(error.message, { cause: error });
   }
 };
