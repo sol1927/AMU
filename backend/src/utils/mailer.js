@@ -2,30 +2,30 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
+export const sendEmail = async ({
+  toEmail,
+  subject,
+  htmlContent,
+}) => {
   try {
-    const result = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: "GibiGebeta <onboarding@resend.dev>",
       to: [toEmail],
       subject,
       html: htmlContent,
     });
 
-    console.log("Email sent successfully");
-    return result;
+    if (error) {
+      console.error("Resend Error:", error);
+      throw new Error(error.message);
+    }
+
+    console.log("Email sent successfully:", data);
+
+    return data;
   } catch (error) {
-    console.error("--- Resend API Error Detail ---");
-    console.error("Message:", error?.message);
-    console.error("Name:", error?.name);
-    console.error("Error:", error);
-    console.error("--------------------------------");
-
-    const wrappedError = new Error(
-      error?.message || "Failed to send email via Resend",
-    );
-
-    wrappedError.code = "RESEND_ERROR";
-
-    throw wrappedError;
+    console.error("Email failed:", error.message);
+    throw error;
   }
+};
 };
