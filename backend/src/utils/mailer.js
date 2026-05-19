@@ -10,15 +10,26 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
+export const sendEmail = async ({
+  toEmail,
+  subject,
+  htmlContent,
+}) => {
   try {
+<<<<<<< HEAD
     const result = await transporter.sendMail({
       from: "GibiGebeta <gibigebeta@gmail.com>",
       to: toEmail,
+=======
+    const { data, error } = await resend.emails.send({
+      from: "GibiGebeta <onboarding@resend.dev>",
+      to: [toEmail],
+>>>>>>> 8cdfdd1efa9f557a524d7462dce65d9ff135e5e1
       subject,
       html: htmlContent,
     });
 
+<<<<<<< HEAD
     console.log("Email sent successfully (Brevo SMTP)");
     return result;
   } catch (error) {
@@ -35,5 +46,18 @@ export const sendEmail = async ({ toEmail, subject, htmlContent }) => {
     wrappedError.code = "BREVO_SMTP_ERROR";
 
     throw wrappedError;
+=======
+    if (error) {
+      console.error("Resend Error:", error);
+      throw new Error(error.message);
+    }
+
+    console.log("Email sent successfully:", data);
+
+    return data;
+  } catch (error) {
+    console.error("Email failed:", error.message);
+    throw error;
+>>>>>>> 8cdfdd1efa9f557a524d7462dce65d9ff135e5e1
   }
 };
