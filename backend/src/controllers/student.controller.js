@@ -603,7 +603,7 @@ export const assignBatchToCafeNumber = async (req, res) => {
       return res.status(400).json({ message: "Batch must be a number" });
     }
 
-    if (!availableCafeNumbers.includes(cafeNumber)) {
+    if (cafeNumber !== 0 && !availableCafeNumbers.includes(cafeNumber)) {
       return res.status(400).json({
         message: "Please choose a valid cafe number for this campus.",
       });
@@ -645,6 +645,104 @@ export const assignBatchToCafeNumber = async (req, res) => {
     sendServerError(
       res,
       "We could not save that cafe number right now. Please try again.",
+    );
+  }
+};
+
+export const updateStudentCafeNumber = async (req, res) => {
+  try {
+    const campus = await resolveScopedCampus(req);
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
+
+    const student = await CafeStudent.findById(req.params.id);
+    if (!student || Number(student.campusId) !== Number(campus.campusId)) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const availableCafeNumbers = buildCafeNumbers(campus.cafeCount);
+    const requestedCafeNumber = req.body?.cafeNumber;
+
+    if (requestedCafeNumber !== null && requestedCafeNumber !== undefined) {
+      const cafeNumber = Number(requestedCafeNumber);
+      if (cafeNumber !== 0 && !availableCafeNumbers.includes(cafeNumber)) {
+        return res.status(400).json({
+          message: "Please choose a valid cafe number for this campus.",
+        });
+      }
+
+      const updatedStudent = await CafeStudent.updateById(student.id, {
+        cafeNumber,
+      });
+
+      return res.json({
+        message: `Student assigned to Cafe ${cafeNumber} successfully.`,
+        student: normalizeStudent(updatedStudent),
+      });
+    }
+
+    const updatedStudent = await CafeStudent.updateById(student.id, {
+      cafeNumber: 0,
+    });
+
+    return res.json({
+      message: "Student cafe assignment cleared successfully.",
+      student: normalizeStudent(updatedStudent),
+    });
+  } catch (err) {
+    logInternalError("update-student-cafe-number", err);
+    sendServerError(
+      res,
+      "We could not update that student assignment right now. Please try again.",
+    );
+  }
+};
+
+export const bulkUpdateStudentCafeNumbers = async (req, res) => {
+  try {
+    const campus = await resolveScopedCampus(req);
+    const { ids } = req.body;
+
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found" });
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No students selected" });
+    }
+
+    const availableCafeNumbers = buildCafeNumbers(campus.cafeCount);
+    const requestedCafeNumber = req.body?.cafeNumber;
+    let cafeNumber = 0;
+
+    if (requestedCafeNumber !== null && requestedCafeNumber !== undefined) {
+      cafeNumber = Number(requestedCafeNumber);
+      if (cafeNumber !== 0 && !availableCafeNumbers.includes(cafeNumber)) {
+        return res.status(400).json({
+          message: "Please choose a valid cafe number for this campus.",
+        });
+      }
+    }
+
+    const result = await CafeStudent.updateMany(
+      { ids, ...getStudentCampusQuery(campus) },
+      { cafeNumber },
+    );
+
+    return res.json({
+      message:
+        cafeNumber === 0
+          ? `Cleared cafe assignment for ${result.modifiedCount} students.`
+          : `Assigned ${result.modifiedCount} students to Cafe ${cafeNumber}.`,
+      modifiedCount: result.modifiedCount,
+      cafeNumber,
+    });
+  } catch (err) {
+    logInternalError("bulk-update-student-cafe-number", err);
+    sendServerError(
+      res,
+      "We could not update those student assignments right now. Please try again.",
     );
   }
 };

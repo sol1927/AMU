@@ -25,6 +25,7 @@ import {
   bulkUpdateFasting,
   bulkToggleInternshipStudents,
   assignBatchToCafeNumber,
+  bulkUpdateStudentCafeNumbers,
 } from "../controllers/student.controller.js";
 
 const router = express.Router();
@@ -58,6 +59,11 @@ router.patch(
   "/campuses/:id/students/bulk-internship",
   verifyToken,
   bulkToggleInternshipStudents,
+);
+router.patch(
+  "/campuses/:id/students/bulk-cafe-number",
+  verifyToken,
+  bulkUpdateStudentCafeNumbers,
 );
 router.patch("/campuses/:id", verifyToken, updateCampus);
 router.post("/campuses/:id/sync-students", verifyToken, syncCafeStudents);

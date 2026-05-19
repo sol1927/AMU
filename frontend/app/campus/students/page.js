@@ -450,16 +450,16 @@ export default function CampusStudentsPage() {
           </div>
 
           {!loading && filteredAndSortedStudents.length > 0 && (
-            <div className="mb-2 hidden items-center gap-4 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 sm:flex">
-              <span className="w-10">#</span>
-              <span className="w-9"></span>
-              <span className="w-44">Name</span>
-              <span className="w-30">Student ID</span>
-              <span className="w-30">Department</span>
-              <span className="w-20">Batch</span>
-              <span className="w-35">Fasting</span>
-              <span className="w-25">Internship</span>
-              <div className="ml-auto flex w-6 justify-end">
+            <div className="mb-2 hidden items-center gap-3 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 sm:grid sm:grid-cols-[40px_44px_180px_120px_1fr_70px_130px_100px_24px]">
+              <span>#</span>
+              <span></span>
+              <span className="truncate">Name</span>
+              <span className="truncate">Student ID</span>
+              <span className="truncate">Department</span>
+              <span className="truncate">Batch</span>
+              <span className="truncate">Fasting</span>
+              <span className="truncate">Internship</span>
+              <div className="flex justify-end">
                 <input
                   type="checkbox"
                   checked={selectAll}
@@ -476,7 +476,7 @@ export default function CampusStudentsPage() {
           {filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[auto_auto_minmax(0,180px)_120px_120px_80px_140px_100px_auto] sm:items-center"
+              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[40px_44px_180px_120px_1fr_70px_130px_100px_24px] sm:items-center"
             >
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
@@ -508,35 +508,49 @@ export default function CampusStudentsPage() {
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Name
                 </span>
-                <span className="truncate font-medium">{student.name}</span>
+                <span
+                  className="block truncate font-medium"
+                  title={student.name}
+                >
+                  {student.name}
+                </span>
               </div>
 
               <div className="min-w-0">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Student ID
                 </span>
-                <span className="truncate">{student.studentId}</span>
+                <span className="block truncate" title={student.studentId}>
+                  {student.studentId}
+                </span>
               </div>
 
               <div className="min-w-0">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Department
                 </span>
-                <span className="truncate">{student.department}</span>
+                <span className="block truncate" title={student.department}>
+                  {student.department}
+                </span>
               </div>
 
               <div className="min-w-0">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Batch
                 </span>
-                <span className="truncate">{student.batch}</span>
+                <span className="block truncate" title={student.batch}>
+                  {student.batch}
+                </span>
               </div>
 
               <div className="min-w-0">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Fasting
                 </span>
-                <span className="truncate">
+                <span
+                  className="block truncate"
+                  title={getFastingLabel(student.fastingType)}
+                >
                   {getFastingLabel(student.fastingType)}
                 </span>
               </div>
@@ -545,7 +559,7 @@ export default function CampusStudentsPage() {
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Internship
                 </span>
-                <span>
+                <span className="block truncate">
                   {student.isInternship ? (
                     <span className="font-semibold text-yellow-400">
                       Internship
@@ -556,7 +570,7 @@ export default function CampusStudentsPage() {
                 </span>
               </div>
 
-              <div className="ml-auto flex w-full justify-end sm:w-6">
+              <div className="flex w-full justify-end">
                 <input
                   type="checkbox"
                   checked={selectedStudents.includes(student._id)}

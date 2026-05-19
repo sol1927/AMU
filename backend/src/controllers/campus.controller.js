@@ -263,14 +263,12 @@ export const getCampuses = async (req, res) => {
           });
         }
 
-        // Prefer the live schedule label if the campus is active, 
-        // so admin changes are reflected immediately.
-        const currentSessionAppliedWindow =
-          getMealWindowLabel(mealSchedule?.[mealType]) ||
-          currentMeal?.appliedWindow?.label;
         const brandedCampus = await attachAdminLogoToCampus(effectiveCampus);
         const liveCafeSessions = (
           await Meal.findAll({
+            // Fetch all meals for this campus, meal type, and date
+            // to identify all active cafe sessions.
+            // This is not filtered by cafeNumber to get all live cafes.
             campus: campus.id,
             mealType,
             date: getDayString(activityDate),
@@ -289,6 +287,10 @@ export const getCampuses = async (req, res) => {
               mealEntry.cafeNumber,
             ),
             openingTime: mealEntry.appliedWindow?.actualOpenedAt || null,
+            currentSessionLabel: label, // This is the general meal label for the time context
+            currentSessionAppliedWindow:
+              getMealWindowLabel(mealSchedule?.[mealType]) ||
+              mealEntry.appliedWindow?.label,
           }));
 
         return {
@@ -299,10 +301,12 @@ export const getCampuses = async (req, res) => {
             : "N/A",
           students: studentsCount,
           isLive,
-          currentSessionLabel: label,
-          currentSessionAppliedWindow,
-          openingTime: actualOpenedAt,
-          closingTime: actualClosedAt,
+          currentSessionLabel: label, // This is the general meal label for the time context
+          currentSessionAppliedWindow:
+            getMealWindowLabel(mealSchedule?.[mealType]) ||
+            currentMeal?.appliedWindow?.label, // This is for the main campus entry, if no live sessions
+          openingTime: actualOpenedAt, // This is for the main campus entry, if no live sessions
+          closingTime: actualClosedAt, // This is for the main campus entry, if no live sessions
           liveCafeSessions,
         };
       }),
@@ -767,6 +771,33 @@ export const selectCampusCafeNumber = async (req, res) => {
       return res.status(400).json({
         message: "Please choose a valid cafe number for this campus.",
       });
+    }
+
+    // If switching from an existing cafe, close the previous meal session
+    if (req.cafeNumber && req.cafeNumber !== normalizedCafeNumber) {
+      const now = new Date();
+      const todayString = getDayString(now);
+      const currentMealType = await getCurrentMealType(
+        req.campus.id,
+        now,
+      ).catch(() => null);
+
+      if (currentMealType) {
+        const prevMeal = await Meal.findOne({
+          campus: req.campus.id,
+          cafeNumber: req.cafeNumber,
+          mealType: currentMealType,
+          date: todayString,
+        }).catch(() => null);
+
+        if (prevMeal) {
+          await closeMealAtAppliedTime(
+            prevMeal,
+            req.campus.lastActiveAt,
+            now,
+          ).catch(() => null);
+        }
+      }
     }
 
     res

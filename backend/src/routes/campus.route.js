@@ -15,6 +15,7 @@ import {
   bulkUpdateFasting,
   toggleInternshipStudent,
   bulkToggleInternshipStudents,
+  updateStudentCafeNumber,
 } from "../controllers/student.controller.js";
 import {
   protectCampus,
@@ -59,6 +60,11 @@ router.patch(
   protectCampus,
   requireCampusCafeSelection,
   toggleInternshipStudent,
+);
+router.patch(
+  "/students/:id/cafe-number",
+  protectCampus,
+  updateStudentCafeNumber,
 );
 router.patch(
   "/students/bulk-internship",

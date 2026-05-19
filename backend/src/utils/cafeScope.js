@@ -8,7 +8,10 @@ export const normalizeCafeCount = (value) => {
 };
 
 export const buildCafeNumbers = (cafeCount = 1) =>
-  Array.from({ length: normalizeCafeCount(cafeCount) }, (_, index) => index + 1);
+  Array.from(
+    { length: normalizeCafeCount(cafeCount) },
+    (_, index) => index + 1,
+  );
 
 export const normalizeBatchCafeAssignments = (
   value,
@@ -22,25 +25,28 @@ export const normalizeBatchCafeAssignments = (
   const source =
     value && typeof value === "object" && !Array.isArray(value) ? value : {};
 
-  return Object.entries(source).reduce((accumulator, [batchKey, cafeNumber]) => {
-    const normalizedBatch = String(batchKey ?? "").trim();
-    const normalizedCafeNumber = Number(cafeNumber);
+  return Object.entries(source).reduce(
+    (accumulator, [batchKey, cafeNumber]) => {
+      const normalizedBatch = String(batchKey ?? "").trim();
+      const normalizedCafeNumber = Number(cafeNumber);
 
-    if (!normalizedBatch) {
+      if (!normalizedBatch) {
+        return accumulator;
+      }
+
+      if (allowedBatchSet && !allowedBatchSet.has(normalizedBatch)) {
+        return accumulator;
+      }
+
+      if (!allowedCafeNumbers.has(normalizedCafeNumber)) {
+        return accumulator;
+      }
+
+      accumulator[normalizedBatch] = normalizedCafeNumber;
       return accumulator;
-    }
-
-    if (allowedBatchSet && !allowedBatchSet.has(normalizedBatch)) {
-      return accumulator;
-    }
-
-    if (!allowedCafeNumbers.has(normalizedCafeNumber)) {
-      return accumulator;
-    }
-
-    accumulator[normalizedBatch] = normalizedCafeNumber;
-    return accumulator;
-  }, {});
+    },
+    {},
+  );
 };
 
 export const getAssignedCafeNumberForBatch = (campus = {}, batch) => {
@@ -62,7 +68,11 @@ export const getAssignedCafeNumberForBatch = (campus = {}, batch) => {
     : null;
 };
 
-export const filterStudentsForCafeNumber = (students = [], campus = {}, cafeNumber) => {
+export const filterStudentsForCafeNumber = (
+  students = [],
+  campus = {},
+  cafeNumber,
+) => {
   const normalizedCafeNumber = Number(cafeNumber);
   const normalizedCafeCount = normalizeCafeCount(campus?.cafeCount);
 
@@ -75,7 +85,19 @@ export const filterStudentsForCafeNumber = (students = [], campus = {}, cafeNumb
   }
 
   return students.filter((student) => {
-    const assignedCafeNumber = getAssignedCafeNumberForBatch(campus, student?.batch);
+    const studentCafeNumber = Number(student?.cafeNumber);
+    if (studentCafeNumber === 0) {
+      return false;
+    }
+
+    if (Number.isInteger(studentCafeNumber) && studentCafeNumber > 0) {
+      return studentCafeNumber === normalizedCafeNumber;
+    }
+
+    const assignedCafeNumber = getAssignedCafeNumberForBatch(
+      campus,
+      student?.batch,
+    );
     return assignedCafeNumber === normalizedCafeNumber;
   });
 };

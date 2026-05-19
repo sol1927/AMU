@@ -6,6 +6,7 @@ const nullable = (value) => (value === undefined ? null : value);
 const mapCafeStudentRow = (row) => ({
   ...row,
   isInternship: Boolean(row.isInternship),
+  cafeNumber: row.cafeNumber ?? null,
   mealStatus: {
     breakfast: !!row.breakfast,
     lunch: !!row.lunch,
@@ -24,6 +25,7 @@ const createTable = async () => {
       batch INT NOT NULL,
       department VARCHAR(255) NOT NULL,
       campusId INT NOT NULL,
+      cafeNumber INT DEFAULT NULL,
       isInternship BOOLEAN DEFAULT FALSE,
       fastingType ENUM('not_fasting', 'fasting', 'sunday_fasting', 'muslim_fasting') DEFAULT 'not_fasting',
       breakfast BOOLEAN DEFAULT FALSE,
@@ -38,6 +40,14 @@ const createTable = async () => {
   await getDB().execute(
     "ALTER TABLE cafestudents MODIFY COLUMN studentId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL",
   );
+  const [existingColumns] = await getDB().execute(
+    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cafestudents' AND COLUMN_NAME = 'cafeNumber'",
+  );
+  if (!Array.isArray(existingColumns) || existingColumns.length === 0) {
+    await getDB().execute(
+      "ALTER TABLE cafestudents ADD COLUMN cafeNumber INT DEFAULT NULL",
+    );
+  }
 };
 
 const findAll = async (filter = {}) => {
@@ -110,8 +120,8 @@ const create = async (data) => {
     mealStatus = {},
   } = data;
   const query = `
-    INSERT INTO cafestudents (name, profileUrl, profilePublicId, studentId, batch, department, campusId, isInternship, fastingType, breakfast, lunch, dinner)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO cafestudents (name, profileUrl, profilePublicId, studentId, batch, department, campusId, cafeNumber, isInternship, fastingType, breakfast, lunch, dinner)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     name,
@@ -121,6 +131,7 @@ const create = async (data) => {
     batch,
     department,
     campusId,
+    data.cafeNumber !== undefined ? data.cafeNumber : null,
     isInternship,
     fastingType,
     mealStatus.breakfast ? 1 : 0,
@@ -161,6 +172,10 @@ const updateById = async (id, data) => {
   if (data.campusId) {
     fields.push("campusId = ?");
     params.push(data.campusId);
+  }
+  if (data.cafeNumber !== undefined) {
+    fields.push("cafeNumber = ?");
+    params.push(data.cafeNumber);
   }
   if (data.isInternship !== undefined) {
     fields.push("isInternship = ?");
@@ -205,6 +220,14 @@ const countDocuments = async (filter = {}) => {
   if (filter.batch !== undefined) {
     query += " AND batch = ?";
     params.push(filter.batch);
+  }
+  if (filter.cafeNumber !== undefined && filter.cafeNumber !== null) {
+    query += " AND cafeNumber = ?";
+    params.push(filter.cafeNumber);
+  }
+  if (filter.cafeNumber !== undefined && filter.cafeNumber !== null) {
+    query += " AND cafeNumber = ?";
+    params.push(filter.cafeNumber);
   }
   if (filter.fastingType) {
     query += " AND fastingType = ?";
