@@ -362,9 +362,6 @@ export const getMeals = async (req, res) => {
     }
 
     const scanTime = new Date();
-    const addisNow = new Date(
-      scanTime.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
-    );
 
     const { campusId, year, semester, date, mealType, cafeNumber } = req.query;
 
@@ -405,7 +402,7 @@ export const getMeals = async (req, res) => {
       campus.id,
       mealType,
       queryDate,
-      addisNow,
+      scanTime,
     );
     if (scheduleStatus === "active" && isCampusLiveNow(campus)) {
       meal =

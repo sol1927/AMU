@@ -1,6 +1,6 @@
 "use client";
 
-import { React, useEffect, useMemo, useState } from "react";
+import { React, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
@@ -31,6 +31,7 @@ export default function DashboardCampusStudentsPage() {
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
+  const isFirstLoad = useRef(true);
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -101,10 +102,12 @@ export default function DashboardCampusStudentsPage() {
     fetchCampus();
   }, [campusId]);
 
-  const fetchStudents = async (query = "", fasting = "") => {
+  const fetchStudents = useCallback(async (query = "", fasting = "") => {
     if (!campusId) return;
 
-    setLoading(true);
+    if (isFirstLoad.current) {
+      setLoading(true);
+    }
 
     try {
       const params = new URLSearchParams();
@@ -129,9 +132,10 @@ export default function DashboardCampusStudentsPage() {
       setError(getErrorMessage(err, "We could not load students right now."));
     } finally {
       setLoading(false);
+      isFirstLoad.current = false;
       setInitialLoadDone(true);
     }
-  };
+  }, [campusId]);
 
   const handleRefreshStudents = async () => {
     try {
@@ -144,18 +148,23 @@ export default function DashboardCampusStudentsPage() {
   };
 
   useEffect(() => {
-    fetchStudents();
+    isFirstLoad.current = true;
+    setInitialLoadDone(false);
+    setLoading(true);
   }, [campusId]);
 
   useEffect(() => {
+    const hasFilters = searchQuery || fastingFilter;
+    const delay = hasFilters ? 300 : 0;
+
     const timer = setTimeout(() => {
       fetchStudents(searchQuery, fastingFilter);
       setSelectedStudents([]);
       setSelectAll(false);
-    }, 300);
+    }, delay);
 
     return () => clearTimeout(timer);
-  }, [campusId, searchQuery, fastingFilter]);
+  }, [campusId, searchQuery, fastingFilter, fetchStudents]);
 
   const filteredAndSortedStudents = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -582,9 +591,12 @@ export default function DashboardCampusStudentsPage() {
         </div>
 
         <div className="mb-4 flex-1 space-y-2 overflow-y-auto pr-1">
-          {loading && <p className="mt-12 text-center">Loading students...</p>}
+          {loading && !initialLoadDone && (
+            <p className="mt-12 text-center">Loading students...</p>
+          )}
 
-          {filteredAndSortedStudents.map((student, index) => (
+          {(!loading || initialLoadDone) &&
+            filteredAndSortedStudents.map((student, index) => (
             <div
               key={student._id}
               className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[40px_44px_180px_120px_1fr_70px_100px_130px_100px_24px] sm:items-center"
@@ -694,7 +706,8 @@ export default function DashboardCampusStudentsPage() {
             </div>
           ))}
 
-          {!loading &&
+          {initialLoadDone &&
+            !loading &&
             initialLoadDone &&
             filteredAndSortedStudents.length === 0 && (
               <p className="mt-12 text-center text-slate-500">

@@ -9,6 +9,13 @@ import {
   getStudentFastingType,
   getStudentIsInternship,
 } from "./studentDefaults.js";
+import {
+  getAppDayString,
+  getAppMinutesFromDate,
+  getAppMonth,
+  getAppYear,
+  getDateFromAppDayString,
+} from "./appTimezone.js";
 
 export const DEFAULT_MEAL_SCHEDULE = {
   breakfast: { start: "06:00", end: "09:00" },
@@ -103,16 +110,6 @@ const parseTimeToMinutes = (value) => {
   return hours * 60 + minutes;
 };
 
-const getMinutesFromDate = (currentDate = new Date()) =>
-  currentDate.getHours() * 60 + currentDate.getMinutes();
-
-const formatLocalDayString = (currentDate = new Date()) => {
-  const year = currentDate.getFullYear();
-  const month = String(currentDate.getMonth() + 1).padStart(2, "0");
-  const day = String(currentDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 export const formatTimeLabel = (value) => value || "--:--";
 export const getMealWindowLabel = (mealWindow = {}) =>
   `${formatTimeLabel(mealWindow.start)} - ${formatTimeLabel(mealWindow.end)}`;
@@ -184,7 +181,7 @@ export const getMealScheduleAt = async (
   }
 
   const baseSchedule = await getMealSchedule(campusId);
-  const referenceDay = formatLocalDayString(referenceDate);
+  const referenceDay = getAppDayString(referenceDate);
   const meals = await Meal.findAll({ campus: campusId, date: referenceDay });
 
   if (meals.length === 0) {
@@ -217,7 +214,7 @@ export const getCurrentMealType = async (
   currentDate = new Date(),
 ) => {
   const schedule = await getMealSchedule(campusId);
-  const currentMinutes = getMinutesFromDate(currentDate);
+  const currentMinutes = getAppMinutesFromDate(currentDate);
 
   for (const mealType of MEAL_ORDER) {
     const mealWindow = schedule[mealType];
@@ -240,7 +237,7 @@ export const getDashboardMealContext = async (
 ) => {
   const schedule = await getMealSchedule(campusId);
   const current = new Date(currentDate);
-  const currentMinutes = getMinutesFromDate(current);
+  const currentMinutes = getAppMinutesFromDate(current);
 
   const breakfastStart = parseTimeToMinutes(schedule.breakfast?.start);
   const lunchStart = parseTimeToMinutes(schedule.lunch?.start);
@@ -292,22 +289,16 @@ export const getDashboardMealContext = async (
 };
 
 export const getCurrentSemester = (currentDate = new Date()) => {
-  const month = currentDate.getMonth() + 1;
+  const month = getAppMonth(currentDate);
   return month >= 9 || month <= 2 ? "first" : "second";
 };
 
-export const getCurrentYear = (currentDate = new Date()) =>
-  currentDate.getFullYear();
+export const getCurrentYear = (currentDate = new Date()) => getAppYear(currentDate);
 
-export const getDayString = (currentDate = new Date()) => {
-  const normalizedDate = new Date(currentDate);
-  normalizedDate.setHours(0, 0, 0, 0);
-  return formatLocalDayString(normalizedDate);
-};
+export const getDayString = (currentDate = new Date()) => getAppDayString(currentDate);
 
-export const getDateFromDayString = (dayString) => {
-  return new Date(`${dayString}T00:00:00`);
-};
+export const getDateFromDayString = (dayString) =>
+  getDateFromAppDayString(dayString);
 
 export const getMealSessionStatusSync = (
   mealType,
@@ -325,7 +316,7 @@ export const getMealSessionStatusSync = (
   if (targetDayString < currentDayString) return "completed";
   if (targetDayString > currentDayString) return "upcoming";
 
-  const currentMinutes = getMinutesFromDate(currentDate);
+  const currentMinutes = getAppMinutesFromDate(currentDate);
   const startMinutes = parseTimeToMinutes(mealWindow.start);
   const endMinutes = parseTimeToMinutes(mealWindow.end);
 
@@ -353,21 +344,25 @@ export const getMealSessionWindowSync = (mealType, targetDate, schedule) => {
   const mealWindow = schedule[mealType];
   if (!mealWindow) return null;
 
-  const baseDate =
-    typeof targetDate === "string"
-      ? getDateFromDayString(targetDate)
-      : new Date(targetDate);
+  const dayString =
+    typeof targetDate === "string" ? targetDate : getAppDayString(targetDate);
 
   const startMinutes = parseTimeToMinutes(mealWindow.start);
   const endMinutes = parseTimeToMinutes(mealWindow.end);
 
-  const start = new Date(baseDate);
-  start.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+  if (startMinutes === null || endMinutes === null) {
+    return null;
+  }
 
-  const end = new Date(baseDate);
-  end.setHours(Math.floor(endMinutes / 60), endMinutes % 60, 0, 0);
+  const toClockTime = (totalMinutes) =>
+    `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(
+      totalMinutes % 60,
+    ).padStart(2, "0")}:00`;
 
-  return { start, end };
+  return {
+    start: getDateFromAppDayString(dayString, toClockTime(startMinutes)),
+    end: getDateFromAppDayString(dayString, toClockTime(endMinutes)),
+  };
 };
 
 export const getMealSessionStatus = async (
@@ -408,9 +403,7 @@ export const syncCampusLiveMealWindow = async (
     return null;
   }
 
-  const targetDay = new Date(currentDate);
-  targetDay.setHours(0, 0, 0, 0);
-  const targetDayString = getDayString(targetDay);
+  const targetDayString = getDayString(currentDate);
   const mealSchedule = await getMealSchedule(campusId);
   const appliedWindow = mealSchedule?.[currentMealType];
   const campusRecord = await Campus.findById(campusId);
@@ -432,7 +425,7 @@ export const syncCampusLiveMealWindow = async (
 
   const appliedSessionWindow = getMealSessionWindowSync(
     currentMealType,
-    targetDay,
+    targetDayString,
     mealSchedule,
   );
   const onlineSince = options.onlineSince

@@ -1,8 +1,7 @@
 "use client";
 
-import { React, useCallback, useEffect, useState } from "react";
+import { React, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -16,10 +15,11 @@ export default function DashboardCampusStudentGroupsPage() {
   const [batches, setBatches] = useState([]);
   const [batchCounts, setBatchCounts] = useState({});
   const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const isFirstLoad = useRef(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [assigningBatch, setAssigningBatch] = useState(null);
   const [availableCafeNumbers, setAvailableCafeNumbers] = useState([1]);
 
   const showToast = (message, type = "error") => {
@@ -27,23 +27,55 @@ export default function DashboardCampusStudentGroupsPage() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  useEffect(() => {
-    const fetchCampus = async () => {
+  const fetchBatches = useCallback(
+    async ({ isRefresh = false } = {}) => {
       if (!campusId) return;
 
-      try {
-        const res = await fetch(`${url}/dashboard/campuses`, {
-          credentials: "include",
-        });
-        const data = await res.json();
+      if (isRefresh) {
+        setRefreshing(true);
+      } else if (isFirstLoad.current) {
+        setLoading(true);
+      }
 
-        if (!res.ok) {
+      try {
+        const [campusesRes, batchesRes, studentsRes] = await Promise.all([
+          fetch(`${url}/dashboard/campuses`, { credentials: "include" }),
+          fetch(`${url}/dashboard/campuses/${campusId}/students/batches`, {
+            credentials: "include",
+          }),
+          fetch(`${url}/dashboard/campuses/${campusId}/students`, {
+            credentials: "include",
+          }),
+        ]);
+
+        const [campusesData, batchesData, studentsData] = await Promise.all([
+          campusesRes.json(),
+          batchesRes.json(),
+          studentsRes.json(),
+        ]);
+
+        if (!campusesRes.ok) {
           throw new Error(
-            getApiMessage(data, "We could not load campuses right now."),
+            getApiMessage(campusesData, "We could not load campuses right now."),
           );
         }
 
-        const matchedCampus = (data.campuses || []).find(
+        if (!batchesRes.ok) {
+          throw new Error(
+            getApiMessage(batchesData, "We could not load batches right now."),
+          );
+        }
+
+        if (!studentsRes.ok) {
+          throw new Error(
+            getApiMessage(
+              studentsData,
+              "We could not load student counts right now.",
+            ),
+          );
+        }
+
+        const matchedCampus = (campusesData.campuses || []).find(
           (item) => String(item._id ?? item.id) === String(campusId),
         );
 
@@ -51,96 +83,47 @@ export default function DashboardCampusStudentGroupsPage() {
           throw new Error("Campus not found.");
         }
 
+        const nextBatches = batchesData.batches || [];
+        const counts = (studentsData.students || []).reduce(
+          (accumulator, student) => {
+            const batchKey = String(student.batch ?? "");
+            if (!batchKey) return accumulator;
+            accumulator[batchKey] = (accumulator[batchKey] || 0) + 1;
+            return accumulator;
+          },
+          {},
+        );
+
         setCampus(matchedCampus);
-        setAvailableCafeNumbers(matchedCampus?.cafeNumbers || [1]);
+        setBatches(nextBatches);
+        setBatchCounts(counts);
+        setAvailableCafeNumbers(
+          batchesData.cafeNumbers || matchedCampus.cafeNumbers || [1],
+        );
+        setError("");
       } catch (err) {
         const message = getErrorMessage(
           err,
-          "We could not load campus details right now.",
+          "We could not load batches right now.",
         );
         setError(message);
+        showToast(message);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        isFirstLoad.current = false;
+        setInitialLoadDone(true);
       }
-    };
+    },
+    [campusId],
+  );
 
-    fetchCampus();
-  }, [campusId]);
-
-  const fetchBatches = useCallback(async () => {
-    if (!campusId) return;
-
+  useEffect(() => {
+    isFirstLoad.current = true;
+    setInitialLoadDone(false);
     setLoading(true);
-    try {
-      const [batchesRes, studentsRes] = await Promise.all([
-        fetch(`${url}/dashboard/campuses/${campusId}/students/batches`, {
-          credentials: "include",
-        }),
-        fetch(`${url}/dashboard/campuses/${campusId}/students`, {
-          credentials: "include",
-        }),
-      ]);
-
-      const [batchesData, studentsData] = await Promise.all([
-        batchesRes.json(),
-        studentsRes.json(),
-      ]);
-
-      if (!batchesRes.ok) {
-        throw new Error(
-          getApiMessage(batchesData, "We could not load batches right now."),
-        );
-      }
-
-      if (!studentsRes.ok) {
-        throw new Error(
-          getApiMessage(
-            studentsData,
-            "We could not load student counts right now.",
-          ),
-        );
-      }
-
-      const nextBatches = batchesData.batches || [];
-      const counts = (studentsData.students || []).reduce(
-        (accumulator, student) => {
-          const batchKey = String(student.batch ?? "");
-          if (!batchKey) return accumulator;
-          accumulator[batchKey] = (accumulator[batchKey] || 0) + 1;
-          return accumulator;
-        },
-        {},
-      );
-
-      setBatches(nextBatches);
-      setBatchCounts(counts);
-      setAvailableCafeNumbers(batchesData.cafeNumbers || campus?.cafeNumbers || [1]);
-      setError("");
-    } catch (err) {
-      const message = getErrorMessage(
-        err,
-        "We could not load batches right now.",
-      );
-      setError(message);
-      showToast(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [campusId, campus?.cafeNumbers]);
-
-  useEffect(() => {
     fetchBatches();
-  }, [fetchBatches]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".batch-menu")) {
-        setOpenMenuId(null);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [campusId, fetchBatches]);
 
   return (
     <>
@@ -185,106 +168,33 @@ export default function DashboardCampusStudentGroupsPage() {
 
               <div className="flex justify-center xl:justify-end">
                 <button
-                  onClick={fetchBatches}
-                  className="app-primary-btn rounded-xl px-6 py-3 shadow-lg transition hover:-translate-y-0.5"
+                  onClick={() => fetchBatches({ isRefresh: true })}
+                  disabled={refreshing}
+                  className="app-primary-btn rounded-xl px-6 py-3 shadow-lg transition hover:-translate-y-0.5 disabled:opacity-60"
                 >
-                  Refresh Batches
+                  {refreshing ? "Refreshing..." : "Refresh Batches"}
                 </button>
               </div>
             </div>
           </section>
 
           <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
-            {loading && (
+            {loading && !initialLoadDone && (
               <p className="col-span-full text-center">Loading batches...</p>
             )}
 
-            {!loading && batches.length === 0 && (
+            {initialLoadDone && !loading && batches.length === 0 && (
               <p className="col-span-full text-center text-slate-500">
                 No batches found
               </p>
             )}
 
-            {!loading &&
+            {initialLoadDone &&
               batches.map((batchItem) => (
                 <div
                   key={batchItem.batch}
-                  className="surface-card relative flex flex-col justify-between rounded-2xl p-6 transition-transform hover:-translate-y-1"
+                  className="surface-card flex flex-col justify-between rounded-2xl p-6 transition-transform hover:-translate-y-1"
                 >
-                  <div className="batch-menu absolute right-4 top-4">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenMenuId(
-                          openMenuId === batchItem.batch ? null : batchItem.batch,
-                        )
-                      }
-                      className="rounded-xl border border-slate-200 bg-white p-2 transition hover:bg-slate-50"
-                    >
-                      <BsThreeDotsVertical className="h-4 w-4 text-slate-500" />
-                    </button>
-
-                    {openMenuId === batchItem.batch ? (
-                      <div className="absolute right-0 top-full z-20 mt-2 w-36 rounded-2xl border border-slate-200 bg-white p-1 shadow-xl">
-                        {availableCafeNumbers.map((number) => (
-                          <button
-                            key={number}
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                setAssigningBatch(batchItem.batch);
-                                const res = await fetch(
-                                  `${url}/dashboard/campuses/${campusId}/students/batches/${batchItem.batch}/cafe-number`,
-                                  {
-                                    method: "PATCH",
-                                    credentials: "include",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({ cafeNumber: number }),
-                                  },
-                                );
-                                const data = await res.json();
-
-                                if (!res.ok) {
-                                  throw new Error(
-                                    getApiMessage(
-                                      data,
-                                      "We could not assign that cafe number right now.",
-                                    ),
-                                  );
-                                }
-
-                                setBatches((prev) =>
-                                  prev.map((item) =>
-                                    item.batch === batchItem.batch
-                                      ? { ...item, assignedCafeNumber: number }
-                                      : item,
-                                  ),
-                                );
-                                showToast(`Batch ${batchItem.batch} -> Cafe ${number}`, "success");
-                              } catch (err) {
-                                showToast(
-                                  getErrorMessage(
-                                    err,
-                                    "We could not assign that cafe number right now.",
-                                  ),
-                                );
-                              } finally {
-                                setAssigningBatch(null);
-                                setOpenMenuId(null);
-                              }
-                            }}
-                            className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
-                          >
-                            {assigningBatch === batchItem.batch
-                              ? "Saving..."
-                              : `Send to Cafe ${number}`}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
                   <div className="mb-4">
                     <h3 className="text-xl font-bold">{batchItem.batch}</h3>
                     <p className="mt-1 text-sm text-slate-500">
@@ -296,9 +206,6 @@ export default function DashboardCampusStudentGroupsPage() {
                         0) === 1
                         ? "student"
                         : "students"}
-                    </p>
-                    <p className="mt-3 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 inline-flex">
-                      Assigned Cafe {batchItem.assignedCafeNumber || "Not set"}
                     </p>
                   </div>
                   <div className="mt-auto flex gap-2">

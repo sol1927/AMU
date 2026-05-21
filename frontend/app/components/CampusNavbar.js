@@ -1,15 +1,50 @@
 "use client";
 
+import React from "react";
+import PropTypes from "prop-types";
 import ConfirmModal from "./ConfirmModal";
 import CafeNumberModal from "./CafeNumberModal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { React, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useCampus } from "../context/CampusContext";
 import { capitalizeWords } from "../utils/stringUtils";
+import {
+  HiOutlineHome,
+  HiOutlineUserGroup,
+  HiOutlineQrcode,
+  HiOutlineSwitchHorizontal,
+  HiOutlineLogout,
+  HiOutlineUserCircle,
+} from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const MenuItem = ({ icon: Icon, label, onClick, badge }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
+  >
+    <span className="flex items-center gap-3">
+      <Icon className="h-5 w-5 text-slate-400" />
+      <span className="text-sm font-medium">{label}</span>
+    </span>
+    {badge ? (
+      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
+        {badge}
+      </span>
+    ) : null}
+  </button>
+);
+
+MenuItem.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  label: PropTypes.string.isRequired,
+  onClick: PropTypes.func.isRequired,
+  badge: PropTypes.string,
+};
 
 export default function CampusNavbar() {
   const router = useRouter();
@@ -64,169 +99,185 @@ export default function CampusNavbar() {
     currentCampus && !currentCampus.selectedCafeNumber,
   );
 
+  const campusMenuActions = [
+    {
+      icon: HiOutlineHome,
+      label: "Dashboard",
+      onClick: () => router.push("/campus"),
+    },
+    {
+      icon: HiOutlineUserGroup,
+      label: "Student List",
+      onClick: () => router.push("/campus/students"),
+    },
+    {
+      icon: HiOutlineQrcode,
+      label: "Scan",
+      onClick: () => router.push("/campus/scan"),
+    },
+    {
+      icon: HiOutlineSwitchHorizontal,
+      label: "Change Cafe",
+      onClick: () => setShowCafeModal(true),
+      badge: currentCampus?.selectedCafeNumber
+        ? `Cafe ${currentCampus.selectedCafeNumber}`
+        : null,
+    },
+  ];
+
   return (
     <>
-      <header className="fixed left-0 top-0 z-50 flex w-full items-center justify-between border-b border-slate-200/80 bg-white/90 px-6 py-4 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-        <div
-          className="flex cursor-pointer items-center gap-3 group"
-          onClick={() => router.push("/campus")}
-        >
-          <Image
-            src="/logo.png"
-            alt="GibiGebeta"
-            width={40}
-            height={40}
-            className="rounded-full object-cover transition-transform group-hover:scale-105"
-            priority
-          />
-          <span className="text-xl font-bold tracking-wide text-slate-900">
-            Gibi<span className="text-blue-500">Gebeta</span>
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {currentCampus?.selectedCafeNumber ? (
-            <button
-              type="button"
-              onClick={() => setShowCafeModal(true)}
-              className="hidden rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-700 transition hover:bg-cyan-100 md:inline-flex"
-            >
-              Cafe {currentCampus.selectedCafeNumber}
-            </button>
-          ) : null}
-
-          <ThemeToggle />
-
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setOpenMenu((prev) => !prev)}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 transition-all duration-300 hover:bg-slate-100"
-            >
-              <div className="h-9 w-9 overflow-hidden rounded-full ring-2 ring-blue-500/40">
-                {currentCampus?.logo?.url ? (
-                  <Image
-                    src={currentCampus.logo.url}
-                    alt="Campus"
-                    width={36}
-                    height={36}
-                    className="h-full w-full rounded-full object-cover"
-                    priority
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-full bg-blue-600 font-bold text-white">
-                    {capitalizeWords(currentCampus?.name?.charAt(0) || "C")}
-                  </div>
-                )}
-              </div>
-
-              <div className="hidden min-w-0 text-left sm:block">
-                <span className="block max-w-[120px] truncate font-medium text-slate-700">
-                  {capitalizeWords(currentCampus?.name || "Campus")}
-                </span>
-                {currentCampus?.selectedCafeNumber ? (
-                  <span className="block text-xs text-cyan-600">
-                    Cafe {currentCampus.selectedCafeNumber}
-                  </span>
-                ) : null}
-              </div>
-
-              <span
-                className={`text-xs text-slate-500 transition-transform duration-300 ${
-                  openMenu ? "rotate-180" : ""
-                }`}
-              >
-                v
-              </span>
-            </button>
-
-            <div
-              className={`absolute right-0 mt-4 w-52 max-w-[90vw] rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-300 ${
-                openMenu
-                  ? "scale-100 opacity-100"
-                  : "pointer-events-none scale-95 opacity-0"
-              }`}
-            >
-              <div className="rounded-t-2xl border-b border-slate-200 px-3 py-3 sm:px-5">
-                <p className="text-xs uppercase tracking-wide text-slate-400">
-                  Signed in as
-                </p>
-                <p className="mt-1 break-words font-semibold text-slate-900">
-                  {capitalizeWords(currentCampus?.name || "Campus")}
-                </p>
-                {currentCampus?.selectedCafeNumber ? (
-                  <p className="mt-1 text-sm text-cyan-600">
-                    Cafe {currentCampus.selectedCafeNumber}
-                  </p>
-                ) : null}
-                <button
-                  onClick={() => {
-                    setOpenMenu(false);
-                    router.push("/campus/profile");
-                  }}
-                  className="mt-3 inline-flex rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                >
-                  Edit Profile
-                </button>
-              </div>
-
-              <button
-                onClick={() => {
-                  setOpenMenu(false);
-                  router.push("/campus");
-                }}
-                className="w-full px-3 py-2 text-left transition hover:bg-slate-50 sm:px-5 sm:py-3"
-              >
-                Dashboard
-              </button>
-
-              <button
-                onClick={() => {
-                  setOpenMenu(false);
-                  router.push("/campus/students");
-                }}
-                className="w-full px-3 py-2 text-left transition hover:bg-slate-50 sm:px-5 sm:py-3"
-              >
-                Student List
-              </button>
-
-              <button
-                onClick={() => {
-                  setOpenMenu(false);
-                  router.push("/campus/scan");
-                }}
-                className="w-full px-3 py-2 text-left transition hover:bg-slate-50 sm:px-5 sm:py-3"
-              >
-                Scan
-              </button>
-
-              <button
-                onClick={() => {
-                  setOpenMenu(false);
-                  setShowCafeModal(true);
-                }}
-                className="w-full px-3 py-2 text-left transition hover:bg-slate-50 sm:px-5 sm:py-3"
-              >
-                Change Cafe
-              </button>
-
-              <div className="my-1 border-t border-slate-200" />
-
-              <button
-                onClick={handleLogoutClick}
-                className="w-full rounded-b-2xl px-3 py-2 text-left transition hover:bg-slate-50 sm:px-5 sm:py-3"
-              >
-                Logout
-              </button>
-            </div>
-
-            <ConfirmModal
-              open={showLogoutModal}
-              position={{ top: "3rem", right: 0 }}
-              title="Logout Confirmation"
-              message="Are you sure you want to logout?"
-              onCancel={() => setShowLogoutModal(false)}
-              onConfirm={confirmLogout}
+      <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-3">
+          <button
+            type="button"
+            onClick={() => router.push("/campus")}
+            className="flex items-center gap-3 transition hover:opacity-90"
+          >
+            <Image
+              src="/logo.png"
+              alt="GibiGebeta"
+              width={44}
+              height={44}
+              className="rounded-full object-cover"
+              priority
             />
+            <div className="text-left">
+              <span className="block text-xl font-semibold tracking-tight text-slate-900">
+                Gibi<span className="text-blue-500">Gebeta</span>
+              </span>
+              <span className="text-xs uppercase tracking-[0.28em] text-slate-500">
+                Campus dashboard
+              </span>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-3">
+            {currentCampus?.selectedCafeNumber ? (
+              <button
+                type="button"
+                onClick={() => setShowCafeModal(true)}
+                className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-700 transition hover:bg-cyan-100 sm:px-4"
+              >
+                Cafe {currentCampus.selectedCafeNumber}
+              </button>
+            ) : null}
+
+            <ThemeToggle />
+
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setOpenMenu((prev) => !prev)}
+                aria-expanded={openMenu}
+                aria-haspopup="true"
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
+                  {currentCampus?.logo?.url ? (
+                    <Image
+                      src={currentCampus.logo.url}
+                      alt="Campus"
+                      width={36}
+                      height={36}
+                      className="h-full w-full rounded-full object-cover"
+                      priority
+                    />
+                  ) : (
+                    <span className="text-sm font-semibold text-slate-700">
+                      {capitalizeWords(currentCampus?.name?.charAt(0) || "C")}
+                    </span>
+                  )}
+                </div>
+
+                <div className="hidden min-w-0 text-left sm:block">
+                  <span className="block max-w-[140px] truncate font-medium text-slate-700">
+                    {capitalizeWords(currentCampus?.name || "Campus")}
+                  </span>
+                  <span className="block text-xs text-slate-500">
+                    {currentCampus?.selectedCafeNumber
+                      ? `Cafe ${currentCampus.selectedCafeNumber}`
+                      : "No cafe selected"}
+                  </span>
+                </div>
+
+                <span
+                  className={`text-xs text-slate-500 transition-transform duration-300 ${openMenu ? "rotate-180" : ""}`}
+                >
+                  ▼
+                </span>
+              </button>
+
+              <div
+                className={`absolute right-0 mt-4 w-72 max-w-[90vw] overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${
+                  openMenu
+                    ? "opacity-100 scale-100"
+                    : "pointer-events-none opacity-0 scale-95"
+                }`}
+                role="menu"
+                aria-label="Campus menu"
+              >
+                <div className="bg-slate-50 px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-700">
+                      {currentCampus?.logo?.url ? (
+                        <Image
+                          src={currentCampus.logo.url}
+                          alt="Campus"
+                          width={40}
+                          height={40}
+                          className="h-full w-full rounded-full object-cover"
+                          priority
+                        />
+                      ) : (
+                        <HiOutlineUserCircle className="h-7 w-7" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {capitalizeWords(currentCampus?.name || "Campus")}
+                      </p>
+                      <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                        Campus account
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenu(false);
+                      router.push("/campus/profile");
+                    }}
+                    className="mt-4 inline-flex rounded-2xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                  >
+                    Edit profile
+                  </button>
+                </div>
+
+                <div className="space-y-1 px-2 py-3">
+                  {campusMenuActions.map((item) => (
+                    <MenuItem
+                      key={item.label}
+                      icon={item.icon}
+                      label={item.label}
+                      badge={item.badge}
+                      onClick={() => {
+                        setOpenMenu(false);
+                        item.onClick();
+                      }}
+                    />
+                  ))}
+                </div>
+
+                <div className="border-t border-slate-200 px-2 py-3">
+                  <MenuItem
+                    icon={HiOutlineLogout}
+                    label="Logout"
+                    onClick={handleLogoutClick}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -239,6 +290,15 @@ export default function CampusNavbar() {
         selectedCafeNumber={currentCampus?.selectedCafeNumber || ""}
         onSubmit={handleCafeSelection}
         onClose={() => setShowCafeModal(false)}
+      />
+
+      <ConfirmModal
+        open={showLogoutModal}
+        position={{ top: "3rem", right: 0 }}
+        title="Logout Confirmation"
+        message="Are you sure you want to logout?"
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={confirmLogout}
       />
     </>
   );

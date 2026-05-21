@@ -22,6 +22,10 @@ const mapCampusRow = (row) => ({
     row.cafeCount,
   ),
   cafeNumbers: buildCafeNumbers(row.cafeCount),
+  activeCafeNumber:
+    row.activeCafeNumber !== null && row.activeCafeNumber !== undefined
+      ? Number(row.activeCafeNumber)
+      : null,
 });
 
 const sanitizeCampus = (row, includePassword = false) =>
@@ -49,6 +53,7 @@ const createTable = async () => {
       isOnline BOOLEAN DEFAULT FALSE,
       lastActiveAt DATETIME,
       cafeCount INT DEFAULT 1,
+      activeCafeNumber INT DEFAULT NULL,
       batchCafeAssignments JSON,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -90,11 +95,26 @@ const createTable = async () => {
       "ALTER TABLE campuses ADD COLUMN batchCafeAssignments JSON NULL",
     );
   }
+  const [activeCafeRows] = await getDB().execute(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'campuses'
+        AND COLUMN_NAME = 'activeCafeNumber'
+      LIMIT 1
+    `,
+  );
+  if (activeCafeRows.length === 0) {
+    await getDB().execute(
+      "ALTER TABLE campuses ADD COLUMN activeCafeNumber INT DEFAULT NULL",
+    );
+  }
 };
 
 const findAll = async (filter = {}, options = {}) => {
   let query =
-    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, cafeCount, batchCafeAssignments, createdAt, updatedAt FROM campuses WHERE 1=1";
+    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdAt, updatedAt FROM campuses WHERE 1=1";
   const params = [];
   if (filter.createdBy) {
     query += " AND createdBy = ?";
@@ -127,7 +147,7 @@ const findAll = async (filter = {}, options = {}) => {
 
 const findById = async (id, options = {}) => {
   const [rows] = await getDB().execute(
-    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, cafeCount, batchCafeAssignments, createdAt, updatedAt FROM campuses WHERE id = ?",
+    "SELECT id, campusId, name, email, password, loginAttempts, lockUntil, location, createdBy, logo_url, logo_public_id, role, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdAt, updatedAt FROM campuses WHERE id = ?",
     [id],
   );
   return sanitizeCampus(rows[0] || null, options.includePassword);
@@ -232,6 +252,14 @@ const updateById = async (id, data, options = {}) => {
   if (data.cafeCount !== undefined) {
     fields.push("cafeCount = ?");
     params.push(normalizeCafeCount(data.cafeCount));
+  }
+  if (data.activeCafeNumber !== undefined) {
+    fields.push("activeCafeNumber = ?");
+    params.push(
+      data.activeCafeNumber === null || data.activeCafeNumber === ""
+        ? null
+        : Number(data.activeCafeNumber),
+    );
   }
   if (data.batchCafeAssignments !== undefined) {
     fields.push("batchCafeAssignments = ?");

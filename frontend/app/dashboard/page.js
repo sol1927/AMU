@@ -2,7 +2,13 @@
 
 import { React, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
+import {
+  buildAppDateTime,
+  getAppDayString,
+  getAppMinutesFromDate,
+} from "@/app/utils/appTimezone";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -43,14 +49,10 @@ const getAppliedWindowStatus = (appliedWindowLabel) => {
     return appliedWindowLabel;
   }
 
-  // Compare using Addis Ababa time to stay consistent with the campus clock
-  const nowInAddis = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
-  );
-  const endTime = new Date(nowInAddis);
-  endTime.setHours(endHour, endMinute, 0, 0);
+  const nowMinutes = getAppMinutesFromDate();
+  const endMinutes = endHour * 60 + endMinute;
 
-  return nowInAddis > endTime ? "Completed" : appliedWindowLabel;
+  return nowMinutes >= endMinutes ? "Completed" : appliedWindowLabel;
 };
 
 const isAppliedWindowCompleted = (appliedWindowLabel) =>
@@ -76,16 +78,12 @@ const getAppliedWindowPhase = (appliedWindowLabel) => {
     return "active";
   }
 
-  const addisNow = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
-  );
-  const startTime = new Date(addisNow);
-  startTime.setHours(startHour, startMinute, 0, 0);
-  const endTime = new Date(addisNow);
-  endTime.setHours(endHour, endMinute, 0, 0);
+  const nowMinutes = getAppMinutesFromDate();
+  const startMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
 
-  if (addisNow < startTime) return "before_start";
-  if (addisNow > endTime) return "completed";
+  if (nowMinutes < startMinutes) return "before_start";
+  if (nowMinutes >= endMinutes) return "completed";
   return "active";
 };
 
@@ -102,11 +100,7 @@ const getAppliedWindowStartTime = (appliedWindowLabel) => {
     return null;
   }
 
-  const nowInAddis = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Africa/Addis_Ababa",
-  });
-  const isoString = `${nowInAddis}T${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}:00+03:00`;
-  return new Date(isoString);
+  return buildAppDateTime(getAppDayString(), startHour, startMinute);
 };
 
 const getLiveCampusOpenedTime = (campus) => {
@@ -131,12 +125,20 @@ const getLiveCampusOpenedTime = (campus) => {
 };
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const { currentUser } = useUser();
   const [campuses, setCampuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshingLiveCampuses, setRefreshingLiveCampuses] = useState(false);
 
   const fetchCampuses = async (manual = false) => {
+    if (!currentUser) {
+      setCampuses([]);
+      setLoading(false);
+      setRefreshingLiveCampuses(false);
+      return;
+    }
+
     try {
       if (manual) {
         setRefreshingLiveCampuses(true);
@@ -147,6 +149,12 @@ export default function AdminDashboardPage() {
       const res = await fetch(`${url}/dashboard/campuses`, {
         credentials: "include",
       });
+
+      if (res.status === 401 || res.status === 403) {
+        setCampuses([]);
+        router.replace("/");
+        return;
+      }
 
       if (!res.ok) {
         throw new Error("Failed to load campuses");
@@ -165,10 +173,20 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
+    if (!currentUser) {
+      setCampuses([]);
+      setLoading(false);
+      return;
+    }
+
     fetchCampuses();
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
+    if (!currentUser) {
+      return undefined;
+    }
+
     const intervalId = setInterval(() => {
       fetchCampuses(true);
     }, 15000);
@@ -185,7 +203,7 @@ export default function AdminDashboardPage() {
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [currentUser]);
 
   const dashboardFacts = useMemo(
     () => [
@@ -207,16 +225,23 @@ export default function AdminDashboardPage() {
 
   const liveCampuses = useMemo(
     () =>
-      campuses.flatMap((campus) =>
-        Array.isArray(campus.liveCafeSessions) && campus.liveCafeSessions.length > 0
-          ? campus.liveCafeSessions.map((session) => ({
-              ...campus,
-              ...session,
-            }))
-          : campus.isLive
-            ? [campus]
-            : [],
-      ),
+      campuses.flatMap((campus) => {
+        if (!campus.isLive) {
+          return [];
+        }
+
+        if (
+          Array.isArray(campus.liveCafeSessions) &&
+          campus.liveCafeSessions.length > 0
+        ) {
+          return campus.liveCafeSessions.map((session) => ({
+            ...campus,
+            ...session,
+          }));
+        }
+
+        return [campus];
+      }),
     [campuses],
   );
 

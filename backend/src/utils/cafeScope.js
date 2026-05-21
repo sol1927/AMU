@@ -68,6 +68,30 @@ export const getAssignedCafeNumberForBatch = (campus = {}, batch) => {
     : null;
 };
 
+export const getEffectiveStudentCafeNumber = (student = {}, campus = {}) => {
+  const explicitCafe = Number(student?.cafeNumber);
+
+  if (explicitCafe === 0) {
+    return null;
+  }
+
+  if (Number.isInteger(explicitCafe) && explicitCafe > 0) {
+    return explicitCafe;
+  }
+
+  return getAssignedCafeNumberForBatch(campus, student?.batch);
+};
+
+export const getStudentCafeMismatchMessage = (student = {}, campus = {}) => {
+  const assignedCafe = getEffectiveStudentCafeNumber(student, campus);
+
+  if (assignedCafe) {
+    return `This student is assigned to Cafe ${assignedCafe}.`;
+  }
+
+  return "This student is not assigned to any cafe.";
+};
+
 export const filterStudentsForCafeNumber = (
   students = [],
   campus = {},
@@ -85,19 +109,7 @@ export const filterStudentsForCafeNumber = (
   }
 
   return students.filter((student) => {
-    const studentCafeNumber = Number(student?.cafeNumber);
-    if (studentCafeNumber === 0) {
-      return false;
-    }
-
-    if (Number.isInteger(studentCafeNumber) && studentCafeNumber > 0) {
-      return studentCafeNumber === normalizedCafeNumber;
-    }
-
-    const assignedCafeNumber = getAssignedCafeNumberForBatch(
-      campus,
-      student?.batch,
-    );
+    const assignedCafeNumber = getEffectiveStudentCafeNumber(student, campus);
     return assignedCafeNumber === normalizedCafeNumber;
   });
 };

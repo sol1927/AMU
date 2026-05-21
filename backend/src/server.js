@@ -13,6 +13,8 @@ import { createTable as createTempEmailChangeTable } from "./models/TempEmailCha
 
 dotenv.config();
 
+process.env.TZ = process.env.TZ || "Africa/Addis_Ababa";
+
 const PORT = process.env.PORT || 5000;
 
 let databaseInitializationPromise = null;

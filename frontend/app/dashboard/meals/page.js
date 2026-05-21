@@ -3,11 +3,16 @@
 import { React, useCallback, useEffect, useState } from "react";
 import AdminNavbar from "@/app/components/AdminNavbar";
 import { downloadCsv } from "@/app/utils/exportCsv";
+import {
+  getAppDayString,
+  getAppMonth,
+  getAppYear,
+} from "@/app/utils/appTimezone";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 const getSemesterFromDate = (date) => {
-  const month = new Date(date).getMonth() + 1;
+  const month = getAppMonth(date);
   return month >= 9 || month <= 2 ? "first" : "second";
 };
 
@@ -250,6 +255,12 @@ export default function MealsPage() {
           credentials: "include",
         });
 
+        if (res.status === 401 || res.status === 403) {
+          setCampuses([]);
+          setSelectedCampus("");
+          return;
+        }
+
         if (!res.ok) {
           throw new Error("Failed to load campuses");
         }
@@ -275,14 +286,7 @@ export default function MealsPage() {
   }, []);
 
   useEffect(() => {
-    const today = new Date();
-    const formattedToday = new Date(
-      today.getTime() - today.getTimezoneOffset() * 60000,
-    )
-      .toISOString()
-      .split("T")[0];
-
-    setSelectedDate(formattedToday);
+    setSelectedDate(getAppDayString());
   }, []);
 
   useEffect(() => {
@@ -575,8 +579,9 @@ export default function MealsPage() {
       return;
     }
 
-    const year = new Date(selectedDate).getFullYear();
-    const semester = getSemesterFromDate(selectedDate);
+    const queryDate = new Date(`${selectedDate}T12:00:00+03:00`);
+    const year = getAppYear(queryDate);
+    const semester = getSemesterFromDate(queryDate);
 
     setLoadingSummary(true);
     setMealSummary(null);
@@ -614,7 +619,7 @@ export default function MealsPage() {
     } finally {
       setLoadingSummary(false);
     }
-  }, [selectedCampus, selectedDate, selectedMealType]);
+  }, [selectedCampus, selectedDate, selectedMealType, selectedCafeNumber]);
 
   const handleShowHistory = async () => {
     await fetchMealSummary();
@@ -700,7 +705,7 @@ export default function MealsPage() {
                       campuses.find((campus) => campus._id === selectedCampus)
                         ?.cafeNumbers || [1]
                     ).map((number) => (
-                      <option key={number} value={number}>
+                      <option key={number} value={String(number)}>
                         Cafe {number}
                       </option>
                     ))}

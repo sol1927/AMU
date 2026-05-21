@@ -1,6 +1,6 @@
 "use client";
 
-import { React, useEffect, useMemo, useState } from "react";
+import { React, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
@@ -27,10 +27,13 @@ export default function DashboardBatchStudentsPage() {
   const [savingBulkFasting, setSavingBulkFasting] = useState(false);
   const [bulkInternshipAction, setBulkInternshipAction] = useState("");
   const [savingBulkInternship, setSavingBulkInternship] = useState(false);
+  const [bulkCafeNumber, setBulkCafeNumber] = useState("");
+  const [savingBulkCafeNumber, setSavingBulkCafeNumber] = useState(false);
   const [exportingStudents, setExportingStudents] = useState(false);
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
+  const isFirstLoad = useRef(true);
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -72,15 +75,13 @@ export default function DashboardBatchStudentsPage() {
     fetchCampus();
   }, [campusId]);
 
-  const fetchStudentsByBatch = async (
-    currentBatch,
-    query = "",
-    fasting = "",
-    department = "",
-  ) => {
+  const fetchStudentsByBatch = useCallback(
+    async (currentBatch, query = "", fasting = "", department = "") => {
     if (!campusId) return;
 
-    setLoading(true);
+    if (isFirstLoad.current) {
+      setLoading(true);
+    }
     try {
       const params = new URLSearchParams();
       if (query) params.append("search", query);
@@ -108,23 +109,43 @@ export default function DashboardBatchStudentsPage() {
       setError(getErrorMessage(err, "We could not load students right now."));
     } finally {
       setLoading(false);
+      isFirstLoad.current = false;
       setInitialLoadDone(true);
     }
-  };
+  },
+    [campusId],
+  );
 
   useEffect(() => {
-    fetchStudentsByBatch(batch);
+    isFirstLoad.current = true;
+    setInitialLoadDone(false);
+    setLoading(true);
   }, [campusId, batch]);
 
   useEffect(() => {
+    const hasFilters = searchQuery || fastingFilter || departmentFilter;
+    const delay = hasFilters ? 300 : 0;
+
     const timer = setTimeout(() => {
-      fetchStudentsByBatch(batch, searchQuery, fastingFilter, departmentFilter);
+      fetchStudentsByBatch(
+        batch,
+        searchQuery,
+        fastingFilter,
+        departmentFilter,
+      );
       setSelectedStudents([]);
       setSelectAll(false);
-    }, 300);
+    }, delay);
 
     return () => clearTimeout(timer);
-  }, [campusId, batch, searchQuery, fastingFilter, departmentFilter]);
+  }, [
+    campusId,
+    batch,
+    searchQuery,
+    fastingFilter,
+    departmentFilter,
+    fetchStudentsByBatch,
+  ]);
 
   useEffect(() => {
     setDepartmentFilter("");
@@ -202,8 +223,36 @@ export default function DashboardBatchStudentsPage() {
     if (selectedStudents.length === 0) {
       setBulkFastingType("");
       setBulkInternshipAction("");
+      setBulkCafeNumber("");
     }
   }, [selectedStudents]);
+
+  const cafeNumbers = useMemo(
+    () => campus?.cafeNumbers || [1],
+    [campus?.cafeNumbers],
+  );
+
+  const getEffectiveStudentCafeNumber = (student) => {
+    const explicitCafe = Number(student?.cafeNumber);
+    if (explicitCafe === 0) {
+      return null;
+    }
+
+    if (Number.isInteger(explicitCafe) && explicitCafe > 0) {
+      return explicitCafe;
+    }
+
+    const batchCafe = campus?.batchCafeAssignments?.[String(batch ?? "")];
+    const batchCafeNumber = Number(batchCafe);
+    return Number.isInteger(batchCafeNumber) && batchCafeNumber > 0
+      ? batchCafeNumber
+      : null;
+  };
+
+  const getStudentCafeLabel = (student) => {
+    const cafeNumber = getEffectiveStudentCafeNumber(student);
+    return cafeNumber ? `Cafe ${cafeNumber}` : "Unassigned";
+  };
 
   const handleSelectStudent = (id) => {
     setSelectedStudents((prev) =>
@@ -328,6 +377,70 @@ export default function DashboardBatchStudentsPage() {
       );
     } finally {
       setSavingBulkInternship(false);
+    }
+  };
+
+  const handleBulkCafeNumberUpdate = async () => {
+    if (!bulkCafeNumber || !campusId) return;
+
+    try {
+      setSavingBulkCafeNumber(true);
+      const nextCafeNumber =
+        bulkCafeNumber === "clear" ? 0 : Number(bulkCafeNumber);
+
+      const res = await fetch(
+        `${url}/dashboard/campuses/${campusId}/students/bulk-cafe-number`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ids: selectedStudents,
+            cafeNumber: nextCafeNumber,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(
+            data,
+            "We could not update cafe assignments right now.",
+          ),
+        );
+      }
+
+      setStudents((prev) =>
+        prev.map((student) =>
+          selectedStudents.includes(student._id)
+            ? { ...student, cafeNumber: nextCafeNumber }
+            : student,
+        ),
+      );
+      setAllBatchStudents((prev) =>
+        prev.map((student) =>
+          selectedStudents.includes(student._id)
+            ? { ...student, cafeNumber: nextCafeNumber }
+            : student,
+        ),
+      );
+
+      setSelectedStudents([]);
+      setSelectAll(false);
+      setBulkCafeNumber("");
+      showToast(
+        nextCafeNumber
+          ? `Students sent to Cafe ${nextCafeNumber} successfully`
+          : "Student cafe assignments cleared successfully",
+        "success",
+      );
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not update cafe assignments right now."),
+        "error",
+      );
+    } finally {
+      setSavingBulkCafeNumber(false);
     }
   };
 
@@ -460,26 +573,52 @@ export default function DashboardBatchStudentsPage() {
                   {savingBulkFasting ? "Saving..." : "Save"}
                 </button>
               )}
+
+              <select
+                value={bulkCafeNumber}
+                onChange={(e) => setBulkCafeNumber(e.target.value)}
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Send to Cafe</option>
+                {cafeNumbers.map((cafeNumber) => (
+                  <option key={cafeNumber} value={cafeNumber}>
+                    Cafe {cafeNumber}
+                  </option>
+                ))}
+                <option value="clear">Clear Cafe Assignment</option>
+              </select>
+              {bulkCafeNumber && (
+                <button
+                  disabled={savingBulkCafeNumber}
+                  onClick={handleBulkCafeNumberUpdate}
+                  className="rounded bg-cyan-600 px-3 py-2 text-sm text-white hover:bg-cyan-700 disabled:opacity-50"
+                >
+                  {savingBulkCafeNumber ? "Saving..." : "Send"}
+                </button>
+              )}
             </div>
           )}
         </div>
 
         <div className="mb-4 flex-1 space-y-2 overflow-y-auto pr-1">
-          {loading && <p className="mt-12 text-center">Loading students...</p>}
-          {!loading && sortedStudents.length === 0 && initialLoadDone && (
+          {loading && !initialLoadDone && (
+            <p className="mt-12 text-center">Loading students...</p>
+          )}
+          {initialLoadDone && !loading && sortedStudents.length === 0 && (
             <p className="mt-12 text-center text-slate-500">
               No students in this batch
             </p>
           )}
 
-          {!loading && sortedStudents.length > 0 && (
-            <div className="mb-2 hidden items-center gap-3 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 sm:grid sm:grid-cols-[40px_44px_180px_120px_1fr_70px_130px_100px_24px]">
+          {(!loading || initialLoadDone) && sortedStudents.length > 0 && (
+            <div className="mb-2 hidden items-center gap-3 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 sm:grid sm:grid-cols-[40px_44px_180px_120px_1fr_70px_70px_130px_100px_24px]">
               <span>#</span>
               <span></span>
               <span className="truncate">Name</span>
               <span className="truncate">Student ID</span>
               <span className="truncate">Department</span>
               <span className="truncate">Batch</span>
+              <span className="truncate">Cafe</span>
               <span className="truncate">Fasting</span>
               <span className="truncate">Internship</span>
               <div className="flex justify-end">
@@ -503,10 +642,11 @@ export default function DashboardBatchStudentsPage() {
             </div>
           )}
 
-          {sortedStudents.map((student, index) => (
+          {(!loading || initialLoadDone) &&
+            sortedStudents.map((student, index) => (
             <div
               key={student._id}
-              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition-all duration-300 hover:bg-slate-50 hover:shadow-lg sm:grid-cols-[40px_44px_180px_120px_1fr_70px_130px_100px_24px] sm:items-center"
+              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition-all duration-300 hover:bg-slate-50 hover:shadow-lg sm:grid-cols-[40px_44px_180px_120px_1fr_70px_70px_130px_100px_24px] sm:items-center"
             >
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
@@ -538,7 +678,10 @@ export default function DashboardBatchStudentsPage() {
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Name
                 </span>
-                <span className="block truncate font-medium" title={student.name}>
+                <span
+                  className="block truncate font-medium"
+                  title={student.name}
+                >
                   {student.name}
                 </span>
               </div>
@@ -572,9 +715,24 @@ export default function DashboardBatchStudentsPage() {
 
               <div className="min-w-0">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  Cafe
+                </span>
+                <span
+                  className="block truncate"
+                  title={getStudentCafeLabel(student)}
+                >
+                  {getStudentCafeLabel(student)}
+                </span>
+              </div>
+
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                   Fasting
                 </span>
-                <span className="block truncate" title={getFastingLabel(student.fastingType)}>
+                <span
+                  className="block truncate"
+                  title={getFastingLabel(student.fastingType)}
+                >
                   {getFastingLabel(student.fastingType)}
                 </span>
               </div>

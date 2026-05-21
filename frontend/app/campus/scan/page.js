@@ -141,21 +141,38 @@ export default function StationScanPage() {
         data = { message: text };
       }
 
-      if (data && data.student) {
-        setStudent(data.student);
-        setAllowed(data.allowed ?? false);
+      const allowed = data?.allowed === true;
+      const message =
+        typeof data?.message === "string" ? data.message.trim() : "";
+      const statusMessage =
+        (typeof data?.student?.statusMessage === "string"
+          ? data.student.statusMessage.trim()
+          : "") ||
+        (!allowed ? message : "");
+
+      if (data?.student) {
+        setStudent({
+          ...data.student,
+          statusMessage,
+        });
+        setAllowed(allowed);
         setShokeKey((prev) => prev + 1);
         return;
       }
 
-      if (data && data.message) {
-        const displayName = data.message.includes("Time is up")
+      if (message) {
+        const displayName = message.includes("Time is up")
           ? "\u1230\u12d3\u1275 \u12a0\u120d\u124b\u120d"
-          : data.message;
+          : message;
 
         setShokeKey((prev) => prev + 1);
-        setStudent({ name: displayName, studentId });
-        setAllowed(data.allowed ?? false);
+        setStudent({
+          name: displayName,
+          studentId,
+          statusMessage:
+            message === "Student not found" ? undefined : message,
+        });
+        setAllowed(allowed);
         return;
       }
 
@@ -240,9 +257,17 @@ export default function StationScanPage() {
 
   const getStatusText = () => {
     if (!student) return "";
-    return allowed
-      ? "\u1270\u1348\u1245\u12f7\u120d \u2705"
-      : "\u12a0\u120d\u1270\u1348\u1240\u12f0\u121d \u274c";
+    if (student.name === "Student not found") return "";
+    if (allowed) return "\u1270\u1348\u1245\u12f7\u120d";
+
+    const statusMessage = student.statusMessage?.trim();
+    if (statusMessage) return statusMessage;
+
+    if (student.assignedCafeNumber) {
+      return `This student is assigned to Cafe ${student.assignedCafeNumber}.`;
+    }
+
+    return "\u12a0\u120d\u1270\u1348\u1240\u12f0\u121d";
   };
 
   return (
@@ -251,11 +276,11 @@ export default function StationScanPage() {
       <div className="scan-page page-shell flex min-h-screen w-full flex-col px-4 pt-24 md:px-6">
         <div className="flex flex-1 items-center justify-center pb-32 md:pb-36">
           <div className="flex w-full max-w-6xl items-center justify-center gap-12">
-            <div className="flex min-h-[400px] max-w-4xl flex-1 flex-col items-center justify-center">
+            <div className="flex min-h-[400px] min-w-0 max-w-4xl flex-1 flex-col items-center justify-center">
               {student ? (
                 <div
                   key={shokeKey}
-                  className={`w-full max-w-2xl rounded-xl p-8 text-center transition-all duration-300 ${getCardClasses()}`}
+                  className={`w-full max-w-2xl min-w-0 overflow-hidden rounded-xl p-8 text-center transition-all duration-300 ${getCardClasses()}`}
                 >
                   {student.name !== "Student not found" && (
                     <div className="mx-auto mb-6 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-300 text-center text-sm font-semibold text-black">
@@ -266,12 +291,12 @@ export default function StationScanPage() {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <span className="px-2">{student.name}</span>
+                        <span className="break-words px-2">{student.name}</span>
                       )}
                     </div>
                   )}
 
-                  <h3 className="mb-3 text-center text-4xl font-bold">
+                  <h3 className="mb-3 break-words px-2 text-center text-4xl font-bold">
                     {student.name}
                   </h3>
 
@@ -282,24 +307,39 @@ export default function StationScanPage() {
                   )}
 
                   {student.name !== "Student not found" && (
-                    <div className="mt-4 grid w-full max-w-sm grid-cols-2 gap-2 text-lg text-white">
-                      <span className="font-semibold">ID:</span>
-                      <span>{student.studentId || "..."}</span>
+                    <div className="mx-auto mt-4 w-full min-w-0 max-w-sm space-y-2 px-2 text-lg text-white">
+                      <div className="flex min-w-0 gap-2">
+                        <span className="shrink-0 font-semibold">ID:</span>
+                        <span className="min-w-0 flex-1 break-words text-left">
+                          {student.studentId || "..."}
+                        </span>
+                      </div>
 
-                      <span className="font-semibold">Department:</span>
-                      <span>{student.department || "..."}</span>
+                      <div className="flex min-w-0 gap-2">
+                        <span className="shrink-0 font-semibold">
+                          Department:
+                        </span>
+                        <span className="min-w-0 flex-1 break-words text-left">
+                          {student.department || "..."}
+                        </span>
+                      </div>
 
-                      <span className="font-semibold">Batch:</span>
-                      <span>{student.batch || "..."}</span>
+                      <div className="flex min-w-0 gap-2">
+                        <span className="shrink-0 font-semibold">Batch:</span>
+                        <span className="min-w-0 flex-1 break-words text-left">
+                          {student.batch || "..."}
+                        </span>
+                      </div>
 
-                      <span className="font-semibold">Fasting:</span>
-                      <span
-                        className={
-                          student.fastingType !== "not_fasting"
-                            ? "text-2xl font-semibold"
-                            : ""
-                        }
-                      >
+                      <div className="flex min-w-0 gap-2">
+                        <span className="shrink-0 font-semibold">Fasting:</span>
+                        <span
+                          className={`min-w-0 flex-1 break-words text-left ${
+                            student.fastingType !== "not_fasting"
+                              ? "text-2xl font-semibold"
+                              : ""
+                          }`}
+                        >
                         {student.fastingType === "fasting"
                           ? "\u133e\u1218\u129b"
                           : student.fastingType === "sunday_fasting"
@@ -307,10 +347,13 @@ export default function StationScanPage() {
                             : student.fastingType === "muslim_fasting"
                               ? "\u12e8\u1219\u1235\u120a\u121d \u133e\u1218\u129b"
                               : "..."}
-                      </span>
+                        </span>
+                      </div>
                     </div>
                   )}
-                  <p className="mt-4 text-4xl font-bold">{getStatusText()}</p>
+                  <p className="mt-4 break-words px-2 text-4xl font-bold">
+                    {getStatusText()}
+                  </p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-xl font-bold text-slate-500">

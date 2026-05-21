@@ -22,21 +22,28 @@ export const protectCampus = async (req, res, next) => {
       now.getTime() - new Date(campus.lastActiveAt).getTime() >=
         ACTIVE_TOUCH_WINDOW_MS;
 
-    if (shouldRefreshActivity) {
-      await Campus.updateById(campus.id, {
-        isOnline: true,
-        lastActiveAt: now,
-      });
-
-      campus.isOnline = true;
-      campus.lastActiveAt = now;
-    }
-
     const selectedCafeNumber = Number(decoded.cafeNumber);
     const normalizedSelectedCafeNumber =
       Number.isInteger(selectedCafeNumber) && selectedCafeNumber > 0
         ? selectedCafeNumber
         : null;
+
+    const activityUpdates = {};
+    if (shouldRefreshActivity) {
+      activityUpdates.isOnline = true;
+      activityUpdates.lastActiveAt = now;
+    }
+    if (
+      normalizedSelectedCafeNumber &&
+      campus.activeCafeNumber !== normalizedSelectedCafeNumber
+    ) {
+      activityUpdates.activeCafeNumber = normalizedSelectedCafeNumber;
+    }
+
+    if (Object.keys(activityUpdates).length > 0) {
+      await Campus.updateById(campus.id, activityUpdates);
+      Object.assign(campus, activityUpdates);
+    }
 
     if (normalizedSelectedCafeNumber) {
       await syncCampusLiveMealWindow(campus.id, now, {

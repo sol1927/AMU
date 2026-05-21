@@ -123,6 +123,7 @@ export const login = async (req, res) => {
       user = await Campus.updateById(user.id, {
         isOnline: true,
         lastActiveAt: loginTime,
+        activeCafeNumber: null,
       });
       const admin = user.createdBy ? await User.findById(user.createdBy) : null;
       if (admin?.logo) {

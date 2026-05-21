@@ -1,14 +1,45 @@
 "use client";
 
+import React from "react";
+import PropTypes from "prop-types";
 import ConfirmModal from "./ConfirmModal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { React, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useUser } from "../context/UserContext";
 import { capitalizeWords } from "../utils/stringUtils";
+import {
+  HiOutlineViewGrid,
+  HiOutlineOfficeBuilding,
+  HiOutlineUsers,
+  HiOutlineClipboardList,
+  HiOutlineClock,
+  HiOutlineLogout,
+  HiOutlineUserCircle,
+} from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
+
+const NavbarItem = ({ icon: Icon, label, onClick, danger }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50 ${
+      danger ? "text-red-500 hover:bg-red-50" : "text-slate-700"
+    }`}
+  >
+    <Icon className={`h-5 w-5 ${danger ? "text-red-500" : "text-slate-400"}`} />
+    <span className="text-sm font-medium">{label}</span>
+  </button>
+);
+
+NavbarItem.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  label: PropTypes.string.isRequired,
+  onClick: PropTypes.func.isRequired,
+  danger: PropTypes.bool,
+};
 
 export default function AdminNavbar() {
   const router = useRouter();
@@ -45,168 +76,178 @@ export default function AdminNavbar() {
     }
   };
 
+  const menuItems = [
+    {
+      icon: HiOutlineViewGrid,
+      label: "Dashboard",
+      onClick: () => router.push("/dashboard"),
+    },
+    {
+      icon: HiOutlineOfficeBuilding,
+      label: "Campuses",
+      onClick: () => router.push("/dashboard/campuses"),
+    },
+    {
+      icon: HiOutlineUsers,
+      label: "Campus Students",
+      onClick: () => router.push("/dashboard/students"),
+    },
+    {
+      icon: HiOutlineClipboardList,
+      label: "Users",
+      onClick: () => router.push("/dashboard/users"),
+    },
+    {
+      icon: HiOutlineClock,
+      label: "Time Controller",
+      onClick: () => router.push("/dashboard/time-controller"),
+    },
+  ];
+
   return (
-    <header className="fixed left-0 top-0 z-50 flex w-full items-center justify-between border-b border-slate-200/80 bg-white/90 px-6 py-4 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-      <div
-        className="flex items-center gap-3 cursor-pointer group"
-        onClick={() => router.push("/dashboard")}
-      >
-        <Image
-          src="/logo.png"
-          alt="Logo"
-          width={40}
-          height={40}
-          className="rounded-full object-cover group-hover:scale-105 transition-transform"
-          priority
-        />
-        <span className="text-xl font-bold tracking-wide text-slate-900">
-          Gibi<span className="text-blue-500">Gebeta</span>
-        </span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <ThemeToggle />
-
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setOpenMenu(!openMenu)}
-            className="flex items-center gap-3 rounded-xl px-3 py-2 transition-all duration-300 hover:bg-slate-100"
-          >
-            <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-blue-500/40">
-              {currentUser?.logo?.url ? (
-                <Image
-                  src={currentUser.logo.url}
-                  alt="Profile"
-                  width={36}
-                  height={36}
-                  className="object-cover w-full h-full rounded-full"
-                  priority
-                />
-              ) : (
-                <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center rounded-full font-bold">
-                  {capitalizeWords(currentUser?.name)?.charAt(0) || "U"}
-                </div>
-              )}
-            </div>
-
-            <span className="max-w-[120px] truncate font-medium text-slate-700">
-              {capitalizeWords(currentUser?.name) || "User"}
-            </span>
-
-            <span
-              className={`text-xs text-slate-500 transition-transform duration-300 ${
-                openMenu ? "rotate-180" : ""
-              }`}
-            >
-              ▼
-            </span>
-          </button>
-
-          <div
-            className={`absolute right-0 mt-4 w-52 rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-2xl transform transition-all duration-300 ${
-              openMenu
-                ? "opacity-100 scale-100"
-                : "opacity-0 scale-95 pointer-events-none"
-            }`}
-          >
-            <div className="rounded-t-2xl border-b border-slate-200 px-5 py-3">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
-                Signed in as
-              </p>
-              <p className="mt-1 break-words font-semibold text-slate-900">
-                {capitalizeWords(currentUser?.name) || "User"}
-              </p>
-              <button
-                onClick={() => {
-                  setOpenMenu(false);
-                  router.push("/dashboard/profile");
-                }}
-                className="mt-3 inline-flex rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                Edit Profile
-              </button>
-            </div>
-
-            <button
-              onClick={() => {
-                setOpenMenu(false);
-                router.push("/dashboard");
-              }}
-              className="w-full px-5 py-3 text-left transition hover:bg-slate-50"
-            >
-              Dashboard
-            </button>
-
-            <button
-              onClick={() => {
-                setOpenMenu(false);
-                router.push("/dashboard/campuses");
-              }}
-              className="w-full px-5 py-3 text-left transition hover:bg-slate-50"
-            >
-              Campuses
-            </button>
-
-            <button
-              onClick={() => {
-                setOpenMenu(false);
-                router.push("/dashboard/students");
-              }}
-              className="w-full px-5 py-3 text-left transition hover:bg-slate-50"
-            >
-              Campus Students
-            </button>
-
-            <button
-              onClick={() => {
-                setOpenMenu(false);
-                router.push("/dashboard/users");
-              }}
-              className="w-full px-5 py-3 text-left transition hover:bg-slate-50"
-            >
-              Users
-            </button>
-
-            <button
-              onClick={() => {
-                setOpenMenu(false);
-                router.push("/dashboard/meals");
-              }}
-              className="w-full px-5 py-3 text-left transition hover:bg-slate-50"
-            >
-              Meals
-            </button>
-
-            <button
-              onClick={() => {
-                setOpenMenu(false);
-                router.push("/dashboard/time-controller");
-              }}
-              className="w-full px-5 py-3 text-left transition hover:bg-slate-50"
-            >
-              Time Controller
-            </button>
-
-            <div className="my-1 border-t border-slate-200" />
-
-            <button
-              onClick={handleLogoutClick}
-              className="w-full px-5 py-3 text-left text-red-400 hover:bg-red-500/10 rounded-b-2xl transition"
-            >
-              Logout
-            </button>
-          </div>
-
-          <ConfirmModal
-            open={showLogoutModal}
-            position={{ top: "3rem", right: 0 }}
-            title="Logout Confirmation"
-            message="Are you sure you want to logout?"
-            onCancel={() => setShowLogoutModal(false)}
-            onConfirm={confirmLogout}
+    <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-3">
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="flex items-center gap-3 transition hover:opacity-90"
+        >
+          <Image
+            src="/logo.png"
+            alt="GibiGebeta"
+            width={44}
+            height={44}
+            className="rounded-full object-cover"
+            priority
           />
+          <div className="text-left">
+            <span className="block text-xl font-semibold tracking-tight text-slate-900">
+              Gibi<span className="text-blue-500">Gebeta</span>
+            </span>
+            <span className="text-xs uppercase tracking-[0.28em] text-slate-500">
+              Admin console
+            </span>
+          </div>
+        </button>
+
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setOpenMenu((prev) => !prev)}
+              aria-expanded={openMenu}
+              aria-haspopup="true"
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
+                {currentUser?.logo?.url ? (
+                  <Image
+                    src={currentUser.logo.url}
+                    alt="Profile"
+                    width={36}
+                    height={36}
+                    className="h-full w-full rounded-full object-cover"
+                    priority
+                  />
+                ) : (
+                  <span className="text-sm font-semibold text-slate-700">
+                    {capitalizeWords(currentUser?.name)?.charAt(0) || "A"}
+                  </span>
+                )}
+              </div>
+              <span className="hidden min-w-[120px] truncate font-medium text-slate-700 sm:inline-block">
+                {capitalizeWords(currentUser?.name) || "Admin"}
+              </span>
+              <span
+                className={`text-xs text-slate-500 transition-transform duration-300 ${openMenu ? "rotate-180" : ""}`}
+              >
+                ▼
+              </span>
+            </button>
+
+            <div
+              className={`absolute right-0 mt-4 w-80 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${
+                openMenu
+                  ? "opacity-100 scale-100"
+                  : "pointer-events-none opacity-0 scale-95"
+              }`}
+              role="menu"
+              aria-label="Admin menu"
+            >
+              <div className="bg-slate-50 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-700">
+                    {currentUser?.logo?.url ? (
+                      <Image
+                        src={currentUser.logo.url}
+                        alt="Profile"
+                        width={40}
+                        height={40}
+                        className="h-full w-full rounded-full object-cover"
+                        priority
+                      />
+                    ) : (
+                      <HiOutlineUserCircle className="h-7 w-7" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {capitalizeWords(currentUser?.name) || "Admin"}
+                    </p>
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                      Signed in as admin
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenMenu(false);
+                    router.push("/dashboard/profile");
+                  }}
+                  className="mt-4 inline-flex rounded-2xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                  Edit profile
+                </button>
+              </div>
+
+              <div className="space-y-1 px-2 py-3">
+                {menuItems.map((item) => (
+                  <NavbarItem
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    onClick={() => {
+                      setOpenMenu(false);
+                      item.onClick();
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div className="border-t border-slate-200 px-2 py-3">
+                <NavbarItem
+                  icon={HiOutlineLogout}
+                  label="Logout"
+                  danger
+                  onClick={handleLogoutClick}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={showLogoutModal}
+        position={{ top: "3rem", right: 0 }}
+        title="Logout Confirmation"
+        message="Are you sure you want to logout?"
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={confirmLogout}
+      />
     </header>
   );
 }

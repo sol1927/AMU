@@ -232,12 +232,9 @@ export const getCampuses = async (req, res) => {
         );
         const mealSchedule = await getMealSchedule(campus.id);
         const now = new Date();
-        const addisNow = new Date(
-          now.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
-        );
         const { mealType, label, targetDate } = await getDashboardMealContext(
           campus.id,
-          addisNow,
+          now,
         );
         const activityDate = new Date(targetDate);
         activityDate.setHours(0, 0, 0, 0);
@@ -260,38 +257,39 @@ export const getCampuses = async (req, res) => {
           await Campus.updateById(campus.id, {
             isOnline: false,
             lastActiveAt: null,
+            activeCafeNumber: null,
           });
         }
 
         const brandedCampus = await attachAdminLogoToCampus(effectiveCampus);
-        const liveCafeSessions = (
-          await Meal.findAll({
-            // Fetch all meals for this campus, meal type, and date
-            // to identify all active cafe sessions.
-            // This is not filtered by cafeNumber to get all live cafes.
+        const activeCafeNumber = Number(effectiveCampus.activeCafeNumber);
+        const hasActiveCafe =
+          Number.isInteger(activeCafeNumber) && activeCafeNumber > 0;
+
+        let liveCafeSessions = [];
+        if (isLive && hasActiveCafe) {
+          const activeMeal = await Meal.findOne({
             campus: campus.id,
+            cafeNumber: activeCafeNumber,
             mealType,
             date: getDayString(activityDate),
-          })
-        )
-          .filter(
-            (mealEntry) =>
-              mealEntry.cafeNumber &&
-              mealEntry.appliedWindow?.actualOpenedAt &&
-              !mealEntry.appliedWindow?.actualClosedAt,
-          )
-          .map((mealEntry) => ({
-            cafeNumber: mealEntry.cafeNumber,
-            displayName: getCafeDisplayName(
-              brandedCampus.name,
-              mealEntry.cafeNumber,
-            ),
-            openingTime: mealEntry.appliedWindow?.actualOpenedAt || null,
-            currentSessionLabel: label, // This is the general meal label for the time context
-            currentSessionAppliedWindow:
-              getMealWindowLabel(mealSchedule?.[mealType]) ||
-              mealEntry.appliedWindow?.label,
-          }));
+          });
+
+          liveCafeSessions = [
+            {
+              cafeNumber: activeCafeNumber,
+              displayName: getCafeDisplayName(
+                brandedCampus.name,
+                activeCafeNumber,
+              ),
+              openingTime: activeMeal?.appliedWindow?.actualOpenedAt || null,
+              currentSessionLabel: label,
+              currentSessionAppliedWindow:
+                getMealWindowLabel(mealSchedule?.[mealType]) ||
+                activeMeal?.appliedWindow?.label,
+            },
+          ];
+        }
 
         return {
           ...brandedCampus,
@@ -578,10 +576,16 @@ export const getCampusDashboard = async (req, res) => {
 export const heartbeatCampus = async (req, res) => {
   try {
     if (req.campus?.id) {
-      await Campus.updateById(req.campus.id, {
+      const updates = {
         isOnline: true,
         lastActiveAt: new Date(),
-      });
+      };
+
+      if (req.cafeNumber) {
+        updates.activeCafeNumber = req.cafeNumber;
+      }
+
+      await Campus.updateById(req.campus.id, updates);
     }
 
     res.status(204).end();
@@ -799,6 +803,12 @@ export const selectCampusCafeNumber = async (req, res) => {
       }
     }
 
+    await Campus.updateById(req.campus.id, {
+      activeCafeNumber: normalizedCafeNumber,
+      isOnline: true,
+      lastActiveAt: new Date(),
+    });
+
     res
       .cookie(
         "campusToken",
@@ -832,56 +842,29 @@ export const logoutCampus = async (req, res) => {
       timeZone: "Africa/Addis_Ababa",
     }).format(logoutTime);
 
-    const currentMealType = await getCurrentMealType(
-      campusId,
-      logoutTime,
-    ).catch(() => null);
+    const todaysMeals = await Meal.findAll({
+      campus: campusId,
+      date: todayString,
+    }).catch(() => []);
 
-    if (currentMealType) {
-      const currentMeal = await Meal.findOne({
-        campus: campusId,
-        cafeNumber: req.cafeNumber ?? null,
-        mealType: currentMealType,
-        date: todayString,
-      }).catch(() => null);
+    const openMeals = todaysMeals.filter(
+      (meal) =>
+        meal.appliedWindow?.actualOpenedAt &&
+        !meal.appliedWindow?.actualClosedAt,
+    );
 
-      if (currentMeal) {
-        await closeMealAtAppliedTime(
-          currentMeal,
-          campus.lastActiveAt,
-          logoutTime,
-        ).catch(() => null);
-      }
-    } else {
-      const todaysMeals = await Meal.findAll({
-        campus: campusId,
-        ...(req.cafeNumber ? { cafeNumber: req.cafeNumber } : {}),
-        date: todayString,
-      }).catch(() => []);
-      const openExpiredMeals = todaysMeals.filter((meal) => {
-        const appliedWindow = meal.appliedWindow || {};
-        const end = getAppliedWindowDate(todayString, appliedWindow.end);
-
-        return (
-          appliedWindow.actualOpenedAt &&
-          !appliedWindow.actualClosedAt &&
-          end &&
-          logoutTime >= end
-        );
-      });
-
-      await Promise.all(
-        openExpiredMeals.map((meal) =>
-          closeMealAtAppliedTime(meal, campus.lastActiveAt, logoutTime).catch(
-            () => null,
-          ),
+    await Promise.all(
+      openMeals.map((meal) =>
+        closeMealAtAppliedTime(meal, campus.lastActiveAt, logoutTime).catch(
+          () => null,
         ),
-      );
-    }
+      ),
+    );
 
     await Campus.updateById(campusId, {
       isOnline: false,
       lastActiveAt: null,
+      activeCafeNumber: null,
     }).catch(() => null);
   }
 

@@ -1,5 +1,6 @@
 import StationScan from "../models/stationScan.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
+import Campus from "../models/campus.model.js";
 import Meal from "../models/meal.model.js";
 import {
   finalizeExpiredStationScans,
@@ -23,6 +24,8 @@ import { logInternalError, sendServerError } from "../utils/safeError.js";
 import {
   filterStudentsForCafeNumber,
   getCafeDisplayName,
+  getEffectiveStudentCafeNumber,
+  getStudentCafeMismatchMessage,
 } from "../utils/cafeScope.js";
 
 const buildFastingBreakdown = (students = []) => ({
@@ -178,26 +181,47 @@ export const scanStudentStation = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
+    const campusForScope =
+      (await Campus.findById(req.campus.id)) || req.campus;
+
     const accessibleStudents = filterStudentsForCafeNumber(
       [student],
-      req.campus,
+      campusForScope,
       req.cafeNumber,
     );
 
     if (accessibleStudents.length === 0) {
-      return res.status(403).json({
+      const assignedCafeNumber = getEffectiveStudentCafeNumber(
+        student,
+        campusForScope,
+      );
+      const cafeMismatchMessage = getStudentCafeMismatchMessage(
+        student,
+        campusForScope,
+      );
+
+      return res.json({
         allowed: false,
-        message: `This student is not assigned to Cafe ${req.cafeNumber}.`,
+        message: cafeMismatchMessage,
+        student: {
+          ...normalizeStudent(student),
+          assignedCafeNumber,
+          statusMessage: cafeMismatchMessage,
+        },
       });
     }
 
     const normalizedStudent = normalizeStudent(student);
 
     if (getStudentIsInternship(normalizedStudent)) {
+      const internshipMessage = "አልተፈቀደም";
       return res.json({
         allowed: false,
-        message: "Internship students are not allowed to scan",
-        student: normalizedStudent,
+        message: internshipMessage,
+        student: {
+          ...normalizedStudent,
+          statusMessage: internshipMessage,
+        },
       });
     }
 
@@ -209,10 +233,14 @@ export const scanStudentStation = async (req, res) => {
     });
 
     if (existingStationScan) {
+      const duplicateMessage = "\u12a0\u120d\u1270\u1348\u1240\u12f0\u121d";
       return res.json({
         allowed: false,
-        message: "Not Allowed - Already Ate This Meal",
-        student: normalizedStudent,
+        message: duplicateMessage,
+        student: {
+          ...normalizedStudent,
+          statusMessage: duplicateMessage,
+        },
       });
     }
 
@@ -337,23 +365,19 @@ export const getCampusDashboardStats = async (req, res) => {
     const studentSyncQuery = getStudentCampusSyncQuery(req.campus);
 
     const now = new Date();
-    const addisNow = new Date(
-      now.toLocaleString("en-US", { timeZone: "Africa/Addis_Ababa" }),
-    );
     const { mealType, label, targetDate } = await getDashboardMealContext(
       campusId,
-      addisNow,
+      now,
     );
-    const mealDate = new Date(targetDate);
-    mealDate.setHours(0, 0, 0, 0);
-    const year = getCurrentYear(mealDate);
-    const semester = getCurrentSemester(mealDate);
+    const mealDayString = getDayString(targetDate);
+    const year = getCurrentYear(targetDate);
+    const semester = getCurrentSemester(targetDate);
     const mealSchedule = await getMealSchedule(campusId);
 
     const meal = await Meal.findOne({
       campus: campusId,
       cafeNumber: req.cafeNumber,
-      date: getDayString(mealDate),
+      date: mealDayString,
       year,
       semester,
       mealType,
@@ -362,7 +386,7 @@ export const getCampusDashboardStats = async (req, res) => {
     const recentScans = await StationScan.findAll({
       campus: campusId,
       cafeNumber: req.cafeNumber,
-      date: getDayString(mealDate),
+      date: mealDayString,
       mealType,
       orderByCreatedAtDesc: true,
       limit: 5,
@@ -376,7 +400,7 @@ export const getCampusDashboardStats = async (req, res) => {
     const servedScans = await StationScan.findAll({
       campus: campusId,
       cafeNumber: req.cafeNumber,
-      date: getDayString(mealDate),
+      date: mealDayString,
       mealType,
     });
 
@@ -397,7 +421,7 @@ export const getCampusDashboardStats = async (req, res) => {
       mealType,
       mealLabel: label,
       mealSchedule,
-      mealDate,
+      mealDate: mealDayString,
       cafeNumber: req.cafeNumber,
       cafeDisplayName: getCafeDisplayName(req.campus.name, req.cafeNumber),
       totalStudents: activeSummary?.totalStudents ?? 0,
