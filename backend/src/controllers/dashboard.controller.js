@@ -268,13 +268,24 @@ const resolveDashboardSessionStatus = ({
   scheduleStatus,
   actualMealWindow,
   campus,
+  cafeNumber = null,
   currentDate = new Date(),
 }) => {
   if (scheduleStatus !== "active") {
     return scheduleStatus;
   }
 
-  if (isCampusLiveNow(campus, currentDate)) {
+  // Consider campus live only if the campus reports being online and the
+  // active cafe number matches the requested cafe number.
+  const campusIsLive = isCampusLiveNow(campus, currentDate);
+  const campusActiveCafe = campus?.activeCafeNumber ?? null;
+
+  if (
+    campusIsLive &&
+    campusActiveCafe &&
+    cafeNumber &&
+    campusActiveCafe === cafeNumber
+  ) {
     return "active";
   }
 
@@ -408,6 +419,7 @@ export const getMeals = async (req, res) => {
       meal =
         (await syncCampusLiveMealWindow(campus.id, scanTime, {
           onlineSince: campus.lastActiveAt,
+          cafeNumber: normalizedCafeNumber,
         }).catch(() => null)) || meal;
     }
     const snapshotCutoff = await getMealSnapshotCutoff(
@@ -444,6 +456,7 @@ export const getMeals = async (req, res) => {
       scheduleStatus,
       actualMealWindow,
       campus,
+      cafeNumber: normalizedCafeNumber,
       currentDate: scanTime,
     });
     if (sessionStatus === "active") {
