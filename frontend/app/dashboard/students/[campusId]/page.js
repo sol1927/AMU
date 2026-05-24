@@ -1,6 +1,13 @@
 "use client";
 
-import { React, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  React,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
@@ -19,6 +26,10 @@ export default function DashboardCampusStudentsPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [fastingFilter, setFastingFilter] = useState("");
+  const [batchFilter, setBatchFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [batchOptions, setBatchOptions] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkFastingType, setBulkFastingType] = useState("");
@@ -43,6 +54,56 @@ export default function DashboardCampusStudentsPage() {
     [campus?.cafeNumbers],
   );
 
+  const fetchDepartmentOptions = useCallback(async () => {
+    if (!campusId) return;
+
+    try {
+      const res = await fetch(
+        `${url}/dashboard/campuses/${campusId}/students`,
+        { credentials: "include" },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(getApiMessage(data, "We could not load departments."));
+      }
+
+      const options = Array.from(
+        new Set(
+          (data.students || [])
+            .map((student) => String(student.department || "").trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b));
+      setDepartmentOptions(options);
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not load departments right now."),
+        "error",
+      );
+    }
+  }, [campusId]);
+
+  const fetchBatchOptions = useCallback(async () => {
+    if (!campusId) return;
+
+    try {
+      const res = await fetch(
+        `${url}/dashboard/campuses/${campusId}/students/batches`,
+        { credentials: "include" },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(getApiMessage(data, "We could not load batches."));
+      }
+      setBatchOptions(data.batches || []);
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not load batches right now."),
+        "error",
+      );
+    }
+  }, [campusId]);
+
   const getEffectiveStudentCafeNumber = (student) => {
     const explicitCafe = Number(student?.cafeNumber);
     if (explicitCafe === 0) {
@@ -53,9 +114,8 @@ export default function DashboardCampusStudentsPage() {
       return explicitCafe;
     }
 
-    const batchCafe = campus?.batchCafeAssignments?.[
-      String(student?.batch ?? "")
-    ];
+    const batchCafe =
+      campus?.batchCafeAssignments?.[String(student?.batch ?? "")];
     const batchCafeNumber = Number(batchCafe);
     return Number.isInteger(batchCafeNumber) && batchCafeNumber > 0
       ? batchCafeNumber
@@ -102,40 +162,50 @@ export default function DashboardCampusStudentsPage() {
     fetchCampus();
   }, [campusId]);
 
-  const fetchStudents = useCallback(async (query = "", fasting = "") => {
-    if (!campusId) return;
+  const fetchStudents = useCallback(
+    async (query = "", fasting = "") => {
+      if (!campusId) return;
 
-    if (isFirstLoad.current) {
-      setLoading(true);
-    }
-
-    try {
-      const params = new URLSearchParams();
-      if (query) params.append("search", query);
-      if (fasting) params.append("fastingType", fasting);
-
-      const res = await fetch(
-        `${url}/dashboard/campuses/${campusId}/students?${params.toString()}`,
-        { credentials: "include" },
-      );
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          getApiMessage(data, "We could not load students right now."),
-        );
+      if (isFirstLoad.current) {
+        setLoading(true);
       }
 
-      setStudents(data.students || []);
-      setError("");
-    } catch (err) {
-      setError(getErrorMessage(err, "We could not load students right now."));
-    } finally {
-      setLoading(false);
-      isFirstLoad.current = false;
-      setInitialLoadDone(true);
-    }
-  }, [campusId]);
+      try {
+        const params = new URLSearchParams();
+        if (query) params.append("search", query);
+        if (fasting) params.append("fastingType", fasting);
+        if (batchFilter) params.append("batch", batchFilter);
+        if (departmentFilter) params.append("department", departmentFilter);
+
+        const res = await fetch(
+          `${url}/dashboard/campuses/${campusId}/students?${params.toString()}`,
+          { credentials: "include" },
+        );
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(
+            getApiMessage(data, "We could not load students right now."),
+          );
+        }
+
+        setStudents(data.students || []);
+        setError("");
+      } catch (err) {
+        setError(getErrorMessage(err, "We could not load students right now."));
+      } finally {
+        setLoading(false);
+        isFirstLoad.current = false;
+        setInitialLoadDone(true);
+      }
+    },
+    [campusId, batchFilter, departmentFilter],
+  );
+
+  useEffect(() => {
+    fetchBatchOptions();
+    fetchDepartmentOptions();
+  }, [fetchBatchOptions, fetchDepartmentOptions]);
 
   const handleRefreshStudents = async () => {
     try {
@@ -154,7 +224,8 @@ export default function DashboardCampusStudentsPage() {
   }, [campusId]);
 
   useEffect(() => {
-    const hasFilters = searchQuery || fastingFilter;
+    const hasFilters =
+      searchQuery || fastingFilter || batchFilter || departmentFilter;
     const delay = hasFilters ? 300 : 0;
 
     const timer = setTimeout(() => {
@@ -164,7 +235,14 @@ export default function DashboardCampusStudentsPage() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [campusId, searchQuery, fastingFilter, fetchStudents]);
+  }, [
+    campusId,
+    searchQuery,
+    fastingFilter,
+    batchFilter,
+    departmentFilter,
+    fetchStudents,
+  ]);
 
   const filteredAndSortedStudents = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -408,10 +486,7 @@ export default function DashboardCampusStudentsPage() {
       );
     } catch (err) {
       showToast(
-        getErrorMessage(
-          err,
-          "We could not update cafe assignments right now.",
-        ),
+        getErrorMessage(err, "We could not update cafe assignments right now."),
         "error",
       );
     } finally {
@@ -497,6 +572,30 @@ export default function DashboardCampusStudentsPage() {
                 <option value="not_fasting">Not Fasting</option>
                 <option value="sunday_fasting">Sunday Fasting</option>
                 <option value="muslim_fasting">Muslim Fasting</option>
+              </select>
+              <select
+                value={batchFilter}
+                onChange={(e) => setBatchFilter(e.target.value)}
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
+              >
+                <option value="">All Batches</option>
+                {batchOptions.map((batch) => (
+                  <option key={batch.batch} value={batch.batch}>
+                    Batch {batch.batch}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
+              >
+                <option value="">All Departments</option>
+                {departmentOptions.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -597,114 +696,125 @@ export default function DashboardCampusStudentsPage() {
 
           {(!loading || initialLoadDone) &&
             filteredAndSortedStudents.map((student, index) => (
-            <div
-              key={student._id}
-              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[40px_44px_180px_120px_1fr_70px_100px_130px_100px_24px] sm:items-center"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  #
-                </span>
-                <span className="font-medium text-slate-900">{index + 1}</span>
-              </div>
+              <div
+                key={student._id}
+                className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[40px_44px_180px_120px_1fr_70px_100px_130px_100px_24px] sm:items-center"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    #
+                  </span>
+                  <span className="font-medium text-slate-900">
+                    {index + 1}
+                  </span>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Photo
-                </span>
-                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200">
-                  {student.profileUrl ? (
-                    <img
-                      src={student.profileUrl}
-                      alt={student.name}
-                      className="h-full w-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center font-semibold text-gray-600">
-                      {student.name?.[0] || "S"}
-                    </span>
-                  )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Photo
+                  </span>
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                    {student.profileUrl ? (
+                      <img
+                        src={student.profileUrl}
+                        alt={student.name}
+                        className="h-full w-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center font-semibold text-gray-600">
+                        {student.name?.[0] || "S"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Name
+                  </span>
+                  <span
+                    className="block truncate font-medium"
+                    title={student.name}
+                  >
+                    {student.name}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Student ID
+                  </span>
+                  <span className="block truncate" title={student.studentId}>
+                    {student.studentId}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Department
+                  </span>
+                  <span className="block truncate" title={student.department}>
+                    {student.department}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Batch
+                  </span>
+                  <span className="block truncate" title={student.batch}>
+                    {student.batch}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Cafe
+                  </span>
+                  <span
+                    className="block truncate"
+                    title={getStudentCafeLabel(student)}
+                  >
+                    {getStudentCafeLabel(student)}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Fasting
+                  </span>
+                  <span
+                    className="block truncate"
+                    title={getFastingLabel(student.fastingType)}
+                  >
+                    {getFastingLabel(student.fastingType)}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Internship
+                  </span>
+                  <span className="block truncate">
+                    {student.isInternship ? (
+                      <span className="font-semibold text-yellow-400">
+                        Internship
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="ml-auto flex w-full justify-end sm:w-6">
+                  <input
+                    type="checkbox"
+                    checked={selectedStudents.includes(student._id)}
+                    onChange={() => handleSelectStudent(student._id)}
+                  />
                 </div>
               </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Name
-                </span>
-                <span className="block truncate font-medium" title={student.name}>
-                  {student.name}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Student ID
-                </span>
-                <span className="block truncate" title={student.studentId}>
-                  {student.studentId}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Department
-                </span>
-                <span className="block truncate" title={student.department}>
-                  {student.department}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Batch
-                </span>
-                <span className="block truncate" title={student.batch}>
-                  {student.batch}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Cafe
-                </span>
-                <span className="block truncate" title={getStudentCafeLabel(student)}>
-                  {getStudentCafeLabel(student)}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Fasting
-                </span>
-                <span className="block truncate" title={getFastingLabel(student.fastingType)}>
-                  {getFastingLabel(student.fastingType)}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Internship
-                </span>
-                <span className="block truncate">
-                  {student.isInternship ? (
-                    <span className="font-semibold text-yellow-400">
-                      Internship
-                    </span>
-                  ) : (
-                    <span className="text-slate-400">-</span>
-                  )}
-                </span>
-              </div>
-
-              <div className="ml-auto flex w-full justify-end sm:w-6">
-                <input
-                  type="checkbox"
-                  checked={selectedStudents.includes(student._id)}
-                  onChange={() => handleSelectStudent(student._id)}
-                />
-              </div>
-            </div>
-          ))}
+            ))}
 
           {initialLoadDone &&
             !loading &&

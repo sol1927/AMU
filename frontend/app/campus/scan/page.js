@@ -76,7 +76,7 @@ export default function StationScanPage() {
     const timer = setTimeout(() => {
       setStudent(null);
       setAllowed(null);
-    }, 2000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [student]);

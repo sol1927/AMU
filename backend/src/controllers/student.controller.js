@@ -101,6 +101,8 @@ export const getCampusStudents = async (req, res) => {
     const campus = await resolveScopedCampus(req);
     const search = req.query.search || "";
     const fastingType = req.query.fastingType;
+    const batch = parseBatch(req.query.batch);
+    const department = req.query.department || "";
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
@@ -119,6 +121,20 @@ export const getCampusStudents = async (req, res) => {
     ) {
       students = students.filter(
         (student) => student.fastingType === fastingType,
+      );
+    }
+
+    if (batch !== null) {
+      students = students.filter((student) => Number(student.batch) === batch);
+    }
+
+    if (department) {
+      const normalizedDepartment = department.toLowerCase().trim();
+      students = students.filter(
+        (student) =>
+          String(student.department || "")
+            .toLowerCase()
+            .trim() === normalizedDepartment,
       );
     }
 
