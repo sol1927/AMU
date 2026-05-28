@@ -276,14 +276,11 @@ export default function CampusesPage() {
                         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600">
                           Campus ID {campus.campusId ?? "Not set"}
                         </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {campus.location || "Location not set"}
-                    </p>
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">
-                      {campus.cafeCount || 1} cafe
-                      {(campus.cafeCount || 1) === 1 ? "" : "s"}
-                    </p>
-                  </div>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {campus.location || "Location not set"}
+                        </p>
+                        {/* Cafe count removed from admin view */}
+                      </div>
                     </div>
 
                     <div className="relative">
@@ -333,30 +330,7 @@ export default function CampusesPage() {
                     <p className="mt-2 text-4xl font-black text-slate-900">
                       {campus.students ?? 0}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {(campus.cafeNumbers || [1]).map((number) => (
-                        <span
-                          key={number}
-                          className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700"
-                        >
-                          Cafe {number}
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSyncCampusStudents(campus._id)}
-                      disabled={syncingCampusId === campus._id}
-                      className={`mt-4 inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-bold text-white transition ${
-                        syncingCampusId === campus._id
-                          ? "cursor-not-allowed bg-slate-400"
-                          : "bg-emerald-600 hover:bg-emerald-700"
-                      }`}
-                    >
-                      {syncingCampusId === campus._id
-                        ? "Fetching..."
-                        : "Fetch Cafe Students"}
-                    </button>
+                    {/* Cafe numbers removed from admin view */}
                   </div>
 
                   <div className="mt-5">
@@ -434,7 +408,7 @@ export default function CampusesPage() {
         {showForm && (
           <AddCampusModal
             onCancel={() => setShowForm(false)}
-            onSubmit={async ({ campusId, name, location, email, password, cafeCount }) => {
+            onSubmit={async ({ campusId, name, location, email, password }) => {
               try {
                 if (!String(campusId || "").trim()) {
                   throw new Error("Please enter a campus ID.");
@@ -461,7 +435,7 @@ export default function CampusesPage() {
                     location,
                     email,
                     password,
-                    cafeCount,
+                    // cafeCount removed
                   }),
                 });
 

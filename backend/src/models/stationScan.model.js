@@ -23,7 +23,11 @@ const addColumnIfMissing = async (tableName, columnName, definition) => {
   );
 };
 
-const dropForeignKeyIfExists = async (tableName, columnName, referencedTable) => {
+const dropForeignKeyIfExists = async (
+  tableName,
+  columnName,
+  referencedTable,
+) => {
   const [rows] = await getDB().execute(
     `
       SELECT CONSTRAINT_NAME
@@ -106,12 +110,20 @@ const createTable = async () => {
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY unique_studentId_campus_date_mealType (studentId, campus, date, mealType),
-      FOREIGN KEY (campus) REFERENCES campuses(id)
+      FOREIGN KEY (campus) REFERENCES users(id)
     );
   `;
   await getDB().execute(query);
-  await addColumnIfMissing("station_scans", "studentId", "VARCHAR(255) NOT NULL DEFAULT ''");
-  await addColumnIfMissing("station_scans", "studentName", "VARCHAR(255) NOT NULL DEFAULT 'Student'");
+  await addColumnIfMissing(
+    "station_scans",
+    "studentId",
+    "VARCHAR(255) NOT NULL DEFAULT ''",
+  );
+  await addColumnIfMissing(
+    "station_scans",
+    "studentName",
+    "VARCHAR(255) NOT NULL DEFAULT 'Student'",
+  );
   await addColumnIfMissing("station_scans", "department", "VARCHAR(255) NULL");
   await addColumnIfMissing("station_scans", "batch", "INT NULL");
   await addColumnIfMissing(
@@ -119,7 +131,11 @@ const createTable = async () => {
     "fastingType",
     "ENUM('not_fasting', 'fasting', 'sunday_fasting', 'muslim_fasting') DEFAULT 'not_fasting'",
   );
-  await addColumnIfMissing("station_scans", "isInternship", "BOOLEAN DEFAULT FALSE");
+  await addColumnIfMissing(
+    "station_scans",
+    "isInternship",
+    "BOOLEAN DEFAULT FALSE",
+  );
   await addColumnIfMissing("station_scans", "campusId", "INT NULL");
   await addColumnIfMissing("station_scans", "campusName", "VARCHAR(255) NULL");
   await addColumnIfMissing("station_scans", "cafeNumber", "INT NULL");
@@ -127,7 +143,7 @@ const createTable = async () => {
   await getDB().execute(`
     UPDATE station_scans ss
     LEFT JOIN cafestudents cs ON ss.student = cs.id
-    LEFT JOIN campuses c ON ss.campus = c.id
+    LEFT JOIN users c ON ss.campus = c.id AND c.role = 'campus'
     SET
       ss.studentId = CASE
         WHEN (ss.studentId IS NULL OR ss.studentId = '') AND cs.studentId IS NOT NULL
@@ -157,7 +173,7 @@ const createTable = async () => {
         ELSE ss.isInternship
       END,
       ss.campusId = CASE
-        WHEN ss.campusId IS NULL AND c.campusId IS NOT NULL THEN c.campusId
+        WHEN ss.campusId IS NULL AND c.id IS NOT NULL THEN c.id
         ELSE ss.campusId
       END,
       ss.campusName = CASE
@@ -171,14 +187,18 @@ const createTable = async () => {
       END
   `);
   await dropForeignKeyIfExists("station_scans", "student", "cafestudents");
-  await getDB().execute("ALTER TABLE station_scans MODIFY COLUMN student INT NULL");
-  await dropIndexIfExists("station_scans", "unique_student_campus_date_mealType");
-  await addUniqueIndexIfMissing("station_scans", "unique_studentId_campus_date_mealType", [
-    "studentId",
-    "campus",
-    "date",
-    "mealType",
-  ]);
+  await getDB().execute(
+    "ALTER TABLE station_scans MODIFY COLUMN student INT NULL",
+  );
+  await dropIndexIfExists(
+    "station_scans",
+    "unique_student_campus_date_mealType",
+  );
+  await addUniqueIndexIfMissing(
+    "station_scans",
+    "unique_studentId_campus_date_mealType",
+    ["studentId", "campus", "date", "mealType"],
+  );
 };
 
 const findAll = async (filter = {}) => {

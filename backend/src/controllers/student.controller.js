@@ -1,7 +1,6 @@
 import ExternalStudent from "../models/externalStudent.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
-import Campus from "../models/campus.model.js";
-// import StationScan from "../models/stationScan.model.js";
+import User from "../models/user.model.js";
 // import { formatFullName } from "../utils/formatName.js";
 // import Papa from "papaparse";
 // import XLSX from "xlsx";
@@ -84,16 +83,54 @@ const resolveScopedCampus = async (req) => {
   }
 
   const campusRecordId = req.params.id || req.params.campusId;
-  if (!campusRecordId || req.userRole !== "admin") {
+  if (!campusRecordId) {
+    if (
+      req.userRole === "cafe" ||
+      req.userRole === "cafe manager" ||
+      req.userRole === "ticker" ||
+      req.userRole === "campus"
+    ) {
+      const loggedInUser = await User.findById(req.userId);
+      if (!loggedInUser) return null;
+      const targetId =
+        req.userRole === "campus" ? loggedInUser.id : loggedInUser.campusId;
+      const campus = await User.findById(targetId);
+      if (campus?.role === "campus") return campus;
+      return User.findOne({ campusId: loggedInUser.campusId, role: "campus" });
+    }
     return null;
   }
 
-  const campus = await Campus.findById(campusRecordId);
-  if (!campus || Number(campus.createdBy) !== Number(req.userId)) {
-    return null;
+  if (req.userRole === "admin") {
+    const campus = await User.findById(campusRecordId);
+    if (
+      !campus ||
+      campus.role !== "campus" ||
+      Number(campus.createdBy) !== Number(req.userId)
+    ) {
+      return null;
+    }
+    return campus;
   }
 
-  return campus;
+  if (
+    req.userRole === "cafe" ||
+    req.userRole === "cafe manager" ||
+    req.userRole === "ticker"
+  ) {
+    const loggedInUser = await User.findById(req.userId);
+    if (
+      !loggedInUser ||
+      Number(loggedInUser.campusId) !== Number(campusRecordId)
+    ) {
+      return null;
+    }
+    const campus = await User.findById(loggedInUser.campusId);
+    if (campus?.role === "campus") return campus;
+    return User.findOne({ campusId: loggedInUser.campusId, role: "campus" });
+  }
+
+  return null;
 };
 
 export const getCampusStudents = async (req, res) => {
@@ -109,9 +146,17 @@ export const getCampusStudents = async (req, res) => {
     }
 
     let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
-    students = req.cafeNumber
-      ? filterStudentsForCafeNumber(students, campus, req.cafeNumber)
-      : students;
+
+    // Only filter by cafe number if the user is a cafe (not campus or cafe manager)
+    if (req.userRole === "cafe") {
+      const cafeNumber =
+        req.cafeNumber ||
+        (req.query.cafeNumber ? Number(req.query.cafeNumber) : null);
+      students = cafeNumber
+        ? filterStudentsForCafeNumber(students, campus, cafeNumber)
+        : [];
+    }
+    // Cafe manager and campus see all students (no filter)
 
     if (
       fastingType &&
@@ -141,9 +186,7 @@ export const getCampusStudents = async (req, res) => {
     students = students
       .filter((student) => matchesSearch(student, search))
       .sort(byName);
-    const totalStudents = await CafeStudent.countDocuments(
-      getStudentCampusQuery(campus),
-    );
+    const totalStudents = students.length;
 
     res.json({
       students: students.map((student) => normalizeStudent(student)),
@@ -606,8 +649,12 @@ export const assignBatchToCafeNumber = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const campus = await Campus.findById(req.params.id);
-    if (!campus || Number(campus.createdBy) !== Number(req.userId)) {
+    const campus = await User.findById(req.params.id);
+    if (
+      !campus ||
+      campus.role !== "campus" ||
+      Number(campus.createdBy) !== Number(req.userId)
+    ) {
       return res.status(404).json({ message: "Campus not found" });
     }
 
@@ -644,7 +691,7 @@ export const assignBatchToCafeNumber = async (req, res) => {
       normalizeCafeCount(campus.cafeCount),
     );
 
-    const updatedCampus = await Campus.updateById(campus.id, {
+    const updatedCampus = await User.updateById(campus.id, {
       batchCafeAssignments: nextAssignments,
       cafeCount: campus.cafeCount,
     });
@@ -961,14 +1008,16 @@ export const bulkToggleInternshipStudents = async (req, res) => {
 
 export const syncCafeStudents = async (req, res) => {
   try {
-    if (req.userRole !== "admin") {
+    let campus = null;
+
+    if (req.userRole === "campus") {
+      // For campus role, req.userId is their own campus user ID
+      campus = await User.findById(req.userId);
+      if (!campus || campus.role !== "campus") {
+        return res.status(404).json({ message: "Campus not found" });
+      }
+    } else {
       return res.status(403).json({ message: "Access denied" });
-    }
-
-    const campus = req.params.id ? await Campus.findById(req.params.id) : null;
-
-    if (!campus || Number(campus.createdBy) !== Number(req.userId)) {
-      return res.status(404).json({ message: "Campus not found" });
     }
 
     const campusId = parseCampusId(campus.campusId);

@@ -7,6 +7,9 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import adminProfileRoutes from "./routes/adminProfile.routes.js";
 import campusRoutes from "./routes/campus.route.js";
 import stationScanRoutes from "./routes/stationScan.routes.js";
+import cafeRoutes from "./routes/cafe.routes.js";
+import approvalRoutes from "./routes/approval.routes.js";
+import reportRoutes from "./routes/report.routes.js";
 import { handleNotFound, handleUnhandledError } from "./utils/safeError.js";
 import { requireDatabaseConnection } from "./middlewares/dbReady.middleware.js";
 
@@ -88,6 +91,9 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/profile", adminProfileRoutes);
 app.use("/api/campus", campusRoutes);
 app.use("/api/meal", stationScanRoutes);
+app.use("/api/cafe", cafeRoutes);
+app.use("/api/approvals", approvalRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.use(handleNotFound);
 app.use(handleUnhandledError);

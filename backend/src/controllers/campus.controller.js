@@ -1,10 +1,7 @@
-import Campus from "../models/campus.model.js";
-import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import CafeStudent from "../models/cafeStudent.model.js";
 import StationScan from "../models/stationScan.model.js";
-import Meal from "../models/meal.model.js";
 import { formatFullName } from "../utils/formatName.js";
 import { getStudentCampusSyncQuery, parseCampusId } from "../utils/campusId.js";
 import {
@@ -15,7 +12,6 @@ import {
   getMealWindowLabel,
   isCampusLiveNow,
 } from "../utils/mealSession.js";
-import { logInternalError, sendServerError } from "../utils/safeError.js";
 import { getSessionCookieOptions } from "../utils/sessionSecurity.js";
 import {
   buildCafeNumbers,
@@ -23,6 +19,126 @@ import {
   normalizeBatchCafeAssignments,
   normalizeCafeCount,
 } from "../utils/cafeScope.js";
+import Meal from "../models/meal.model.js";
+import User from "../models/user.model.js";
+import PendingApproval from "../models/pendingApproval.model.js";
+import { logInternalError, sendServerError } from "../utils/safeError.js";
+// --- CAFETERIA (CAFE) USER MANAGEMENT ---
+// List all cafes for the current campus
+export const listCafes = async (req, res) => {
+  try {
+    if (!["campus", "cafe manager"].includes(req.userRole)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const campusId = req.campus?.campusId || req.user?.campusId;
+    const allUsers = await User.findAll({
+      campusId,
+    });
+    const cafes = allUsers.filter((u) => u.role === "cafe");
+    const tickers = allUsers.filter((u) => u.role === "ticker");
+    res.json({ cafes, tickers });
+  } catch (err) {
+    logInternalError("list-cafes", err);
+    sendServerError(res, "Could not fetch cafes");
+  }
+};
+
+// Create a new cafe user for this campus
+export const createCafe = async (req, res) => {
+  try {
+    if (!["campus", "cafe manager"].includes(req.userRole)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const { name, email, username, password } = req.body;
+    const cafeUsername = String(username || email || "").toLowerCase().trim();
+    const campusId = req.campus?.campusId || req.user?.campusId;
+
+    if (!name || !cafeUsername || !password) {
+      return res
+        .status(400)
+        .json({ message: "Cafe name, username, and password are required." });
+    }
+    if (/\s/.test(cafeUsername)) {
+      return res.status(400).json({ message: "Username cannot contain spaces." });
+    }
+    const existingCafe = await User.findOne({
+      name: cafeUsername,
+      role: "cafe",
+    });
+    if (existingCafe) {
+      return res
+        .status(400)
+        .json({ message: "A cafe with this username already exists." });
+    }
+    const cafe = await User.create({
+      name: cafeUsername,
+      email: null,
+      password,
+      role: "cafe",
+      campusId,
+      createdBy: req.userId,
+      mustChangePassword: true,
+    });
+    res.status(201).json({ cafe });
+  } catch (err) {
+    logInternalError("create-cafe", err);
+    sendServerError(res, "Could not create cafe");
+  }
+};
+
+// Update a cafe user (only by owning campus)
+export const updateCafe = async (req, res) => {
+  try {
+    if (!["campus", "cafe manager"].includes(req.userRole)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const { id } = req.params;
+    const cafe = await User.findById(id);
+    const campusId = req.campus?.campusId || req.user?.campusId;
+    if (!cafe || cafe.role !== "cafe" || cafe.campusId !== campusId) {
+      return res.status(404).json({ message: "Cafe not found" });
+    }
+    const { name, email, username, password } = req.body;
+    const cafeUsername = String(username || email || name || "").toLowerCase().trim();
+    const updateData = {};
+    if (cafeUsername) {
+      if (/\s/.test(cafeUsername)) {
+        return res.status(400).json({ message: "Username cannot contain spaces." });
+      }
+      updateData.name = cafeUsername;
+      updateData.email = null;
+    }
+    if (password) {
+      updateData.password = password;
+      updateData.mustChangePassword = true;
+    }
+    const updated = await User.updateById(id, updateData);
+    res.json({ cafe: updated });
+  } catch (err) {
+    logInternalError("update-cafe", err);
+    sendServerError(res, "Could not update cafe");
+  }
+};
+
+// Delete a cafe user (only by owning campus)
+export const deleteCafe = async (req, res) => {
+  try {
+    if (!["campus", "cafe manager"].includes(req.userRole)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const { id } = req.params;
+    const cafe = await User.findById(id);
+    const campusId = req.campus?.campusId || req.user?.campusId;
+    if (!cafe || cafe.role !== "cafe" || cafe.campusId !== campusId) {
+      return res.status(404).json({ message: "Cafe not found" });
+    }
+    await User.deleteById(id);
+    res.json({ success: true });
+  } catch (err) {
+    logInternalError("delete-cafe", err);
+    sendServerError(res, "Could not delete cafe");
+  }
+};
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -96,8 +212,12 @@ const findAdminConflict = async ({ email, name, excludeId } = {}) => {
 };
 
 const findOwnedCampus = async (id, createdBy, includePassword = false) => {
-  const campus = await Campus.findById(id, { includePassword });
-  if (!campus || Number(campus.createdBy) !== Number(createdBy)) {
+  const campus = await User.findById(id, { includePassword });
+  if (
+    !campus ||
+    campus.role !== "campus" ||
+    Number(campus.createdBy) !== Number(createdBy)
+  ) {
     return null;
   }
   return campus;
@@ -107,9 +227,7 @@ const attachAdminLogoToCampus = async (campus) => {
   if (!campus) {
     return campus;
   }
-
   const admin = campus.createdBy ? await User.findById(campus.createdBy) : null;
-
   return {
     ...campus,
     logo: admin?.logo || campus.logo,
@@ -143,9 +261,10 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    const existingCampus = await Campus.findOne({
+    const existingCampus = await User.findOne({
       createdBy: req.userId,
       nameInsensitive: name.trim(),
+      role: "campus",
     });
     if (existingCampus) {
       return res.status(400).json({
@@ -153,15 +272,19 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    const existingCampusId = await Campus.findOne({ campusId: parsedCampusId });
+    const existingCampusId = await User.findOne({
+      campusId: parsedCampusId,
+      role: "campus",
+    });
     if (existingCampusId) {
       return res.status(400).json({
         message: "This campus ID is already in use.",
       });
     }
 
-    const existingCampusEmail = await Campus.findOne({
+    const existingCampusEmail = await User.findOne({
       email: normalizedEmail,
+      role: "campus",
     });
     if (existingCampusEmail) {
       return res.status(400).json({
@@ -179,7 +302,7 @@ export const createCampus = async (req, res) => {
       });
     }
 
-    const campus = await Campus.create({
+    const campus = await User.create({
       campusId: parsedCampusId,
       name: formatFullName(name.trim()),
       email: normalizedEmail,
@@ -187,6 +310,8 @@ export const createCampus = async (req, res) => {
       location: location ? formatFullName(location.trim()) : "",
       createdBy: req.userId,
       cafeCount: normalizeCafeCount(cafeCount),
+      role: "campus",
+      mustChangePassword: true,
     });
     const brandedCampus = await attachAdminLogoToCampus(campus);
 
@@ -221,9 +346,9 @@ export const getCampuses = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const campuses = (await Campus.findAll({ createdBy: req.userId })).sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-    );
+    const campuses = (
+      await User.findAll({ createdBy: req.userId, role: "campus" })
+    ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     const campusesWithStats = await Promise.all(
       campuses.map(async (campus) => {
@@ -254,7 +379,7 @@ export const getCampuses = async (req, res) => {
             : campus;
 
         if (!isLive && campus.isOnline) {
-          await Campus.updateById(campus.id, {
+          await User.updateById(campus.id, {
             isOnline: false,
             lastActiveAt: null,
             activeCafeNumber: null,
@@ -343,17 +468,16 @@ export const updateCampus = async (req, res) => {
           message: "Campus ID must be a positive whole number.",
         });
       }
-
-      const existingCampusId = await Campus.findOne({
+      const existingCampusId = await User.findOne({
         campusId: parsedCampusId,
         excludeId: req.params.id,
+        role: "campus",
       });
       if (existingCampusId) {
         return res.status(400).json({
           message: "This campus ID is already in use.",
         });
       }
-
       updates.campusId = parsedCampusId;
     }
 
@@ -366,17 +490,17 @@ export const updateCampus = async (req, res) => {
     }
 
     if (name) {
-      const existingCampus = await Campus.findOne({
+      const existingCampus = await User.findOne({
         createdBy: req.userId,
         nameInsensitive: name.trim(),
         excludeId: req.params.id,
+        role: "campus",
       });
       if (existingCampus) {
         return res.status(400).json({
           message: "A campus with this name already exists",
         });
       }
-
       updates.name = formatFullName(name.trim());
     }
 
@@ -410,9 +534,10 @@ export const updateCampus = async (req, res) => {
         });
       }
       updates.password = password;
+      updates.mustChangePassword = true;
     }
 
-    const updatedCampus = await Campus.updateById(campus.id, updates);
+    const updatedCampus = await User.updateById(campus.id, updates);
     const brandedCampus = await attachAdminLogoToCampus(updatedCampus);
 
     if (campusId !== undefined) {
@@ -456,10 +581,11 @@ export const selfUpdateCampus = async (req, res) => {
     }
 
     if (name) {
-      const existingCampus = await Campus.findOne({
+      const existingCampus = await User.findOne({
         createdBy: req.userId,
         nameInsensitive: name.trim(),
         excludeId: req.params.id,
+        role: "campus",
       });
       if (existingCampus) {
         return res.status(400).json({
@@ -515,7 +641,7 @@ export const selfUpdateCampus = async (req, res) => {
       updates.password = password;
     }
 
-    const updatedCampus = await Campus.updateById(campus.id, updates);
+    const updatedCampus = await User.updateById(campus.id, updates);
 
     res.json({
       message: "Campus updated successfully",
@@ -531,13 +657,14 @@ export const deleteCampus = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const campus = await Campus.findById(id);
-    if (!campus) return res.status(404).json({ message: "Campus not found" });
+    const campus = await User.findById(id);
+    if (!campus || campus.role !== "campus")
+      return res.status(404).json({ message: "Campus not found" });
 
     await StationScan.deleteMany({ campus: campus.id });
     await CafeStudent.deleteMany(getStudentCampusSyncQuery(campus));
 
-    await Campus.deleteById(id);
+    await User.deleteById(id);
     res.json({ message: "Campus and its students deleted successfully" });
   } catch (err) {
     logInternalError("delete-campus", err);
@@ -566,6 +693,7 @@ export const getCampusDashboard = async (req, res) => {
         cafeNumbers: buildCafeNumbers(brandedCampus.cafeCount),
         selectedCafeNumber: req.cafeNumber || null,
         cafeDisplayName: getCafeDisplayName(brandedCampus.name, req.cafeNumber),
+        mustChangePassword: !!brandedCampus.mustChangePassword,
       },
     });
   } catch {
@@ -575,17 +703,25 @@ export const getCampusDashboard = async (req, res) => {
 
 export const heartbeatCampus = async (req, res) => {
   try {
-    if (req.campus?.id) {
-      const updates = {
+    const now = new Date();
+    // 1. Update the actual logged-in user (can be campus, cafe, or ticker)
+    if (req.userId) {
+      const userUpdates = {
         isOnline: true,
-        lastActiveAt: new Date(),
+        lastActiveAt: now,
       };
-
       if (req.cafeNumber) {
-        updates.activeCafeNumber = req.cafeNumber;
+        userUpdates.activeCafeNumber = req.cafeNumber;
       }
+      await User.updateById(req.userId, userUpdates);
+    }
 
-      await Campus.updateById(req.campus.id, updates);
+    // 2. Also update the parent campus if the logged-in user is a cafe/ticker
+    if (req.campus?.id && Number(req.campus.id) !== Number(req.userId)) {
+      await User.updateById(req.campus.id, {
+        isOnline: true,
+        lastActiveAt: now,
+      });
     }
 
     res.status(204).end();
@@ -604,8 +740,9 @@ export const verifyCampusPassword = async (req, res) => {
       return res.status(400).json({ message: "Password is required" });
     }
 
-    const campus = await Campus.findById(campusId, { includePassword: true });
-    if (!campus) return res.status(404).json({ message: "Campus not found" });
+    const campus = await User.findById(campusId, { includePassword: true });
+    if (!campus || campus.role !== "campus")
+      return res.status(404).json({ message: "Campus not found" });
 
     const now = Date.now();
 
@@ -623,7 +760,7 @@ export const verifyCampusPassword = async (req, res) => {
       const loginAttempts = Number(campus.loginAttempts || 0) + 1;
       const lockUntil = loginAttempts >= MAX_ATTEMPTS ? now + WINDOW_MS : null;
 
-      await Campus.updateById(campus.id, { loginAttempts, lockUntil });
+      await User.updateById(campus.id, { loginAttempts, lockUntil });
 
       const attemptsLeft = Math.max(0, MAX_ATTEMPTS - loginAttempts);
       return res.status(401).json({
@@ -634,7 +771,7 @@ export const verifyCampusPassword = async (req, res) => {
       });
     }
 
-    await Campus.updateById(campus.id, { loginAttempts: 0, lockUntil: null });
+    await User.updateById(campus.id, { loginAttempts: 0, lockUntil: null });
     return res.status(200).json({ message: "Password correct" });
   } catch (err) {
     logInternalError("verify-campus-password", err);
@@ -648,11 +785,10 @@ export const verifyCampusPassword = async (req, res) => {
 export const updateCampusProfile = async (req, res) => {
   try {
     const { name, email, password, currentPassword, location } = req.body;
-    const campus = await Campus.findById(req.campus.id, {
+    const campus = await User.findById(req.campus.id, {
       includePassword: true,
     });
-
-    if (!campus) {
+    if (!campus || campus.role !== "campus") {
       return res.status(404).json({ message: "Campus not found" });
     }
 
@@ -666,9 +802,10 @@ export const updateCampusProfile = async (req, res) => {
         return res.status(400).json({ message: "Invalid email format." });
       }
 
-      const existingCampus = await Campus.findOne({
+      const existingCampus = await User.findOne({
         email: normalizedEmail,
         excludeId: campus.id,
+        role: "campus",
       });
       if (existingCampus) {
         return res.status(400).json({
@@ -676,7 +813,10 @@ export const updateCampusProfile = async (req, res) => {
         });
       }
 
-      const adminConflict = await User.findOne({ email: normalizedEmail });
+      const adminConflict = await User.findOne({
+        email: normalizedEmail,
+        role: "admin",
+      });
       if (adminConflict) {
         return res.status(400).json({
           message: "This email is already being used by an admin.",
@@ -686,13 +826,19 @@ export const updateCampusProfile = async (req, res) => {
       updates.email = normalizedEmail;
     }
 
+    // Removed duplicate/incorrect Campus.findOne block above. Name check is handled below with User.findOne.
+
+    if (location !== undefined) {
+      updates.location = location ? formatFullName(location.trim()) : "";
+    }
+
     if (name) {
       const normalizedName = formatFullName(name.trim());
-      const existingCampusName = await Campus.findOne({
+      const existingCampusName = await User.findOne({
         nameInsensitive: normalizedName,
         excludeId: campus.id,
+        role: "campus",
       });
-
       if (existingCampusName) {
         return res.status(400).json({
           message: "A campus with this name already exists.",
@@ -708,11 +854,6 @@ export const updateCampusProfile = async (req, res) => {
 
       updates.name = normalizedName;
     }
-
-    if (location !== undefined) {
-      updates.location = location ? formatFullName(location.trim()) : "";
-    }
-
     if (password) {
       if (!currentPassword) {
         return res.status(400).json({
@@ -743,11 +884,32 @@ export const updateCampusProfile = async (req, res) => {
       updates.password = password;
     }
 
-    const updatedCampus = await Campus.updateById(campus.id, updates);
-    const brandedCampus = await attachAdminLogoToCampus(updatedCampus);
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No updates were provided." });
+    }
+
+    // Delete any existing pending approval request for this requester
+    const existing = await PendingApproval.findAll({
+      requesterId: campus.id,
+      status: "pending",
+    });
+    await Promise.all(
+      existing.map((req) => PendingApproval.deleteById(req.id)),
+    );
+
+    // Create the pending approval request destined for the admin
+    await PendingApproval.create({
+      requesterId: campus.id,
+      approverRole: "admin",
+      requestType: "profile_update",
+      pendingData: updates,
+    });
+
+    const brandedCampus = await attachAdminLogoToCampus(campus);
 
     res.json({
-      message: "Campus profile updated successfully.",
+      message:
+        "Your profile changes have been submitted to the Admin for approval.",
       campus: brandedCampus,
     });
   } catch (err) {
@@ -803,7 +965,7 @@ export const selectCampusCafeNumber = async (req, res) => {
       }
     }
 
-    await Campus.updateById(req.campus.id, {
+    await User.updateById(req.campus.id, {
       activeCafeNumber: normalizedCafeNumber,
       isOnline: true,
       lastActiveAt: new Date(),
@@ -861,7 +1023,7 @@ export const logoutCampus = async (req, res) => {
       ),
     );
 
-    await Campus.updateById(campusId, {
+    await User.updateById(campusId, {
       isOnline: false,
       lastActiveAt: null,
       activeCafeNumber: null,

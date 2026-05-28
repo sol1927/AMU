@@ -98,9 +98,19 @@ export default function AdminNavbar() {
       onClick: () => router.push("/dashboard/users"),
     },
     {
-      icon: HiOutlineClock,
-      label: "Time Controller",
-      onClick: () => router.push("/dashboard/time-controller"),
+      icon: HiOutlineClipboardList,
+      label: "Meal History",
+      onClick: () => router.push("/dashboard/meals"),
+    },
+    {
+      icon: HiOutlineClipboardList,
+      label: "Reports",
+      onClick: () => router.push("/dashboard/reports"),
+    },
+    {
+      icon: HiOutlineClipboardList,
+      label: "Requests",
+      onClick: () => router.push("/dashboard/requests"),
     },
   ];
 

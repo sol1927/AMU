@@ -1,6 +1,5 @@
 import StationScan from "../models/stationScan.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
-import Campus from "../models/campus.model.js";
 import Meal from "../models/meal.model.js";
 import {
   finalizeExpiredStationScans,
@@ -181,8 +180,7 @@ export const scanStudentStation = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const campusForScope =
-      (await Campus.findById(req.campus.id)) || req.campus;
+    const campusForScope = (await User.findById(req.campus.id)) || req.campus;
 
     const accessibleStudents = filterStudentsForCafeNumber(
       [student],
@@ -318,7 +316,7 @@ export const scanStudentStation = async (req, res) => {
             existingAppliedWindow.label || getMealWindowLabel(appliedWindow),
           actualOpenedAt:
             existingAppliedWindow.actualOpenedAt || actualOpenedAt,
-          
+
           actualClosedAt: null,
         },
       });

@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }) {
     }
   }, [currentUser, loading, router]);
 
-  if (loading || !currentUser) {
+  if (loading) {
     return (
       <div className="page-shell flex h-screen w-full items-center justify-center">
         <div className="relative">
@@ -54,6 +54,10 @@ export default function DashboardLayout({ children }) {
         </div>
       </div>
     );
+  }
+
+  if (!currentUser) {
+    return null;
   }
   return (
     <>

@@ -28,6 +28,30 @@ export default function CampusProfilePage() {
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncStudents = async () => {
+    setSyncing(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await fetch(`${url}/campus/students/sync`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(getApiMessage(data, "Could not sync students."));
+      }
+      setMessage(getApiMessage(data, "Students synced successfully!"));
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not sync students."));
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (currentCampus) {
@@ -290,6 +314,23 @@ export default function CampusProfilePage() {
               {savingChanges ? "Saving..." : "Save Changes"}
             </button>
           </form>
+
+          <div className="mt-4 border-t border-slate-700/30 pt-4">
+            <h3 className="text-xs font-semibold text-slate-800 mb-1">
+              Synchronize Student Roster
+            </h3>
+            <p className="text-[10px] text-slate-500 mb-2 text-left">
+              Import latest student records and cafe assignments from the external university registry.
+            </p>
+            <button
+              type="button"
+              onClick={handleSyncStudents}
+              disabled={syncing}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded-xl text-xs font-bold shadow-lg transition-all disabled:opacity-50"
+            >
+              {syncing ? "Syncing..." : "Fetch Students"}
+            </button>
+          </div>
         </div>
       </main>
     </div>

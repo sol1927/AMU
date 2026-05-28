@@ -2,7 +2,6 @@ import jwt from "jsonwebtoken";
 import { passwordRegex } from "../utils/validation.js";
 import crypto from "crypto";
 import User from "../models/user.model.js";
-import Campus from "../models/campus.model.js";
 import TempAdmin from "../models/TempAdmin.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { formatFullName } from "../utils/formatName.js";
@@ -42,7 +41,7 @@ export const requestOTP = async (req, res) => {
       });
     }
 
-    const userExists = await Campus.findOne({ email });
+    const userExists = await User.findOne({ email, role: "campus" });
     if (userExists) {
       return res.status(403).json({
         message:

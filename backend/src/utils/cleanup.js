@@ -1,6 +1,5 @@
 import User from "../models/user.model.js";
 import TempAdmin from "../models/TempAdmin.model.js";
-import Campus from "../models/campus.model.js";
 import { finalizeExpiredStationScans } from "./mealSession.js";
 
 const TEMP_ADMIN_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -15,7 +14,7 @@ export const runScheduledCleanup = async () => {
         },
       ),
       TempAdmin.findAll(),
-      Campus.findAll(),
+      User.findAll({ role: "campus" }),
     ]);
 
     const expiredUsers = users.filter(

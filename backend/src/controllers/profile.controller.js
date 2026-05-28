@@ -1,9 +1,9 @@
 import User from "../models/user.model.js";
-import Campus from "../models/campus.model.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import TempEmailChange from "../models/TempEmailChange.model.js";
+import PendingApproval from "../models/pendingApproval.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { formatFullName } from "../utils/formatName.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
@@ -36,6 +36,36 @@ export const updateProfile = async (req, res) => {
 
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "Account not found" });
+
+    if (user.role === "cafe") {
+      const updates = {
+        name: name ? formatFullName(name.trim()) : user.name,
+      };
+
+      if (!name || name.trim() === "") {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      const existing = await PendingApproval.findAll({ requesterId: user.id, status: "pending" });
+      await Promise.all(existing.map((req) => PendingApproval.deleteById(req.id)));
+
+      await PendingApproval.create({
+        requesterId: user.id,
+        approverRole: "campus",
+        requestType: "profile_update",
+        pendingData: updates,
+      });
+
+      return res.json({
+        message: "Your profile changes have been submitted to your Campus for approval.",
+        user: {
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          logo: user.logo,
+        },
+      });
+    }
 
     const updatedUser = await User.updateById(req.userId, {
       name: name ? formatFullName(name.trim()) : user.name,
@@ -81,7 +111,8 @@ export const updateProfilePhoto = async (req, res) => {
 
     if (normalizedPhotoUrl.length > MAX_LOGO_DATA_URL_LENGTH) {
       return res.status(400).json({
-        message: "The selected image is too large. Please choose a smaller one.",
+        message:
+          "The selected image is too large. Please choose a smaller one.",
       });
     }
 
@@ -91,6 +122,25 @@ export const updateProfilePhoto = async (req, res) => {
     const logo = {
       url: normalizedPhotoUrl,
     };
+
+    if (user.role === "cafe") {
+      const updates = { logo };
+      const existing = await PendingApproval.findAll({ requesterId: user.id, status: "pending" });
+      await Promise.all(existing.map((req) => PendingApproval.deleteById(req.id)));
+
+      await PendingApproval.create({
+        requesterId: user.id,
+        approverRole: "campus",
+        requestType: "profile_update",
+        pendingData: updates,
+      });
+
+      return res.json({
+        message: "Your profile photo changes have been submitted to your Campus for approval.",
+        photoUrl: logo.url,
+        user: user,
+      });
+    }
 
     const updatedUser = await User.updateById(req.userId, { logo });
 
@@ -146,6 +196,23 @@ export const changePassword = async (req, res) => {
     if (sameAsCurrent) {
       return res.status(400).json({
         message: "New password cannot be the same as current password",
+      });
+    }
+
+    if (user.role === "cafe") {
+      const updates = { password: newPassword };
+      const existing = await PendingApproval.findAll({ requesterId: user.id, status: "pending" });
+      await Promise.all(existing.map((req) => PendingApproval.deleteById(req.id)));
+
+      await PendingApproval.create({
+        requesterId: user.id,
+        approverRole: "campus",
+        requestType: "profile_update",
+        pendingData: updates,
+      });
+
+      return res.json({
+        message: "Your password change request has been submitted to your Campus for approval.",
       });
     }
 
@@ -239,8 +306,9 @@ export const requestEmailChangeOTP = async (req, res) => {
         .json({ message: "Email already in use by another admin." });
     }
 
-    const emailUsedByCampus = await Campus.findOne({
+    const emailUsedByCampus = await User.findOne({
       email: newEmail.toLowerCase(),
+      role: "campus",
     });
     if (emailUsedByCampus) {
       return res
@@ -330,6 +398,31 @@ export const verifyEmailChangeOTP = async (req, res) => {
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     if (hashedOtp !== record.otp) {
       return res.status(400).json({ message: "Invalid OTP." });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    if (user.role === "cafe") {
+      const updates = { email: record.newEmail };
+      const existing = await PendingApproval.findAll({ requesterId: userId, status: "pending" });
+      await Promise.all(existing.map((req) => PendingApproval.deleteById(req.id)));
+
+      await PendingApproval.create({
+        requesterId: userId,
+        approverRole: "campus",
+        requestType: "profile_update",
+        pendingData: updates,
+      });
+
+      await TempEmailChange.deleteById(record.id);
+      res.clearCookie("emailOtpToken");
+
+      return res.json({
+        message: "Your email change request has been submitted to your Campus for approval.",
+      });
     }
 
     await User.updateById(userId, { email: record.newEmail });

@@ -16,11 +16,18 @@ const sanitizeUser = (row, includePassword = false) =>
 const nullable = (value) => (value === undefined ? null : value);
 
 const createTable = async () => {
+  const addColumn = async (col, def) => {
+    try {
+      await getDB().execute(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
+    } catch (err) {
+      if (err.code !== "ER_DUP_FIELDNAME") throw err;
+    }
+  };
   const query = `
     CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL UNIQUE,
+      email VARCHAR(255) NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
       role VARCHAR(50) DEFAULT 'admin',
       logo_url MEDIUMTEXT,
@@ -30,14 +37,38 @@ const createTable = async () => {
       mustChangePassword TINYINT(1) DEFAULT 0,
       resetToken VARCHAR(255),
       resetTokenExpires DATETIME,
+      -- Campus-specific fields
+      campusId INT DEFAULT NULL,
+      location VARCHAR(255) DEFAULT '',
+      isOnline BOOLEAN DEFAULT FALSE,
+      lastActiveAt DATETIME,
+      cafeCount INT DEFAULT 1,
+      activeCafeNumber INT DEFAULT NULL,
+      batchCafeAssignments JSON,
+      createdBy INT,
+      --
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
   `;
+  // Always create the table first
   await getDB().execute(query);
   await getDB().execute(
     "ALTER TABLE users MODIFY COLUMN logo_url MEDIUMTEXT NULL",
   );
+  // Ensure email allows NULL in case table already exists
+  await getDB().execute(
+    "ALTER TABLE users MODIFY COLUMN email VARCHAR(255) NULL UNIQUE",
+  );
+  // Now add columns if they do not exist
+  await addColumn("campusId", "INT DEFAULT NULL");
+  await addColumn("location", "VARCHAR(255) DEFAULT ''");
+  await addColumn("isOnline", "BOOLEAN DEFAULT FALSE");
+  await addColumn("lastActiveAt", "DATETIME");
+  await addColumn("cafeCount", "INT DEFAULT 1");
+  await addColumn("activeCafeNumber", "INT DEFAULT NULL");
+  await addColumn("batchCafeAssignments", "JSON");
+  await addColumn("createdBy", "INT");
   try {
     await getDB().execute(
       "ALTER TABLE users ADD COLUMN mustChangePassword TINYINT(1) DEFAULT 0",
@@ -49,8 +80,12 @@ const createTable = async () => {
 
 const findAll = async (filter = {}, options = {}) => {
   let query =
-    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, createdAt, updatedAt FROM users WHERE 1=1";
+    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdBy, createdAt, updatedAt FROM users WHERE 1=1";
   const params = [];
+  if (filter.campusId !== undefined) {
+    query += " AND campusId = ?";
+    params.push(filter.campusId);
+  }
   if (filter.email) {
     query += " AND email = ?";
     params.push(filter.email);
@@ -78,7 +113,7 @@ const findAll = async (filter = {}, options = {}) => {
 
 const findById = async (id, options = {}) => {
   const [rows] = await getDB().execute(
-    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, createdAt, updatedAt FROM users WHERE id = ?",
+    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdBy, createdAt, updatedAt FROM users WHERE id = ?",
     [id],
   );
   return sanitizeUser(rows[0] || null, options.includePassword);
@@ -99,11 +134,19 @@ const create = async (data) => {
     mustChangePassword = 0,
     resetToken,
     resetTokenExpires,
+    campusId = null,
+    location = "",
+    isOnline = false,
+    lastActiveAt = null,
+    cafeCount = 1,
+    activeCafeNumber = null,
+    batchCafeAssignments = null,
+    createdBy = null,
   } = data;
   const hashedPassword = await bcrypt.hash(password, 10);
   const query = `
-    INSERT INTO users (name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO users (name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdBy)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     name,
@@ -117,6 +160,14 @@ const create = async (data) => {
     mustChangePassword ? 1 : 0,
     nullable(resetToken),
     nullable(resetTokenExpires),
+    campusId,
+    location,
+    isOnline,
+    nullable(lastActiveAt),
+    cafeCount,
+    activeCafeNumber,
+    batchCafeAssignments,
+    createdBy,
   ];
   const [result] = await getDB().execute(query, params);
   return findById(result.insertId);
@@ -125,6 +176,38 @@ const create = async (data) => {
 const updateById = async (id, data, options = {}) => {
   const fields = [];
   const params = [];
+  if (data.campusId !== undefined) {
+    fields.push("campusId = ?");
+    params.push(data.campusId);
+  }
+  if (data.location !== undefined) {
+    fields.push("location = ?");
+    params.push(data.location);
+  }
+  if (data.isOnline !== undefined) {
+    fields.push("isOnline = ?");
+    params.push(data.isOnline);
+  }
+  if (data.lastActiveAt !== undefined) {
+    fields.push("lastActiveAt = ?");
+    params.push(data.lastActiveAt);
+  }
+  if (data.cafeCount !== undefined) {
+    fields.push("cafeCount = ?");
+    params.push(data.cafeCount);
+  }
+  if (data.activeCafeNumber !== undefined) {
+    fields.push("activeCafeNumber = ?");
+    params.push(data.activeCafeNumber);
+  }
+  if (data.batchCafeAssignments !== undefined) {
+    fields.push("batchCafeAssignments = ?");
+    params.push(data.batchCafeAssignments);
+  }
+  if (data.createdBy !== undefined) {
+    fields.push("createdBy = ?");
+    params.push(data.createdBy);
+  }
   if (data.name) {
     fields.push("name = ?");
     params.push(data.name);

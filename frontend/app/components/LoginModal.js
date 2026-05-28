@@ -54,13 +54,17 @@ export default function LoginModal({
     setLoading(true);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const identifier = email.trim();
+    const credentials = identifier.includes("@")
+      ? { email: identifier, password }
+      : { username: identifier, password };
 
     try {
       const res = await fetch(`${url}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(credentials),
         signal: controller.signal,
       });
 
@@ -88,7 +92,12 @@ export default function LoginModal({
         setCurrentUser(null);
         setCurrentCampus(data.user);
       } else {
-        setCurrentUser({ ...data.user, role: data.role });
+        setCurrentUser({
+          ...data.user,
+          role: data.role,
+          selectedCafeNumber:
+            data.user?.selectedCafeNumber || data.user?.activeCafeNumber || null,
+        });
         setCurrentCampus(null);
       }
 
@@ -99,6 +108,9 @@ export default function LoginModal({
         onLoginSuccess?.(data.user);
         if (data.role === "admin") router.push("/dashboard");
         else if (data.role === "campus") router.push("/campus");
+        else if (data.role === "cafe" || data.role === "cafe manager")
+          router.push("/cafe-manager/dashboard");
+        else if (data.role === "ticker") router.push("/ticker/dashboard");
       }, 400);
     } catch (error) {
       clearTimeout(timeoutId);
@@ -146,8 +158,8 @@ export default function LoginModal({
         >
           {" "}
           <input
-            type="email"
-            placeholder="Email"
+            type="text"
+            placeholder="Email or Username"
             autoComplete="off"
             value={email}
             required

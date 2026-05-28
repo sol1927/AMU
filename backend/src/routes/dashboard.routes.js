@@ -66,7 +66,6 @@ router.patch(
   bulkUpdateStudentCafeNumbers,
 );
 router.patch("/campuses/:id", verifyToken, updateCampus);
-router.post("/campuses/:id/sync-students", verifyToken, syncCafeStudents);
 router.delete("/campuses/:id", verifyToken, deleteCampus);
 router.patch("/campuses/selfUpdate/:id", verifyToken, selfUpdateCampus);
 

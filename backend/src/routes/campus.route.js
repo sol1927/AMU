@@ -16,19 +16,47 @@ import {
   toggleInternshipStudent,
   bulkToggleInternshipStudents,
   updateStudentCafeNumber,
+  syncCafeStudents,
+  bulkUpdateStudentCafeNumbers,
 } from "../controllers/student.controller.js";
+import {
+  getCampusMealSchedule,
+  updateCampusMealSchedule,
+} from "../controllers/mealSchedule.controller.js";
 import {
   protectCampus,
   requireCampusCafeSelection,
 } from "../middlewares/campusAuth.js";
 
+import {
+  listCafes,
+  createCafe,
+  updateCafe,
+  deleteCafe,
+} from "../controllers/campus.controller.js";
+
+import {
+  getMeals,
+  getMealStudents,
+  getMealFilters,
+} from "../controllers/dashboard.controller.js";
+
 const router = express.Router();
+
+// Cafe user management (by campus)
+router.get("/cafes", protectCampus, listCafes);
+router.post("/cafes", protectCampus, createCafe);
+router.patch("/cafes/:id", protectCampus, updateCafe);
+router.delete("/cafes/:id", protectCampus, deleteCafe);
 
 router.post("/logout", protectCampus, logoutCampus);
 router.get("/dashboard", protectCampus, getCampusDashboard);
 router.post("/heartbeat", protectCampus, heartbeatCampus);
 router.post("/select-cafe-number", protectCampus, selectCampusCafeNumber);
 router.patch("/profile", protectCampus, updateCampusProfile);
+router.post("/students/sync", protectCampus, syncCafeStudents);
+router.get("/schedule", protectCampus, getCampusMealSchedule);
+router.put("/schedule", protectCampus, updateCampusMealSchedule);
 router.get(
   "/students",
   protectCampus,
@@ -72,5 +100,16 @@ router.patch(
   requireCampusCafeSelection,
   bulkToggleInternshipStudents,
 );
+router.patch(
+  "/students/bulk-cafe-number",
+  protectCampus,
+  requireCampusCafeSelection,
+  bulkUpdateStudentCafeNumbers,
+);
+
+// Meal History routes
+router.get("/meals", protectCampus, getMeals);
+router.get("/meals/students", protectCampus, getMealStudents);
+router.get("/meal-filters", protectCampus, getMealFilters);
 
 export default router;

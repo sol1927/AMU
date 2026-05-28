@@ -4,10 +4,11 @@ import { mapRow, mapRows } from "./modelUtils.js";
 const mapMealScheduleRow = (row) => ({
   ...row,
   breakfast:
-    typeof row.breakfast === "string" ? JSON.parse(row.breakfast) : row.breakfast,
+    typeof row.breakfast === "string"
+      ? JSON.parse(row.breakfast)
+      : row.breakfast,
   lunch: typeof row.lunch === "string" ? JSON.parse(row.lunch) : row.lunch,
-  dinner:
-    typeof row.dinner === "string" ? JSON.parse(row.dinner) : row.dinner,
+  dinner: typeof row.dinner === "string" ? JSON.parse(row.dinner) : row.dinner,
 });
 
 const createTable = async () => {
@@ -21,7 +22,7 @@ const createTable = async () => {
       dinner JSON NOT NULL,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (campusId) REFERENCES campuses(id)
+      FOREIGN KEY (campusId) REFERENCES users(id)
     );
   `;
   await getDB().execute(query);

@@ -1,8 +1,8 @@
 import StationScan from "../models/stationScan.model.js";
 import MealSchedule from "../models/mealSchedule.model.js";
 import Meal from "../models/meal.model.js";
-import Campus from "../models/campus.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
+import User from "../models/user.model.js";
 import { getStudentCampusQuery } from "./campusId.js";
 import { filterStudentsForCafeNumber } from "./cafeScope.js";
 import {
@@ -293,9 +293,11 @@ export const getCurrentSemester = (currentDate = new Date()) => {
   return month >= 9 || month <= 2 ? "first" : "second";
 };
 
-export const getCurrentYear = (currentDate = new Date()) => getAppYear(currentDate);
+export const getCurrentYear = (currentDate = new Date()) =>
+  getAppYear(currentDate);
 
-export const getDayString = (currentDate = new Date()) => getAppDayString(currentDate);
+export const getDayString = (currentDate = new Date()) =>
+  getAppDayString(currentDate);
 
 export const getDateFromDayString = (dayString) =>
   getDateFromAppDayString(dayString);
@@ -406,7 +408,8 @@ export const syncCampusLiveMealWindow = async (
   const targetDayString = getDayString(currentDate);
   const mealSchedule = await getMealSchedule(campusId);
   const appliedWindow = mealSchedule?.[currentMealType];
-  const campusRecord = await Campus.findById(campusId);
+  const campusRecord = await User.findById(campusId);
+  if (campusRecord && campusRecord.role !== "campus") return null;
   const campusStudents = campusRecord
     ? filterStudentsForCafeNumber(
         await CafeStudent.findAll(getStudentCampusQuery(campusRecord)),

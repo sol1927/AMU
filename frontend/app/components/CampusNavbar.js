@@ -3,7 +3,6 @@
 import React from "react";
 import PropTypes from "prop-types";
 import ConfirmModal from "./ConfirmModal";
-import CafeNumberModal from "./CafeNumberModal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -13,10 +12,11 @@ import { capitalizeWords } from "../utils/stringUtils";
 import {
   HiOutlineHome,
   HiOutlineUserGroup,
-  HiOutlineQrcode,
+  HiOutlineClock,
   HiOutlineSwitchHorizontal,
   HiOutlineLogout,
   HiOutlineUserCircle,
+  HiOutlineDocumentText,
 } from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -48,10 +48,10 @@ MenuItem.propTypes = {
 
 export default function CampusNavbar() {
   const router = useRouter();
-  const { currentCampus, setCurrentCampus, selectCafeNumber } = useCampus();
+  const { currentCampus, setCurrentCampus } = useCampus();
   const [openMenu, setOpenMenu] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showCafeModal, setShowCafeModal] = useState(false);
+  // const [showCafeModal, setShowCafeModal] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -88,17 +88,6 @@ export default function CampusNavbar() {
     }
   };
 
-  const handleCafeSelection = async (cafeNumber) => {
-    await selectCafeNumber(cafeNumber);
-    setShowCafeModal(false);
-    setOpenMenu(false);
-    return null;
-  };
-
-  const shouldLockCafeSelection = Boolean(
-    currentCampus && !currentCampus.selectedCafeNumber,
-  );
-
   const campusMenuActions = [
     {
       icon: HiOutlineHome,
@@ -111,17 +100,19 @@ export default function CampusNavbar() {
       onClick: () => router.push("/campus/students"),
     },
     {
-      icon: HiOutlineQrcode,
-      label: "Scan",
-      onClick: () => router.push("/campus/scan"),
+      icon: HiOutlineClock,
+      label: "Time Controller",
+      onClick: () => router.push("/campus/time-controller"),
     },
     {
       icon: HiOutlineSwitchHorizontal,
-      label: "Change Cafe",
-      onClick: () => setShowCafeModal(true),
-      badge: currentCampus?.selectedCafeNumber
-        ? `Cafe ${currentCampus.selectedCafeNumber}`
-        : null,
+      label: "Cafeterias",
+      onClick: () => router.push("/campus/cafeterias"),
+    },
+    {
+      icon: HiOutlineDocumentText,
+      label: "Meal History",
+      onClick: () => router.push("/campus/meals"),
     },
   ];
 
@@ -153,15 +144,7 @@ export default function CampusNavbar() {
           </button>
 
           <div className="flex items-center gap-3">
-            {currentCampus?.selectedCafeNumber ? (
-              <button
-                type="button"
-                onClick={() => setShowCafeModal(true)}
-                className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-700 transition hover:bg-cyan-100 sm:px-4"
-              >
-                Cafe {currentCampus.selectedCafeNumber}
-              </button>
-            ) : null}
+            {/* Cafe number badge removed for campus */}
 
             <ThemeToggle />
 
@@ -191,14 +174,13 @@ export default function CampusNavbar() {
                 </div>
 
                 <div className="hidden min-w-0 text-left sm:block">
-                  <span className="block max-w-[140px] truncate font-medium text-slate-700">
+                  <span className="block text-[10px] uppercase tracking-wider text-slate-400 font-semibold leading-none mb-0.5">
+                    Welcome
+                  </span>
+                  <span className="block max-w-40 truncate font-semibold text-slate-700 leading-tight">
                     {capitalizeWords(currentCampus?.name || "Campus")}
                   </span>
-                  <span className="block text-xs text-slate-500">
-                    {currentCampus?.selectedCafeNumber
-                      ? `Cafe ${currentCampus.selectedCafeNumber}`
-                      : "No cafe selected"}
-                  </span>
+                  {/* Cafe number or 'No cafe selected' removed for campus */}
                 </div>
 
                 <span
@@ -235,7 +217,7 @@ export default function CampusNavbar() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-900">
-                        {capitalizeWords(currentCampus?.name || "Campus")}
+                        Welcome, {capitalizeWords(currentCampus?.name || "Campus")}
                       </p>
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
                         Campus account
@@ -281,16 +263,6 @@ export default function CampusNavbar() {
           </div>
         </div>
       </header>
-
-      <CafeNumberModal
-        open={showCafeModal || shouldLockCafeSelection}
-        locked={shouldLockCafeSelection}
-        campusName={capitalizeWords(currentCampus?.name || "Campus")}
-        cafeNumbers={currentCampus?.cafeNumbers || [1]}
-        selectedCafeNumber={currentCampus?.selectedCafeNumber || ""}
-        onSubmit={handleCafeSelection}
-        onClose={() => setShowCafeModal(false)}
-      />
 
       <ConfirmModal
         open={showLogoutModal}

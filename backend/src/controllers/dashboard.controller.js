@@ -1,4 +1,3 @@
-import Campus from "../models/campus.model.js";
 import User from "../models/user.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
@@ -31,8 +30,12 @@ import {
 } from "../utils/cafeScope.js";
 
 const findOwnedCampus = async (campusId, userId) => {
-  const campus = await Campus.findById(campusId);
-  if (!campus || Number(campus.createdBy) !== Number(userId)) {
+  const campus = await User.findById(campusId);
+  if (
+    !campus ||
+    campus.role !== "campus" ||
+    Number(campus.createdBy) !== Number(userId)
+  ) {
     return null;
   }
   return campus;
@@ -311,7 +314,7 @@ export const getAdminDashboard = async (req, res) => {
     const year = getCurrentYear(today);
     const semester = getCurrentSemester(today);
 
-    const campuses = await Campus.findAll({ createdBy: req.userId });
+    const campuses = await User.findAll({ role: "campus", createdBy: req.userId });
 
     let totalStudents = 0;
     let totalServed = 0;
@@ -368,13 +371,14 @@ export const getAdminDashboard = async (req, res) => {
 
 export const getMeals = async (req, res) => {
   try {
-    if (req.userRole !== "admin") {
+    if (req.userRole !== "admin" && req.userRole !== "campus") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const scanTime = new Date();
 
-    const { campusId, year, semester, date, mealType, cafeNumber } = req.query;
+    const { year, semester, date, mealType, cafeNumber } = req.query;
+    const campusId = req.userRole === "campus" ? req.userId : req.query.campusId;
 
     if (!campusId || !date || !mealType) {
       return res.status(400).json({
@@ -382,7 +386,9 @@ export const getMeals = async (req, res) => {
       });
     }
 
-    const campus = await findOwnedCampus(campusId, req.userId);
+    const campus = req.userRole === "campus"
+      ? req.user
+      : await findOwnedCampus(campusId, req.userId);
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
@@ -576,18 +582,21 @@ export const getMeals = async (req, res) => {
 
 export const getMealStudents = async (req, res) => {
   try {
-    if (req.userRole !== "admin") {
+    if (req.userRole !== "admin" && req.userRole !== "campus") {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { campusId, date, mealType, cafeNumber, year, semester } = req.query;
+    const { date, mealType, cafeNumber, year, semester } = req.query;
+    const campusId = req.userRole === "campus" ? req.userId : req.query.campusId;
     if (!campusId || !date || !mealType) {
       return res.status(400).json({
         message: "campusId, date, and mealType are required",
       });
     }
 
-    const campus = await findOwnedCampus(campusId, req.userId);
+    const campus = req.userRole === "campus"
+      ? req.user
+      : await findOwnedCampus(campusId, req.userId);
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
@@ -667,17 +676,19 @@ export const getMealStudents = async (req, res) => {
 
 export const getMealFilters = async (req, res) => {
   try {
-    if (req.userRole !== "admin") {
+    if (req.userRole !== "admin" && req.userRole !== "campus") {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { campusId } = req.query;
+    const campusId = req.userRole === "campus" ? req.userId : req.query.campusId;
 
     if (!campusId) {
       return res.status(400).json({ message: "campusId is required" });
     }
 
-    const campus = await findOwnedCampus(campusId, req.userId);
+    const campus = req.userRole === "campus"
+      ? req.user
+      : await findOwnedCampus(campusId, req.userId);
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }

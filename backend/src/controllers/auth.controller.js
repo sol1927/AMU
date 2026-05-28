@@ -1,8 +1,6 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import Campus from "../models/campus.model.js";
-import { syncCampusLiveMealWindow } from "../utils/mealSession.js";
 import {
   formatMinutes,
   getSessionCookieOptions,
@@ -12,15 +10,24 @@ import { buildCafeNumbers } from "../utils/cafeScope.js";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
-const signCampusToken = (campusId, cafeNumber = null) =>
+const signCampusToken = (userId, cafeNumber = null) =>
   jwt.sign(
     cafeNumber
-      ? { id: campusId, role: "campus", cafeNumber: Number(cafeNumber) }
-      : { id: campusId, role: "campus" },
+      ? { id: userId, role: "campus", cafeNumber: Number(cafeNumber) }
+      : { id: userId, role: "campus" },
     process.env.JWT_SECRET,
   );
 
-const getAccountModel = (role) => (role === "admin" ? User : Campus);
+const getAccountModel = (role) => User;
+
+const findCampusForAccount = async (account) => {
+  if (!account?.campusId) return null;
+
+  const byRecordId = await User.findById(account.campusId);
+  if (byRecordId?.role === "campus") return byRecordId;
+
+  return User.findOne({ campusId: account.campusId, role: "campus" });
+};
 
 const resetAccountLock = async (role, accountId, options = {}) => {
   const AccountModel = getAccountModel(role);
@@ -49,91 +56,116 @@ const registerFailedLoginAttempt = async (role, account) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
+    const identifier = String(username || email || "").trim();
+    const isUsernameLogin = Boolean(username) || !identifier.includes("@");
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Please enter both your email and password.",
-      });
-    }
+    let user = null;
+    let role = null;
 
-    let user = await User.findOne(
-      { email, role: "admin" },
-      { includePassword: true },
-    );
-    let role = "admin";
-
-    if (!user) {
-      user = await Campus.findOne({ email }, { includePassword: true });
-      role = "campus";
-    }
-
-    if (!user) {
-      const [existingAdmin, existingCampus] = await Promise.all([
-        User.findOne({ role: "admin" }),
-        Campus.findOne(),
-      ]);
-
-      if (!existingAdmin && !existingCampus) {
-        return res.status(404).json({
-          message:
-            "No admin or campus account has been set up yet. Please create the first account before signing in.",
-        });
+    if (isUsernameLogin) {
+      // Cafe and ticker login by username.
+      user =
+        (await User.findOne({ name: identifier }, { includePassword: true })) ||
+        (await User.findOne(
+          { email: identifier.toLowerCase() },
+          { includePassword: true },
+        ));
+      role = user?.role;
+      if (!["cafe", "ticker"].includes(role)) {
+        return res
+          .status(401)
+          .json({ message: "Invalid username or password." });
       }
+      if (!identifier || !password) {
+        return res
+          .status(400)
+          .json({ message: "Please enter both your username and password." });
+      }
+    } else if (email) {
+      // Admin, campus, cafe manager login by email
+      user = await User.findOne({ email }, { includePassword: true });
+      role = user?.role;
+      if (!user || !["admin", "campus", "cafe manager"].includes(role)) {
+        return res.status(401).json({ message: "Invalid email or password." });
+      }
+      if (!email || !password) {
+        return res
+          .status(400)
+          .json({ message: "Please enter both your email and password." });
+      }
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Please provide login credentials." });
+    }
 
-      return res.status(401).json({ message: "Invalid email or password." });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials." });
     }
 
     const now = Date.now();
     if (user.lockUntil && Number(user.lockUntil) > now) {
       return res.status(429).json({
-        message: `Too many attempts. Try again after ${formatMinutes(
-          Number(user.lockUntil) - now,
-        )}.`,
+        message: `Too many attempts. Try again after ${formatMinutes(Number(user.lockUntil) - now)}.`,
       });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       await registerFailedLoginAttempt(role, user);
-      return res.status(401).json({ message: "Invalid email or password." });
+      return res.status(401).json({ message: "Invalid credentials." });
     }
 
     user = await resetAccountLock(role, user.id, { includePassword: true });
-
-    if (role === "admin" && user.mustChangePassword) {
-      return res.status(200).json({
-        message: "This is your first login. Please set a new password.",
-        requirePasswordSetup: true,
-        email: user.email,
-        user,
-      });
-    }
 
     const token =
       role === "campus"
         ? signCampusToken(user.id)
         : jwt.sign({ id: user.id, role }, process.env.JWT_SECRET);
 
-    const cookieName = role === "admin" ? "accessToken" : "campusToken";
+    const cookieName = role === "campus" ? "campusToken" : "accessToken";
     res.cookie(cookieName, token, getSessionCookieOptions());
 
-    if (role === "campus") {
+    if (["campus", "cafe", "cafe manager", "ticker"].includes(role)) {
       const loginTime = new Date();
-      user = await Campus.updateById(user.id, {
+      let activeCafeNumber = user.activeCafeNumber || null;
+      let cafeNumbers = [];
+
+      if (["cafe", "cafe manager", "ticker"].includes(role)) {
+        const campus = await findCampusForAccount(user);
+        cafeNumbers = buildCafeNumbers(campus?.cafeCount);
+        if (!Number.isInteger(activeCafeNumber) || activeCafeNumber < 1) {
+          activeCafeNumber = cafeNumbers[0] || 1;
+        }
+      }
+
+      user = await User.updateById(user.id, {
         isOnline: true,
         lastActiveAt: loginTime,
-        activeCafeNumber: null,
+        activeCafeNumber: role === "campus" ? null : activeCafeNumber,
       });
-      const admin = user.createdBy ? await User.findById(user.createdBy) : null;
-      if (admin?.logo) {
-        user = { ...user, logo: admin.logo };
+
+      if (role === "campus") {
+        const admin = user.createdBy
+          ? await User.findById(user.createdBy)
+          : null;
+        if (admin?.logo) {
+          user = { ...user, logo: admin.logo };
+        }
+        user = {
+          ...user,
+          selectedCafeNumber: null,
+          cafeNumbers: buildCafeNumbers(user.cafeCount),
+        };
+      } else if (["cafe", "cafe manager", "ticker"].includes(role)) {
+        user = {
+          ...user,
+          selectedCafeNumber: activeCafeNumber,
+          activeCafeNumber,
+          cafeNumbers,
+        };
       }
-      user = {
-        ...user,
-        selectedCafeNumber: null,
-        cafeNumbers: buildCafeNumbers(user.cafeCount),
-      };
     }
 
     delete user.password;
@@ -145,22 +177,44 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     logInternalError("login", error);
-
     if (
       error?.code === "EMAIL_NETWORK_ERROR" ||
       error?.code === "EMAIL_DELIVERY_FAILED"
     ) {
       return res.status(503).json({ message: error.message });
     }
-
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again." });
   }
 };
 
-export const logout = (req, res) => {
-  const options = { ...getSessionCookieOptions(), maxAge: 0, expires: new Date(0) };
+export const logout = async (req, res) => {
+  try {
+    const token = req.cookies.accessToken || req.cookies.campusToken;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded?.id) {
+          await User.updateById(decoded.id, {
+            isOnline: false,
+            lastActiveAt: null,
+            activeCafeNumber: null,
+          });
+        }
+      } catch {
+        // Ignore token verification errors on logout
+      }
+    }
+  } catch (err) {
+    logInternalError("logout-status-clear", err);
+  }
+
+  const options = {
+    ...getSessionCookieOptions(),
+    maxAge: 0,
+    expires: new Date(0),
+  };
   res
     .cookie("accessToken", "", options)
     .cookie("campusToken", "", options)

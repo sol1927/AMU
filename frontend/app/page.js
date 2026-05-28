@@ -27,17 +27,29 @@ export default function LandingPage() {
   const primaryButtonLabel = currentCampus
     ? "Open Campus"
     : currentUser
-      ? "Open Dashboard"
+      ? currentUser.role === "cafe" || currentUser.role === "cafe manager"
+        ? "Open Cafe Manager"
+        : currentUser.role === "ticker"
+          ? "Open Ticker Console"
+          : "Open Dashboard"
       : "Sign In";
   const heroButtonLabel = currentCampus
     ? "Open Campus"
     : currentUser
-      ? "Open Dashboard"
+      ? currentUser.role === "cafe" || currentUser.role === "cafe manager"
+        ? "Open Cafe Manager"
+        : currentUser.role === "ticker"
+          ? "Open Ticker Console"
+          : "Open Dashboard"
       : "Get Started";
   const footerButtonLabel = currentCampus
     ? "Open Campus"
     : currentUser
-      ? "Open Dashboard"
+      ? currentUser.role === "cafe" || currentUser.role === "cafe manager"
+        ? "Open Cafe Manager"
+        : currentUser.role === "ticker"
+          ? "Open Ticker Console"
+          : "Open Dashboard"
       : "Sign In Now";
 
   useEffect(() => {
@@ -74,7 +86,13 @@ export default function LandingPage() {
     }
 
     if (currentUser) {
-      window.location.href = "/dashboard";
+      if (currentUser.role === "cafe" || currentUser.role === "cafe manager") {
+        window.location.href = "/cafe-manager";
+      } else if (currentUser.role === "ticker") {
+        window.location.href = "/ticker";
+      } else {
+        window.location.href = "/dashboard";
+      }
       return;
     }
 

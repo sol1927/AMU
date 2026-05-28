@@ -101,7 +101,16 @@ export const updateMealSchedule = async (req, res) => {
 export const getCampusMealSchedule = async (req, res) => {
   try {
     const campusId = req.campus.id;
-    const schedule = await getOrCreateMealSchedule(campusId);
+    const { date } = req.query;
+    const hasDateFilter = typeof date === "string" && date.trim() !== "";
+    const referenceDate = hasDateFilter ? new Date(`${date}T00:00:00`) : null;
+    const hasValidDate =
+      referenceDate && !Number.isNaN(referenceDate.getTime());
+
+    const schedule =
+      hasDateFilter && hasValidDate
+        ? await getMealScheduleAt(campusId, referenceDate)
+        : await getOrCreateMealSchedule(campusId);
 
     res.json({
       schedule: formatMealScheduleForResponse(schedule),
@@ -111,6 +120,35 @@ export const getCampusMealSchedule = async (req, res) => {
     sendServerError(
       res,
       "We could not load the meal schedule right now. Please try again.",
+    );
+  }
+};
+
+export const updateCampusMealSchedule = async (req, res) => {
+  try {
+    const campusId = req.campus.id;
+
+    const validationError = validateMealScheduleInput(req.body);
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    const existingSchedule = await getOrCreateMealSchedule(campusId);
+    const schedule = await MealSchedule.updateById(existingSchedule.id, {
+      breakfast: req.body.breakfast,
+      lunch: req.body.lunch,
+      dinner: req.body.dinner,
+    });
+
+    res.json({
+      message: "Meal schedule updated successfully.",
+      schedule: formatMealScheduleForResponse(schedule),
+    });
+  } catch (err) {
+    logInternalError("update-campus-meal-schedule", err);
+    sendServerError(
+      res,
+      "We could not update the meal schedule right now. Please try again.",
     );
   }
 };

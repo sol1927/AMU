@@ -114,7 +114,7 @@ const createTable = async () => {
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY unique_campus_cafe_date_mealType (campus, cafeNumber, date, mealType),
-      FOREIGN KEY (campus) REFERENCES campuses(id)
+      FOREIGN KEY (campus) REFERENCES users(id)
     );
   `;
   await getDB().execute(query);
@@ -164,10 +164,9 @@ const findAll = async (filter = {}) => {
 };
 
 const findById = async (id) => {
-  const [rows] = await getDB().execute(
-    "SELECT * FROM meals WHERE id = ?",
-    [id],
-  );
+  const [rows] = await getDB().execute("SELECT * FROM meals WHERE id = ?", [
+    id,
+  ]);
   if (rows.length === 0) return null;
   return mapRow(rows[0], mapMealRow);
 };

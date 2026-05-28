@@ -10,9 +10,6 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   );
   const [name, setName] = useState(campus.name);
   const [location, setLocation] = useState(campus.location || "");
-  const [cafeCount, setCafeCount] = useState(
-    campus.cafeCount ? String(campus.cafeCount) : "1",
-  );
   const [email, setEmail] = useState(campus.email);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -52,7 +49,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
       name,
       location,
       email,
-      cafeCount,
+      // cafeCount removed
     };
     if (password) {
       payload.password = password;
@@ -75,7 +72,10 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md" onClick={onCancel}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md"
+      onClick={onCancel}
+    >
       <div
         className="relative w-full max-w-sm rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg backdrop-blur-lg sm:w-80"
         onClick={(e) => e.stopPropagation()}
@@ -122,14 +122,7 @@ export default function EditCampusModal({ campus, onCancel, onSubmit }) {
           onChange={(e) => setLocation(e.target.value)}
           className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        <input
-          type="number"
-          min="1"
-          placeholder="Number of Cafes"
-          value={cafeCount}
-          onChange={(e) => setCafeCount(e.target.value)}
-          className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
+        {/* Number of Cafes field removed */}
         <input
           type="email"
           placeholder="Campus Email"
@@ -207,7 +200,7 @@ EditCampusModal.propTypes = {
     campusId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     name: PropTypes.string.isRequired,
     location: PropTypes.string,
-    cafeCount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    // cafeCount removed
     email: PropTypes.string.isRequired,
   }).isRequired,
   onCancel: PropTypes.func.isRequired,

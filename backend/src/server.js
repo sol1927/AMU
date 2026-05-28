@@ -3,13 +3,13 @@ import app from "./app.js";
 import { connectDB } from "./config/db.js";
 
 import { createTable as createUserTable } from "./models/user.model.js";
-import { createTable as createCampusTable } from "./models/campus.model.js";
 import { createTable as createCafeStudentTable } from "./models/cafeStudent.model.js";
 import { createTable as createMealTable } from "./models/meal.model.js";
 import { createTable as createMealScheduleTable } from "./models/mealSchedule.model.js";
 import { createTable as createStationScanTable } from "./models/stationScan.model.js";
 import { createTable as createTempAdminTable } from "./models/TempAdmin.model.js";
 import { createTable as createTempEmailChangeTable } from "./models/TempEmailChange.model.js";
+import { createTable as createPendingApprovalTable } from "./models/pendingApproval.model.js";
 
 dotenv.config();
 
@@ -22,13 +22,13 @@ let lastDatabaseInitializationAt = 0;
 
 const initializeDatabase = async () => {
   await createUserTable();
-  await createCampusTable();
   await createCafeStudentTable();
   await createMealTable();
   await createMealScheduleTable();
   await createStationScanTable();
   await createTempAdminTable();
   await createTempEmailChangeTable();
+  await createPendingApprovalTable();
 };
 
 const ensureDatabaseTables = async ({ force = false } = {}) => {
@@ -64,7 +64,10 @@ const startServer = async () => {
       console.log(`Backend is working on port ${PORT}`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error.message);
+    console.error("Failed to start server:", error);
+    if (error && error.stack) {
+      console.error(error.stack);
+    }
     process.exit(1);
   }
 };

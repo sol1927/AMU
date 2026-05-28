@@ -170,7 +170,7 @@ const escapeCsvValue = (value) => {
 export default function MealsPage() {
   const [campuses, setCampuses] = useState([]);
   const [selectedCampus, setSelectedCampus] = useState("");
-  const [selectedCafeNumber, setSelectedCafeNumber] = useState("");
+  // Cafe selection removed
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedMealType, setSelectedMealType] = useState("breakfast");
   const [mealSummary, setMealSummary] = useState(null);
@@ -180,6 +180,7 @@ export default function MealsPage() {
   const [exportingStudents, setExportingStudents] = useState(false);
   const [error, setError] = useState("");
   const [mealSchedule, setMealSchedule] = useState(null);
+  const [historyRange, setHistoryRange] = useState("daily"); // daily, weekly, monthly
 
   useEffect(() => {
     if (!error) {
@@ -272,8 +273,6 @@ export default function MealsPage() {
 
         if (campusList.length > 0) {
           setSelectedCampus(campusList[0]._id);
-          const firstCampusCafeNumbers = campusList[0].cafeNumbers || [1];
-          setSelectedCafeNumber(String(firstCampusCafeNumbers[0] || 1));
         }
       } catch {
         setError("Failed to load campuses");
@@ -320,17 +319,7 @@ export default function MealsPage() {
     fetchMealSchedule();
   }, [selectedCampus, selectedDate]);
 
-  useEffect(() => {
-    const matchedCampus = campuses.find(
-      (campus) => campus._id === selectedCampus,
-    );
-    if (!matchedCampus) return;
-
-    const availableCafeNumbers = matchedCampus.cafeNumbers || [1];
-    if (!availableCafeNumbers.includes(Number(selectedCafeNumber))) {
-      setSelectedCafeNumber(String(availableCafeNumbers[0] || 1));
-    }
-  }, [campuses, selectedCampus, selectedCafeNumber]);
+  // Removed effect for cafe number selection (no longer needed)
 
   useEffect(() => {
     setDetailMode("total");
@@ -510,7 +499,7 @@ export default function MealsPage() {
         campusId: selectedCampus,
         date: selectedDate,
         mealType: selectedMealType,
-        cafeNumber: selectedCafeNumber,
+        // cafeNumber removed
       });
 
       const res = await fetch(
@@ -594,7 +583,7 @@ export default function MealsPage() {
         mealType: selectedMealType,
         year: String(year),
         semester,
-        cafeNumber: selectedCafeNumber,
+        historyRange,
       });
 
       const res = await fetch(`${url}/dashboard/meals?${params.toString()}`, {
@@ -619,7 +608,7 @@ export default function MealsPage() {
     } finally {
       setLoadingSummary(false);
     }
-  }, [selectedCampus, selectedDate, selectedMealType, selectedCafeNumber]);
+  }, [selectedCampus, selectedDate, selectedMealType, historyRange]);
 
   const handleShowHistory = async () => {
     await fetchMealSummary();
@@ -628,13 +617,13 @@ export default function MealsPage() {
   return (
     <>
       <AdminNavbar />
-      <div className="page-shell px-4 pb-10 pt-24 md:px-8">
+      <div className="page-shell min-h-screen px-6 pb-12 pt-20 md:px-20 md:pt-28">
         <div className="mx-auto max-w-6xl">
-          <div className="surface-panel mb-8 rounded-[28px] p-6 md:p-8">
-            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
+          <div className="surface-card mb-8 rounded-[28px] p-6 md:p-8 shadow-sm border border-slate-200 bg-white/80">
+            <p className="text-sm uppercase tracking-[0.35em] text-blue-400/80">
               Dashboard Meals
             </p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
+            <h1 className="mt-3 text-3xl font-extrabold tracking-tight md:text-5xl text-blue-700">
               Session Meal History
             </h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-600 md:text-base">
@@ -642,10 +631,33 @@ export default function MealsPage() {
               students were available, served, and not served without listing
               individual students.
             </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${historyRange === "daily" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"}`}
+                onClick={() => setHistoryRange("daily")}
+              >
+                Daily
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${historyRange === "weekly" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"}`}
+                onClick={() => setHistoryRange("weekly")}
+              >
+                Weekly
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${historyRange === "monthly" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"}`}
+                onClick={() => setHistoryRange("monthly")}
+              >
+                Monthly
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="surface-card rounded-[28px] p-6">
+            <div className="surface-card rounded-[28px] p-6 shadow-sm border border-slate-200 bg-white/80">
               <h2 className="text-xl font-bold">Filters</h2>
               <p className="mt-2 text-sm text-slate-500">
                 Select the campus, date, and meal session you want to review.
@@ -692,25 +704,7 @@ export default function MealsPage() {
                   />
                 </label>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">
-                    Cafe Number
-                  </span>
-                  <select
-                    value={selectedCafeNumber}
-                    onChange={(e) => setSelectedCafeNumber(e.target.value)}
-                    className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
-                  >
-                    {(
-                      campuses.find((campus) => campus._id === selectedCampus)
-                        ?.cafeNumbers || [1]
-                    ).map((number) => (
-                      <option key={number} value={String(number)}>
-                        Cafe {number}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {/* Cafe Number selection removed */}
 
                 <label className="block md:col-span-2">
                   <span className="mb-2 block text-sm font-medium text-slate-700">
@@ -763,7 +757,7 @@ export default function MealsPage() {
               )}
             </div>
 
-            <div className="surface-panel rounded-[28px] p-6">
+            <div className="surface-panel rounded-[28px] p-6 shadow-sm border border-slate-100 bg-white/90">
               <p className="text-xs uppercase tracking-[0.3em] text-cyan-300/80">
                 Snapshot
               </p>
@@ -856,7 +850,7 @@ export default function MealsPage() {
                   <div className="mt-6 grid gap-4">
                     {shouldShowSnapshotSection ? (
                       <>
-                        <div className="surface-panel rounded-3xl p-6">
+                        <div className="surface-panel rounded-3xl p-6 shadow-sm border border-slate-100 bg-white/90">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <h3 className="text-2xl font-bold text-slate-900">
@@ -876,17 +870,17 @@ export default function MealsPage() {
                             onClick={() => setDetailMode("total")}
                             className={`rounded-3xl p-5 text-left ring-1 transition ${
                               detailMode === "total"
-                                ? "bg-cyan-50 ring-cyan-300/50"
+                                ? "bg-blue-50 ring-blue-300/50"
                                 : "bg-white ring-slate-200 hover:bg-slate-50"
                             }`}
                           >
-                            <p className="text-sm text-slate-600">
+                            <p className="text-sm text-blue-700">
                               Total Students
                             </p>
-                            <p className="mt-2 text-4xl font-black text-slate-900">
+                            <p className="mt-2 text-4xl font-black text-blue-900">
                               {snapshotCounts.total}
                             </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-600">
                               Click to view fasting breakdown
                             </p>
                           </button>
@@ -896,17 +890,17 @@ export default function MealsPage() {
                             onClick={() => setDetailMode("regular")}
                             className={`rounded-3xl p-5 text-left ring-1 transition ${
                               detailMode === "regular"
-                                ? "bg-sky-50 ring-sky-300/50"
-                                : "bg-sky-50/60 ring-sky-200 hover:bg-sky-50"
+                                ? "bg-blue-100 ring-blue-400/50"
+                                : "bg-blue-50/60 ring-blue-200 hover:bg-blue-50"
                             }`}
                           >
-                            <p className="text-sm text-sky-700">
+                            <p className="text-sm text-blue-700">
                               Regular Students
                             </p>
-                            <p className="mt-2 text-3xl font-black text-sky-800">
+                            <p className="mt-2 text-3xl font-black text-blue-800">
                               {snapshotCounts.regular}
                             </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-600">
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-600">
                               Click to view fasting breakdown
                             </p>
                           </button>
@@ -945,7 +939,7 @@ export default function MealsPage() {
                             <p className="text-sm text-emerald-700">
                               Served Today
                             </p>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-emerald-400">
                               {snapshotMealLabel}
                             </p>
                             <p className="mt-2 text-3xl font-black text-emerald-800">
@@ -961,18 +955,18 @@ export default function MealsPage() {
                             onClick={() => setDetailMode("notServed")}
                             className={`rounded-3xl p-5 text-left ring-1 transition ${
                               detailMode === "notServed"
-                                ? "bg-rose-50 ring-rose-300/50"
-                                : "bg-rose-50/70 ring-rose-200 hover:bg-rose-50"
+                                ? "bg-amber-50 ring-amber-300/50"
+                                : "bg-amber-50/70 ring-amber-200 hover:bg-amber-50"
                             }`}
                           >
-                            <p className="text-sm text-rose-700">Pending</p>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-sm text-amber-700">Pending</p>
+                            <p className="text-xs text-amber-400">
                               {snapshotMealLabel}
                             </p>
-                            <p className="mt-2 text-3xl font-black text-rose-800">
+                            <p className="mt-2 text-3xl font-black text-amber-800">
                               {snapshotCounts.pending}
                             </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-rose-600">
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-amber-600">
                               Click to view fasting breakdown
                             </p>
                           </button>
