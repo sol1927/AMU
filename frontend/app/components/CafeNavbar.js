@@ -39,19 +39,22 @@ export default function CafeNavbar() {
     }
   };
 
+  const isCafeManager = currentUser?.role === "cafe manager";
+  const label = isCafeManager ? "Cafe Manager" : "Cafe";
+
   return (
     <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-3">
         <button
           type="button"
-          onClick={() => router.push("/cafe/dashboard")}
+          onClick={() => router.push("/cafe-manager/dashboard")}
           className="flex items-center gap-3 transition hover:opacity-90"
         >
           <span className="block text-xl font-semibold tracking-tight text-slate-900">
             Gibi<span className="text-blue-500">Gebeta</span>
           </span>
           <span className="text-xs uppercase tracking-[0.28em] text-slate-500 ml-2">
-            Cafe
+            {label}
           </span>
         </button>
         <div className="flex items-center gap-3">
@@ -68,7 +71,7 @@ export default function CafeNavbar() {
                 <HiOutlineUserCircle className="h-7 w-7" />
               </div>
               <span className="hidden min-w-[120px] truncate font-medium text-slate-700 sm:inline-block">
-                {currentUser?.name || "Cafe"}
+                {currentUser?.name || label}
               </span>
               <span
                 className={`text-xs text-slate-500 transition-transform duration-300 ${openMenu ? "rotate-180" : ""}`}
@@ -88,10 +91,10 @@ export default function CafeNavbar() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">
-                      {currentUser?.name || "Cafe"}
+                      {currentUser?.name || label}
                     </p>
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                      Signed in as cafe
+                      Signed in as {currentUser?.role || "cafe"}
                     </p>
                   </div>
                 </div>
@@ -99,7 +102,7 @@ export default function CafeNavbar() {
                   type="button"
                   onClick={() => {
                     setOpenMenu(false);
-                    router.push("/cafe/profile");
+                    router.push("/cafe-manager/profile");
                   }}
                   className="mt-4 inline-flex rounded-2xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
                 >
@@ -112,7 +115,7 @@ export default function CafeNavbar() {
                   className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-blue-700 transition hover:bg-blue-50"
                   onClick={() => {
                     setOpenMenu(false);
-                    router.push("/cafe/dashboard");
+                    router.push("/cafe-manager/dashboard");
                   }}
                 >
                   <span className="text-sm font-medium">Dashboard</span>
@@ -122,7 +125,7 @@ export default function CafeNavbar() {
                   className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
-                    router.push("/cafe/students");
+                    router.push("/cafe-manager/students");
                   }}
                 >
                   <span className="text-sm font-medium">Students</span>
@@ -132,7 +135,7 @@ export default function CafeNavbar() {
                   className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-blue-700 transition hover:bg-blue-50"
                   onClick={() => {
                     setOpenMenu(false);
-                    router.push("/cafe/meals");
+                    router.push("/cafe-manager/meals");
                   }}
                 >
                   <span className="text-sm font-medium">Meal History</span>
@@ -142,33 +145,39 @@ export default function CafeNavbar() {
                   className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
-                    router.push("/cafe/tickers");
-                  }}
-                >
-                  <span className="text-sm font-medium">Tickers</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
-                  onClick={() => {
-                    setOpenMenu(false);
-                    router.push("/cafe/scan");
-                  }}
-                >
-                  <span className="text-sm font-medium">Scan</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
-                  onClick={() => {
-                    setOpenMenu(false);
-                    router.push("/cafe/select-cafe-number");
+                    router.push(isCafeManager ? "/cafe-manager/cafes" : "/cafe-manager/tickers");
                   }}
                 >
                   <span className="text-sm font-medium">
-                    Change Cafe Number
+                    {isCafeManager ? "Cafes" : "Tickers"}
                   </span>
                 </button>
+                {!isCafeManager && (
+                  <>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
+                      onClick={() => {
+                        setOpenMenu(false);
+                        router.push("/cafe-manager/scan");
+                      }}
+                    >
+                      <span className="text-sm font-medium">Scan</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
+                      onClick={() => {
+                        setOpenMenu(false);
+                        router.push("/cafe-manager/select-cafe-number");
+                      }}
+                    >
+                      <span className="text-sm font-medium">
+                        Change Cafe Number
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
               <div className="border-t border-slate-200 px-2 py-3">
                 <button

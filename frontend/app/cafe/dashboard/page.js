@@ -3,36 +3,26 @@
 import { useRouter } from "next/navigation";
 import { useUser } from "../../context/UserContext";
 import { useEffect, useState } from "react";
-import {
-  HiOutlineUserGroup,
+import { 
+  HiOutlineUserGroup, 
+  HiOutlineSwitchHorizontal, 
   HiOutlineInformationCircle,
-  HiOutlineCheckCircle,
-  HiOutlineUsers,
-  HiOutlineClipboardList,
+  HiOutlineCheckCircle
 } from "react-icons/hi";
 import { TbScan } from "react-icons/tb";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-export default function CafeDashboardPage() {
+export default function CafeOperatorDashboardPage() {
   const router = useRouter();
   const { currentUser } = useUser();
   const [stats, setStats] = useState({ totalStudents: 0 });
-  const [showSecurityWarning, setShowSecurityWarning] = useState(false);
-  const isCafeManager = currentUser?.role === "cafe manager";
-  const basePath = isCafeManager ? "/cafe-manager" : "/cafe";
 
   const activeCafeNum =
     currentUser?.activeCafeNumber || currentUser?.selectedCafeNumber || 1;
 
   useEffect(() => {
-    if (currentUser?.mustChangePassword) {
-      setShowSecurityWarning(true);
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (!currentUser || !["cafe", "cafe manager"].includes(currentUser.role)) {
+    if (!currentUser || currentUser.role !== "ticker") {
       router.replace("/");
       return;
     }
@@ -41,7 +31,7 @@ export default function CafeDashboardPage() {
       try {
         const res = await fetch(
           `${url}/dashboard/campuses/${currentUser.campusId}/students?cafeNumber=${activeCafeNum}`,
-          { credentials: "include" },
+          { credentials: "include" }
         );
         if (res.ok) {
           const data = await res.json();
@@ -55,209 +45,124 @@ export default function CafeDashboardPage() {
     fetchStats();
   }, [currentUser, activeCafeNum, router]);
 
-  if (!currentUser || !["cafe", "cafe manager"].includes(currentUser.role)) {
-    return null;
-  }
+  if (!currentUser || currentUser.role !== "ticker") return null;
 
   return (
-    <div className="page-shell min-h-screen px-6 pb-12 pt-20 md:px-20 md:pt-28">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 animate-fadeIn">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-blue-700 sm:text-5xl">
-              {isCafeManager ? "Cafe Manager Dashboard" : "Cafe Dashboard"}
-            </h1>
-            <p className="mt-2 text-lg text-slate-600">
-              {isCafeManager
-                ? "Manage cafe accounts, student records, and cafeteria operations."
-                : "Manage your cafe station, scanning, and student records."}
-            </p>
+    <div className="mx-auto max-w-6xl space-y-8 animate-fadeIn">
+      {/* Welcome Section */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+            Cafe Console
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
+            Scan and validate student meal tickets at your active station.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+          <HiOutlineCheckCircle className="h-5 w-5" />
+          <span>System Active & Online</span>
+        </div>
+      </div>
+
+      {/* Grid Layout for Stats & Cards */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Main Station Card */}
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-8 text-white shadow-xl shadow-indigo-500/10 md:col-span-2">
+          <div className="relative z-10 flex flex-col justify-between h-full space-y-6">
+            <div>
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
+                Assigned Station
+              </span>
+              <h2 className="text-3xl font-bold mt-4">
+                Cafe Station {activeCafeNum}
+              </h2>
+              <p className="text-indigo-100/90 mt-2 text-sm">
+                Assigned to scan and authenticate meal entries for all student cohorts registered under Cafe Station {activeCafeNum}.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 pt-4">
+              <button
+                onClick={() => router.push("/cafe/select-cafe-number")}
+                className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-semibold backdrop-blur-md transition hover:bg-white/25 active:scale-95"
+              >
+                <HiOutlineSwitchHorizontal className="h-5 w-5" />
+                Change Station
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
-            <HiOutlineCheckCircle className="h-5 w-5" />
-            <span>
-              {isCafeManager
-                ? "Cafe Manager Console Active"
-                : "Cafe Console Active"}
+          {/* Subtle background decoration */}
+          <div className="absolute -right-10 -bottom-10 h-44 w-44 rounded-full bg-white/10 blur-2xl"></div>
+        </div>
+
+        {/* Scopes & Students Stat Card */}
+        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <div className="rounded-2xl bg-blue-50 p-4 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+              <HiOutlineUserGroup className="h-7 w-7" />
+            </div>
+          </div>
+          <div className="mt-8">
+            <span className="text-slate-400 dark:text-slate-500 text-sm font-semibold uppercase tracking-wider block">
+              Assigned Cohort Students
+            </span>
+            <span className="text-5xl font-black text-slate-900 dark:text-white block mt-1">
+              {stats.totalStudents}
             </span>
           </div>
         </div>
-
-        <section className="grid gap-6 md:grid-cols-3">
-          <div className="surface-panel relative overflow-hidden rounded-3xl p-8 md:col-span-2">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl pointer-events-none"></div>
-            <div className="relative z-10 flex h-full flex-col justify-between space-y-6">
-              <div>
-                <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-700">
-                  {isCafeManager ? "Manager Workspace" : "Active Station"}
-                </span>
-                <h2 className="mt-4 text-3xl font-black text-slate-900">
-                  {isCafeManager
-                    ? "Cafe Manager Console"
-                    : `Cafe Station ${activeCafeNum}`}
-                </h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  {isCafeManager
-                    ? "Create and manage cafe accounts, review student records, and keep cafeteria operations organized."
-                    : `Managing meal sessions and access authentication for student cohorts under Cafe Station ${activeCafeNum}.`}
-                </p>
-              </div>
-              {!isCafeManager && (
-                <div className="pt-4">
-                <button
-                  onClick={() => router.push("/cafe/select-cafe-number")}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-700 active:scale-95"
-                >
-                  Change Station
-                </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="surface-card flex flex-col justify-between rounded-3xl p-8">
-            <div className="flex items-center justify-between">
-              <div className="rounded-2xl bg-blue-50 p-4 text-blue-600">
-                <HiOutlineUserGroup className="h-7 w-7" />
-              </div>
-            </div>
-            <div className="mt-8">
-              <span className="block text-sm font-semibold uppercase tracking-wider text-slate-400">
-                Assigned Cohort Students
-              </span>
-              <span className="mt-1 block text-5xl font-black text-slate-900">
-                {stats.totalStudents}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-6 sm:grid-cols-3">
-          {!isCafeManager && (
-            <button
-              onClick={() => router.push("/cafe/scan")}
-              className="surface-card flex flex-col items-start rounded-3xl p-6 text-left transition hover:shadow-lg"
-            >
-              <div className="mb-4 rounded-2xl bg-blue-50 p-3 text-blue-600">
-                <TbScan className="h-6 w-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900">
-                Launch Scanner
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Open the scanning terminal to authenticate student ID cards.
-              </p>
-            </button>
-          )}
-
-          <button
-            onClick={() =>
-              router.push(isCafeManager ? "/cafe-manager/cafes" : "/cafe/tickers")
-            }
-            className="surface-card flex flex-col items-start rounded-3xl p-6 text-left transition hover:shadow-lg"
-          >
-            <div className="mb-4 rounded-2xl bg-sky-50 p-3 text-sky-600">
-              <HiOutlineClipboardList className="h-6 w-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">
-              {isCafeManager ? "Manage Cafes" : "Manage Tickers"}
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              {isCafeManager
-                ? "Create, update, and manage cafeteria accounts."
-                : "Create, update, and manage credentials for scanning staff."}
-            </p>
-          </button>
-
-          <button
-            onClick={() => router.push(`${basePath}/students`)}
-            className="surface-card flex flex-col items-start rounded-3xl p-6 text-left transition hover:shadow-lg"
-          >
-            <div className="mb-4 rounded-2xl bg-fuchsia-50 p-3 text-fuchsia-600">
-              <HiOutlineUsers className="h-6 w-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">
-              Student Directory
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              {isCafeManager
-                ? "Browse and search students across your managed cafes."
-                : "Browse and search students assigned to your cafe station."}
-            </p>
-          </button>
-        </section>
-
-        <section className="surface-panel rounded-3xl p-8">
-          <div className="mb-6 flex items-center gap-3">
-            <HiOutlineInformationCircle className="h-6 w-6 text-slate-400" />
-            <h4 className="text-lg font-bold text-slate-900">
-              Daily Scanning Guidelines
-            </h4>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-3 text-sm">
-            <div className="space-y-2">
-              <div className="font-semibold text-slate-800">
-                1. Position Device
-              </div>
-              <p className="text-slate-500">
-                Ensure the scanning scanner is positioned in direct sight, with
-                stable network access to prevent latency.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="font-semibold text-slate-800">
-                2. Verify Scan Prompt
-              </div>
-              <p className="text-slate-500">
-                Listen for the audio prompt or look for the green confirmation
-                screen on each student card validation.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="font-semibold text-slate-800">
-                3. Duplicate Warning
-              </div>
-              <p className="text-slate-500">
-                If a student attempts to scan twice during the same session, the
-                terminal will flash red and deny exit access.
-              </p>
-            </div>
-          </div>
-        </section>
       </div>
 
-      {showSecurityWarning && (
-        <div className="fixed bottom-6 right-6 z-50 w-full max-w-md animate-fadeIn rounded-3xl border border-amber-200 bg-amber-50/95 p-6 shadow-2xl backdrop-blur-md dark:border-amber-900/30 dark:bg-amber-950/95 text-slate-800 dark:text-slate-100">
-          <div className="flex gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-2xl text-amber-600 dark:text-amber-400">
-              ⚠️
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Change Default Credentials
-              </h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                For maximum security, please change your default cafeteria
-                credentials (email/username and password).
-              </p>
-              <div className="mt-5 flex gap-3">
-                <button
-                  onClick={() => router.push(`${basePath}/profile`)}
-                  className="rounded-2xl bg-amber-600 hover:bg-amber-700 px-4 py-2.5 text-sm font-bold text-white transition hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  Change Now
-                </button>
-                <button
-                  onClick={() => setShowSecurityWarning(false)}
-                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
+      {/* Main CTA Section */}
+      <div className="flex flex-col items-center justify-center rounded-[3rem] border border-slate-200 bg-white p-12 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="relative flex items-center justify-center h-24 w-24 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 mb-6">
+          <div className="absolute inset-0 rounded-full bg-blue-400/20 animate-ping"></div>
+          <TbScan className="h-12 w-12" />
+        </div>
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+          Launch Scanning Terminal
+        </h3>
+        <p className="text-slate-500 dark:text-slate-400 max-w-md mt-2 text-sm">
+          Open the card scanning screen to authenticate student cards and prevent duplicate meal entries at your active station.
+        </p>
+        <button
+          onClick={() => router.push("/cafe/scan")}
+          className="mt-8 flex items-center gap-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 text-lg shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all duration-200"
+        >
+          <TbScan className="h-6 w-6" />
+          Launch Scanning Terminal
+        </button>
+      </div>
+
+      {/* System Instructions / Guidelines */}
+      <div className="rounded-[2.5rem] border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center gap-3 mb-6">
+          <HiOutlineInformationCircle className="h-6 w-6 text-slate-400" />
+          <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+            Daily Cafe Guidelines
+          </h4>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-3 text-sm">
+          <div className="space-y-2">
+            <div className="font-semibold text-slate-800 dark:text-slate-200">1. Position Scanner</div>
+            <p className="text-slate-500 dark:text-slate-400">
+              Set up the scanning terminal near the entrance with stable internet access to prevent latency.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <div className="font-semibold text-slate-800 dark:text-slate-200">2. Verify Audio Prompts</div>
+            <p className="text-slate-500 dark:text-slate-400">
+              Listen for the green validation sound or audio signals on each successful ticket verification.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <div className="font-semibold text-slate-800 dark:text-slate-200">3. Flag Duplicates</div>
+            <p className="text-slate-500 dark:text-slate-400">
+              If a duplicate warning is triggered, block entry and ask the student to verify their schedule.
+            </p>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

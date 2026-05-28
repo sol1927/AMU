@@ -110,7 +110,7 @@ export default function LoginModal({
         else if (data.role === "campus") router.push("/campus");
         else if (data.role === "cafe" || data.role === "cafe manager")
           router.push("/cafe-manager/dashboard");
-        else if (data.role === "ticker") router.push("/ticker/dashboard");
+        else if (data.role === "ticker") router.push("/cafe/dashboard");
       }, 400);
     } catch (error) {
       clearTimeout(timeoutId);

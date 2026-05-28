@@ -1,1 +1,2 @@
-export { default } from "../../cafe/tickers/page";
+"use client";
+export { default } from "../tickers/page";

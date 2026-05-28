@@ -1,7 +1,6 @@
 "use client";
 
 import { React, useEffect, useRef, useState } from "react";
-import CafeNavbar from "../../components/CafeNavbar";
 import { useUser } from "../../context/UserContext";
 import { useRouter } from "next/navigation";
 
@@ -48,7 +47,7 @@ const getCurrentMealSession = (schedule) => {
   };
 };
 
-export default function CafeScanPage() {
+export default function TickerScanPage() {
   const router = useRouter();
   const { currentUser } = useUser();
 
@@ -77,7 +76,7 @@ export default function CafeScanPage() {
   };
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== "cafe") {
+    if (!currentUser || currentUser.role !== "ticker") {
       router.replace("/");
       return;
     }
@@ -240,10 +239,10 @@ export default function CafeScanPage() {
     window.location.reload();
   };
 
-  if (!currentUser || currentUser.role !== "cafe" || !activeCafeNum) return null;
+  if (!currentUser || currentUser.role !== "ticker") return null;
 
   const getCardClasses = () => {
-    if (!student) return "bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500";
+    if (!student) return "bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500";
     if (student.isInternship)
       return "bg-gradient-to-r from-pink-500 to-red-600 text-white shadow-lg animate-shake";
     if (student.name === "Student not found")
@@ -274,9 +273,7 @@ export default function CafeScanPage() {
   };
 
   return (
-    <div className="scan-page page-shell flex flex-col px-4 pt-4 md:px-6 min-h-[75vh] bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      <CafeNavbar />
-      
+    <div className="scan-page page-shell flex flex-col px-4 pt-4 md:px-6 min-h-[75vh]">
       <div className="flex flex-1 items-center justify-center pb-24 md:pb-28">
         <div className="flex w-full max-w-6xl items-center justify-center gap-12">
           <div className="flex min-h-[400px] min-w-0 max-w-4xl flex-1 flex-col items-center justify-center">

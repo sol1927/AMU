@@ -30,7 +30,7 @@ export default function LandingPage() {
       ? currentUser.role === "cafe" || currentUser.role === "cafe manager"
         ? "Open Cafe Manager"
         : currentUser.role === "ticker"
-          ? "Open Ticker Console"
+          ? "Open Cafe Console"
           : "Open Dashboard"
       : "Sign In";
   const heroButtonLabel = currentCampus
@@ -39,7 +39,7 @@ export default function LandingPage() {
       ? currentUser.role === "cafe" || currentUser.role === "cafe manager"
         ? "Open Cafe Manager"
         : currentUser.role === "ticker"
-          ? "Open Ticker Console"
+          ? "Open Cafe Console"
           : "Open Dashboard"
       : "Get Started";
   const footerButtonLabel = currentCampus
@@ -48,7 +48,7 @@ export default function LandingPage() {
       ? currentUser.role === "cafe" || currentUser.role === "cafe manager"
         ? "Open Cafe Manager"
         : currentUser.role === "ticker"
-          ? "Open Ticker Console"
+          ? "Open Cafe Console"
           : "Open Dashboard"
       : "Sign In Now";
 
@@ -89,7 +89,7 @@ export default function LandingPage() {
       if (currentUser.role === "cafe" || currentUser.role === "cafe manager") {
         window.location.href = "/cafe-manager";
       } else if (currentUser.role === "ticker") {
-        window.location.href = "/ticker";
+        window.location.href = "/cafe";
       } else {
         window.location.href = "/dashboard";
       }

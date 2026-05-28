@@ -45,14 +45,14 @@ export default function TickerNavbar() {
       <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-3">
         <button
           type="button"
-          onClick={() => router.push("/ticker/dashboard")}
+          onClick={() => router.push("/cafe/dashboard")}
           className="flex items-center gap-3 transition hover:opacity-90"
         >
           <span className="block text-xl font-semibold tracking-tight text-slate-900">
             Gibi<span className="text-blue-500">Gebeta</span>
           </span>
           <span className="text-xs uppercase tracking-[0.28em] text-slate-500 ml-2">
-            Ticker
+            Cafe
           </span>
         </button>
 
@@ -70,7 +70,7 @@ export default function TickerNavbar() {
                 <HiOutlineUserCircle className="h-7 w-7" />
               </div>
               <span className="hidden min-w-[120px] truncate font-medium text-slate-700 sm:inline-block">
-                {currentUser?.name || "Ticker"}
+                {currentUser?.name || "Cafe Operator"}
               </span>
               <span
                 className={`text-xs text-slate-500 transition-transform duration-300 ${openMenu ? "rotate-180" : ""}`}
@@ -91,10 +91,10 @@ export default function TickerNavbar() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">
-                      {currentUser?.name || "Ticker"}
+                      {currentUser?.name || "Cafe Operator"}
                     </p>
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                      Signed in as ticker
+                      Signed in as scanner
                     </p>
                   </div>
                 </div>
@@ -105,7 +105,7 @@ export default function TickerNavbar() {
                   className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
-                    router.push("/ticker/scan");
+                    router.push("/cafe/scan");
                   }}
                 >
                   <span className="text-sm font-medium">Scan Terminal</span>
@@ -115,7 +115,7 @@ export default function TickerNavbar() {
                   className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
-                    router.push("/ticker/select-cafe-number");
+                    router.push("/cafe/select-cafe-number");
                   }}
                 >
                   <span className="text-sm font-medium">

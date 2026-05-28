@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import PropTypes from "prop-types";
-import CafeManagerNavbar from "../components/CafeManagerNavbar";
+import CafeNavbar from "../components/CafeNavbar";
 import { useUser } from "../context/UserContext";
+import PropTypes from "prop-types";
 
 export default function CafeManagerLayout({ children }) {
   const router = useRouter();
@@ -12,14 +13,13 @@ export default function CafeManagerLayout({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (currentUser === undefined) return;
-
-    if (currentUser === null || currentUser.role !== "cafe manager") {
-      router.replace("/");
-      return;
+    if (currentUser !== undefined) {
+      if (currentUser === null || (currentUser.role !== "cafe" && currentUser.role !== "cafe manager")) {
+        router.replace("/");
+        return;
+      }
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [currentUser, router]);
 
   if (loading) {
@@ -33,11 +33,13 @@ export default function CafeManagerLayout({ children }) {
     );
   }
 
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen pt-20 bg-slate-50/50 text-slate-900 transition-colors duration-300">
-      <CafeManagerNavbar />
+      <CafeNavbar />
       <main className="mx-auto max-w-screen-2xl p-6">{children}</main>
     </div>
   );
