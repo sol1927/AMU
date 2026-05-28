@@ -11,6 +11,7 @@ import {
   buildCafeNumbers,
   filterStudentsForCafeNumber,
   getAssignedCafeNumberForBatch,
+  getEffectiveStudentCafeNumber,
   normalizeBatchCafeAssignments,
   normalizeCafeCount,
 } from "../utils/cafeScope.js";
@@ -202,6 +203,9 @@ export const getCampusStudentsAll = async (req, res) => {
     const campus = await resolveScopedCampus(req);
     const search = req.query.search || "";
     const fastingType = req.query.fastingType;
+    const cafeNumber = req.query.cafeNumber
+      ? Number(req.query.cafeNumber)
+      : null;
 
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
@@ -220,13 +224,33 @@ export const getCampusStudentsAll = async (req, res) => {
       );
     }
 
+    if (Number.isInteger(cafeNumber) && cafeNumber > 0) {
+      students = filterStudentsForCafeNumber(students, campus, cafeNumber);
+    }
+
     students = students
       .filter((student) => matchesSearch(student, search))
       .sort(byName);
 
+    const cafeTotals = buildCafeNumbers(campus?.cafeCount).reduce(
+      (totals, number) => ({
+        ...totals,
+        [number]: 0,
+      }),
+      {},
+    );
+
+    students.forEach((student) => {
+      const effectiveCafe = getEffectiveStudentCafeNumber(student, campus);
+      if (Number.isInteger(effectiveCafe) && effectiveCafe > 0) {
+        cafeTotals[effectiveCafe] = (cafeTotals[effectiveCafe] || 0) + 1;
+      }
+    });
+
     res.json({
       students: students.map((student) => normalizeStudent(student)),
       totalStudents: students.length,
+      cafeTotals,
     });
   } catch {
     res.status(500).json({ message: "Failed to fetch all campus students" });

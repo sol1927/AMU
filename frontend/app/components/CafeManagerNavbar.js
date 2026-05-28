@@ -2,6 +2,7 @@
 
 import React from "react";
 import PropTypes from "prop-types";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
 import ThemeToggle from "./ThemeToggle";
@@ -20,6 +21,17 @@ export default function CafeManagerNavbar() {
   const [openMenu, setOpenMenu] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const menuRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLogoutClick = () => {
     setOpenMenu(false);
@@ -47,12 +59,22 @@ export default function CafeManagerNavbar() {
           onClick={() => router.push("/cafe-manager/dashboard")}
           className="flex items-center gap-3 transition hover:opacity-90"
         >
-          <span className="block text-xl font-semibold tracking-tight text-slate-900">
-            Gibi<span className="text-blue-500">Gebeta</span>
-          </span>
-          <span className="text-xs uppercase tracking-[0.28em] text-slate-500 ml-2">
-            Cafe Manager
-          </span>
+          <Image
+            src="/logo.png"
+            alt="GibiGebeta"
+            width={44}
+            height={44}
+            className="rounded-full object-cover"
+            priority
+          />
+          <div className="text-left">
+            <span className="block text-xl font-semibold tracking-tight text-slate-900">
+              Gibi<span className="text-blue-500">Gebeta</span>
+            </span>
+            <span className="text-xs uppercase tracking-[0.28em] text-slate-500">
+              Cafe Manager
+            </span>
+          </div>
         </button>
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -67,7 +89,7 @@ export default function CafeManagerNavbar() {
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
                 <HiOutlineUserCircle className="h-7 w-7" />
               </div>
-              <span className="hidden min-w-[120px] truncate font-medium text-slate-700 sm:inline-block">
+              <span className="hidden min-w-30 truncate font-medium text-slate-700 sm:inline-block">
                 {currentUser?.name || "Cafe Manager"}
               </span>
               <span
@@ -109,7 +131,7 @@ export default function CafeManagerNavbar() {
               <div className="space-y-1 px-2 py-3">
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-blue-700 transition hover:bg-blue-50"
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
                     router.push("/cafe-manager/dashboard");
@@ -119,7 +141,7 @@ export default function CafeManagerNavbar() {
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-blue-700 transition hover:bg-blue-50"
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
                     router.push("/cafe-manager/students");
@@ -129,7 +151,7 @@ export default function CafeManagerNavbar() {
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-blue-700 transition hover:bg-blue-50"
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
                     router.push("/cafe-manager/cafes");
@@ -139,7 +161,7 @@ export default function CafeManagerNavbar() {
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-blue-700 transition hover:bg-blue-50"
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setOpenMenu(false);
                     router.push("/cafe-manager/meals");
@@ -154,7 +176,7 @@ export default function CafeManagerNavbar() {
                   className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-red-600 transition hover:bg-red-50"
                   onClick={handleLogoutClick}
                 >
-                  <HiOutlineLogout className="h-5 w-5" />
+                  <HiOutlineLogout className="h-5 w-5 text-slate-400" />
                   <span className="text-sm font-medium">Logout</span>
                 </button>
               </div>

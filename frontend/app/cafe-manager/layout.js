@@ -3,7 +3,7 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import CafeNavbar from "../components/CafeNavbar";
+import CafeManagerNavbar from "../components/CafeManagerNavbar";
 import { useUser } from "../context/UserContext";
 import PropTypes from "prop-types";
 
@@ -39,7 +39,7 @@ export default function CafeManagerLayout({ children }) {
 
   return (
     <div className="min-h-screen pt-20 bg-slate-50/50 text-slate-900 transition-colors duration-300">
-      <CafeNavbar />
+      <CafeManagerNavbar />
       <main className="mx-auto max-w-screen-2xl p-6">{children}</main>
     </div>
   );

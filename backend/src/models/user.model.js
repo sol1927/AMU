@@ -56,10 +56,16 @@ const createTable = async () => {
   await getDB().execute(
     "ALTER TABLE users MODIFY COLUMN logo_url MEDIUMTEXT NULL",
   );
-  // Ensure email allows NULL in case table already exists
-  await getDB().execute(
-    "ALTER TABLE users MODIFY COLUMN email VARCHAR(255) NULL UNIQUE",
-  );
+  // Ensure email allows NULL in case table already exists, but ignore duplicate-key schema state.
+  try {
+    await getDB().execute(
+      "ALTER TABLE users MODIFY COLUMN email VARCHAR(255) NULL UNIQUE",
+    );
+  } catch (err) {
+    if (err.code !== "ER_DUP_FIELDNAME" && err.code !== "ER_TOO_MANY_KEYS") {
+      throw err;
+    }
+  }
   // Now add columns if they do not exist
   await addColumn("campusId", "INT DEFAULT NULL");
   await addColumn("location", "VARCHAR(255) DEFAULT ''");

@@ -134,6 +134,17 @@ export default function CampusDashboardPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!currentCampus || currentCampus.selectedCafeNumber) return;
+
+    const firstCafe = currentCampus.cafeNumbers?.[0];
+    if (!firstCafe) return;
+
+    selectCafeNumber(firstCafe).catch((err) => {
+      console.error("Failed to auto-select cafe number:", err);
+    });
+  }, [currentCampus, selectCafeNumber]);
+
   const isCafeOnline = (cafe) => {
     if (!cafe.isOnline || !cafe.lastActiveAt) return false;
     const lastActive = new Date(cafe.lastActiveAt);
@@ -143,7 +154,6 @@ export default function CampusDashboardPage() {
 
   const fetchDashboardStats = useCallback(
     async (manual = false) => {
-      if (!currentCampus?.selectedCafeNumber) return;
       if (manual) {
         setIsRefreshing(true);
         fetchLiveCafes();
@@ -208,7 +218,7 @@ export default function CampusDashboardPage() {
         setIsRefreshing(false);
       }
     },
-    [currentCampus],
+    [fetchLiveCafes],
   );
 
   const fetchApprovals = useCallback(async () => {
@@ -264,10 +274,17 @@ export default function CampusDashboardPage() {
   };
 
   useEffect(() => {
-    fetchDashboardStats();
+    if (currentCampus?.selectedCafeNumber) {
+      fetchDashboardStats();
+    }
     fetchApprovals();
     fetchLiveCafes();
-  }, [fetchDashboardStats, fetchApprovals, fetchLiveCafes]);
+  }, [
+    currentCampus?.selectedCafeNumber,
+    fetchDashboardStats,
+    fetchApprovals,
+    fetchLiveCafes,
+  ]);
 
   useEffect(() => {
     if (!currentCampus) return undefined;
