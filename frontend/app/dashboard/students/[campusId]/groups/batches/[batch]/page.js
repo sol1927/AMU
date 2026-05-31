@@ -77,42 +77,42 @@ export default function DashboardBatchStudentsPage() {
 
   const fetchStudentsByBatch = useCallback(
     async (currentBatch, query = "", fasting = "", department = "") => {
-    if (!campusId) return;
+      if (!campusId) return;
 
-    if (isFirstLoad.current) {
-      setLoading(true);
-    }
-    try {
-      const params = new URLSearchParams();
-      if (query) params.append("search", query);
-      if (fasting) params.append("fastingType", fasting);
-      if (department) params.append("department", department);
+      if (isFirstLoad.current) {
+        setLoading(true);
+      }
+      try {
+        const params = new URLSearchParams();
+        if (query) params.append("search", query);
+        if (fasting) params.append("fastingType", fasting);
+        if (department) params.append("department", department);
 
-      const res = await fetch(
-        `${url}/dashboard/campuses/${campusId}/students/batch/${currentBatch}?${params.toString()}`,
-        { credentials: "include" },
-      );
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          getApiMessage(data, "We could not load students right now."),
+        const res = await fetch(
+          `${url}/dashboard/campuses/${campusId}/students/batch/${currentBatch}?${params.toString()}`,
+          { credentials: "include" },
         );
-      }
+        const data = await res.json();
 
-      setStudents(data.students || []);
-      if (!query && !fasting && !department) {
-        setAllBatchStudents(data.students || []);
+        if (!res.ok) {
+          throw new Error(
+            getApiMessage(data, "We could not load students right now."),
+          );
+        }
+
+        setStudents(data.students || []);
+        if (!query && !fasting && !department) {
+          setAllBatchStudents(data.students || []);
+        }
+        setError("");
+      } catch (err) {
+        setError(getErrorMessage(err, "We could not load students right now."));
+      } finally {
+        setLoading(false);
+        isFirstLoad.current = false;
+        setInitialLoadDone(true);
       }
-      setError("");
-    } catch (err) {
-      setError(getErrorMessage(err, "We could not load students right now."));
-    } finally {
-      setLoading(false);
-      isFirstLoad.current = false;
-      setInitialLoadDone(true);
-    }
-  },
+    },
     [campusId],
   );
 
@@ -215,7 +215,7 @@ export default function DashboardBatchStudentsPage() {
   useEffect(() => {
     setSelectAll(
       sortedStudents.length > 0 &&
-        selectedStudents.length === sortedStudents.length,
+      selectedStudents.length === sortedStudents.length,
     );
   }, [selectedStudents, sortedStudents]);
 
@@ -478,22 +478,20 @@ export default function DashboardBatchStudentsPage() {
               <button
                 onClick={handleRefreshStudents}
                 disabled={refreshingStudents}
-                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
-                  refreshingStudents
+                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
                     ? "cursor-not-allowed bg-slate-400"
                     : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
+                  }`}
               >
                 {refreshingStudents ? "Refreshing..." : "Refresh"}
               </button>
               <button
                 onClick={handleExportStudents}
                 disabled={exportingStudents || sortedStudents.length === 0}
-                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
-                  exportingStudents || sortedStudents.length === 0
+                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${exportingStudents || sortedStudents.length === 0
                     ? "cursor-not-allowed bg-slate-400"
                     : "bg-sky-600 hover:bg-sky-700"
-                }`}
+                  }`}
               >
                 {exportingStudents ? "Exporting..." : "Export CSV"}
               </button>
@@ -510,7 +508,7 @@ export default function DashboardBatchStudentsPage() {
             <select
               value={fastingFilter}
               onChange={(e) => setFastingFilter(e.target.value)}
-              className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[200px] truncate"
             >
               <option value="">All Fasting Types</option>
               <option value="fasting">Fasting</option>
@@ -521,14 +519,17 @@ export default function DashboardBatchStudentsPage() {
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[200px] truncate"
             >
               <option value="">All Departments</option>
-              {departmentOptions.map((department) => (
-                <option key={department} value={department}>
-                  {department}
-                </option>
-              ))}
+              {departmentOptions.map((department) => {
+                const truncatedDept = department.length > 25 ? department.slice(0, 22) + "..." : department;
+                return (
+                  <option key={department} value={department} title={department}>
+                    {truncatedDept}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -537,7 +538,7 @@ export default function DashboardBatchStudentsPage() {
               <select
                 value={bulkInternshipAction}
                 onChange={(e) => setBulkInternshipAction(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
               >
                 <option value="">Internship Status</option>
                 <option value="start">Send to Internship</option>
@@ -556,7 +557,7 @@ export default function DashboardBatchStudentsPage() {
               <select
                 value={bulkFastingType}
                 onChange={(e) => setBulkFastingType(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
               >
                 <option value="">Select Fasting</option>
                 <option value="fasting">Fasting</option>
@@ -577,7 +578,7 @@ export default function DashboardBatchStudentsPage() {
               <select
                 value={bulkCafeNumber}
                 onChange={(e) => setBulkCafeNumber(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
               >
                 <option value="">Send to Cafe</option>
                 {cafeNumbers.map((cafeNumber) => (
@@ -644,123 +645,123 @@ export default function DashboardBatchStudentsPage() {
 
           {(!loading || initialLoadDone) &&
             sortedStudents.map((student, index) => (
-            <div
-              key={student._id}
-              className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition-all duration-300 hover:bg-slate-50 hover:shadow-lg sm:grid-cols-[40px_44px_180px_120px_1fr_70px_70px_130px_100px_24px] sm:items-center"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  #
-                </span>
-                <span className="font-medium text-slate-900">{index + 1}</span>
-              </div>
+              <div
+                key={student._id}
+                className="grid gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition-all duration-300 hover:bg-slate-50 hover:shadow-lg sm:grid-cols-[40px_44px_180px_120px_1fr_70px_70px_130px_100px_24px] sm:items-center"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    #
+                  </span>
+                  <span className="font-medium text-slate-900">{index + 1}</span>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Photo
-                </span>
-                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200">
-                  {student.profileUrl ? (
-                    <img
-                      src={student.profileUrl}
-                      alt={student.name}
-                      className="h-full w-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center font-semibold text-gray-600">
-                      {student.name?.[0] || "S"}
-                    </span>
-                  )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Photo
+                  </span>
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                    {student.profileUrl ? (
+                      <img
+                        src={student.profileUrl}
+                        alt={student.name}
+                        className="h-full w-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center font-semibold text-gray-600">
+                        {student.name?.[0] || "S"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Name
+                  </span>
+                  <span
+                    className="block truncate font-medium"
+                    title={student.name}
+                  >
+                    {student.name}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Student ID
+                  </span>
+                  <span className="block truncate" title={student.studentId}>
+                    {student.studentId}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Department
+                  </span>
+                  <span className="block truncate" title={student.department}>
+                    {student.department}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Batch
+                  </span>
+                  <span className="block truncate" title={batch}>
+                    {batch}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Cafe
+                  </span>
+                  <span
+                    className="block truncate"
+                    title={getStudentCafeLabel(student)}
+                  >
+                    {getStudentCafeLabel(student)}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Fasting
+                  </span>
+                  <span
+                    className="block truncate"
+                    title={getFastingLabel(student.fastingType)}
+                  >
+                    {getFastingLabel(student.fastingType)}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                    Internship
+                  </span>
+                  <span className="block truncate">
+                    {student.isInternship ? (
+                      <span className="font-semibold text-yellow-400">
+                        Internship
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="ml-auto flex w-full justify-end sm:w-6">
+                  <input
+                    type="checkbox"
+                    checked={selectedStudents.includes(student._id)}
+                    onChange={() => handleSelectStudent(student._id)}
+                  />
                 </div>
               </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Name
-                </span>
-                <span
-                  className="block truncate font-medium"
-                  title={student.name}
-                >
-                  {student.name}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Student ID
-                </span>
-                <span className="block truncate" title={student.studentId}>
-                  {student.studentId}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Department
-                </span>
-                <span className="block truncate" title={student.department}>
-                  {student.department}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Batch
-                </span>
-                <span className="block truncate" title={batch}>
-                  {batch}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Cafe
-                </span>
-                <span
-                  className="block truncate"
-                  title={getStudentCafeLabel(student)}
-                >
-                  {getStudentCafeLabel(student)}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Fasting
-                </span>
-                <span
-                  className="block truncate"
-                  title={getFastingLabel(student.fastingType)}
-                >
-                  {getFastingLabel(student.fastingType)}
-                </span>
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
-                  Internship
-                </span>
-                <span className="block truncate">
-                  {student.isInternship ? (
-                    <span className="font-semibold text-yellow-400">
-                      Internship
-                    </span>
-                  ) : (
-                    <span className="text-slate-400">-</span>
-                  )}
-                </span>
-              </div>
-
-              <div className="ml-auto flex w-full justify-end sm:w-6">
-                <input
-                  type="checkbox"
-                  checked={selectedStudents.includes(student._id)}
-                  onChange={() => handleSelectStudent(student._id)}
-                />
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
 
         {error && <p className="mt-4 text-red-600">{error}</p>}
@@ -768,9 +769,8 @@ export default function DashboardBatchStudentsPage() {
 
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${
-            toast.type === "success" ? "bg-green-600" : "bg-red-600"
-          }`}
+          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            }`}
         >
           {toast.message}
         </div>

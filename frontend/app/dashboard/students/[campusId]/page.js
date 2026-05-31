@@ -261,7 +261,7 @@ export default function DashboardCampusStudentsPage() {
   useEffect(() => {
     setSelectAll(
       filteredAndSortedStudents.length > 0 &&
-        selectedStudents.length === filteredAndSortedStudents.length,
+      selectedStudents.length === filteredAndSortedStudents.length,
     );
   }, [filteredAndSortedStudents, selectedStudents]);
 
@@ -527,11 +527,10 @@ export default function DashboardCampusStudentsPage() {
                 <button
                   onClick={handleRefreshStudents}
                   disabled={refreshingStudents}
-                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
-                    refreshingStudents
+                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
                       ? "cursor-not-allowed bg-slate-400"
                       : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                    }`}
                 >
                   {refreshingStudents ? "Refreshing..." : "Refresh"}
                 </button>
@@ -565,7 +564,7 @@ export default function DashboardCampusStudentsPage() {
               <select
                 value={fastingFilter}
                 onChange={(e) => setFastingFilter(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[200px] truncate"
               >
                 <option value="">All Fasting Types</option>
                 <option value="fasting">Fasting</option>
@@ -576,7 +575,7 @@ export default function DashboardCampusStudentsPage() {
               <select
                 value={batchFilter}
                 onChange={(e) => setBatchFilter(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[180px] truncate"
               >
                 <option value="">All Batches</option>
                 {batchOptions.map((batch) => (
@@ -588,14 +587,17 @@ export default function DashboardCampusStudentsPage() {
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[200px] truncate"
               >
                 <option value="">All Departments</option>
-                {departmentOptions.map((department) => (
-                  <option key={department} value={department}>
-                    {department}
-                  </option>
-                ))}
+                {departmentOptions.map((department) => {
+                  const truncatedDept = department.length > 25 ? department.slice(0, 22) + "..." : department;
+                  return (
+                    <option key={department} value={department} title={department}>
+                      {truncatedDept}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -604,7 +606,7 @@ export default function DashboardCampusStudentsPage() {
                 <select
                   value={bulkInternshipAction}
                   onChange={(e) => setBulkInternshipAction(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
                 >
                   <option value="">Internship Status</option>
                   <option value="start">Send to Internship</option>
@@ -623,7 +625,7 @@ export default function DashboardCampusStudentsPage() {
                 <select
                   value={bulkFastingType}
                   onChange={(e) => setBulkFastingType(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
                 >
                   <option value="">Select Fasting</option>
                   <option value="fasting">Fasting</option>
@@ -644,7 +646,7 @@ export default function DashboardCampusStudentsPage() {
                 <select
                   value={bulkCafeNumber}
                   onChange={(e) => setBulkCafeNumber(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
                 >
                   <option value="">Send to Cafe</option>
                   {cafeNumbers.map((cafeNumber) => (
@@ -831,9 +833,8 @@ export default function DashboardCampusStudentsPage() {
 
       {toast && (
         <div
-          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${
-            toast.type === "success" ? "bg-green-600" : "bg-red-600"
-          }`}
+          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            }`}
         >
           {toast.message}
         </div>

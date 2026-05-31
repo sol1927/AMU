@@ -33,6 +33,7 @@ export default function CampusStudentsPage() {
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
+  const [cafes, setCafes] = useState([]);
 
   const router = useRouter();
   const { currentCampus } = useCampus();
@@ -42,10 +43,35 @@ export default function CampusStudentsPage() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  const cafeNumbers = useMemo(
-    () => currentCampus?.cafeNumbers || [1],
-    [currentCampus?.cafeNumbers],
-  );
+  const getCafeNum = (name) => {
+    if (!name) return null;
+    const match = name.match(/\d+/);
+    return match ? Number(match[0]) : null;
+  };
+
+  const getCafeName = (name) => {
+    if (!name) return "Cafe";
+    if (/^cafe/i.test(name)) {
+      return name.replace(/^cafe/i, "Cafe ").trim();
+    }
+    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+    return formatted.replace(/([^-\s])(\d+)/g, "$1 $2").trim();
+  };
+
+  useEffect(() => {
+    const fetchCafes = async () => {
+      try {
+        const res = await fetch("/api/campus/cafes");
+        if (res.ok) {
+          const data = await res.json();
+          setCafes(data.cafes || []);
+        }
+      } catch (err) {
+        console.error("Failed to load cafes:", err);
+      }
+    };
+    fetchCafes();
+  }, [currentCampus]);
 
   const getEffectiveStudentCafeNumber = (student) => {
     const explicitCafe = Number(student?.cafeNumber);
@@ -67,7 +93,13 @@ export default function CampusStudentsPage() {
 
   const getStudentCafeLabel = (student) => {
     const cafeNumber = getEffectiveStudentCafeNumber(student);
-    return cafeNumber ? `Cafe ${cafeNumber}` : "Unassigned";
+    if (!cafeNumber) return "Unassigned";
+    const matchedCafe = cafes.find(
+      (c, index) => (c.cafeNumber || getCafeNum(c.name) || (index + 1)) === cafeNumber,
+    );
+    return matchedCafe
+      ? matchedCafe.displayName || getCafeName(matchedCafe.name)
+      : `Cafe ${cafeNumber}`;
   };
 
   const batchOptions = useMemo(() => {
@@ -179,7 +211,7 @@ export default function CampusStudentsPage() {
   useEffect(() => {
     setSelectAll(
       filteredAndSortedStudents.length > 0 &&
-        selectedStudents.length === filteredAndSortedStudents.length,
+      selectedStudents.length === filteredAndSortedStudents.length,
     );
   }, [filteredAndSortedStudents, selectedStudents]);
 
@@ -444,12 +476,19 @@ export default function CampusStudentsPage() {
                     id="cafe-select"
                     value={selectedCafe}
                     onChange={(e) => setSelectedCafe(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white w-44 truncate"
                   >
                     <option value="">All Cafes</option>
-                    {cafeNumbers.map((num) => (
-                      <option key={num} value={num}>{`Cafe ${num}`}</option>
-                    ))}
+                    {cafes.map((c, index) => {
+                      const num = c.cafeNumber || getCafeNum(c.name) || (index + 1);
+                      const displayName = c.displayName || getCafeName(c.name);
+                      const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                      return (
+                        <option key={c.id || c._id} value={num} title={displayName}>
+                          {truncatedName}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -458,11 +497,10 @@ export default function CampusStudentsPage() {
                 <button
                   onClick={handleRefreshStudents}
                   disabled={refreshingStudents}
-                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
-                    refreshingStudents
+                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
                       ? "cursor-not-allowed bg-slate-400"
                       : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                    }`}
                 >
                   {refreshingStudents ? "Refreshing..." : "Refresh"}
                 </button>
@@ -517,14 +555,17 @@ export default function CampusStudentsPage() {
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[220px] truncate"
               >
                 <option value="">All Departments</option>
-                {departmentOptions.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
-                ))}
+                {departmentOptions.map((dept) => {
+                  const truncatedDept = dept.length > 25 ? dept.slice(0, 22) + "..." : dept;
+                  return (
+                    <option key={dept} value={dept} title={dept}>
+                      {truncatedDept}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -533,7 +574,7 @@ export default function CampusStudentsPage() {
                 <select
                   value={bulkInternshipAction}
                   onChange={(e) => setBulkInternshipAction(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
                 >
                   <option value="">Internship Status</option>
                   <option value="start">Send to Internship</option>
@@ -552,7 +593,7 @@ export default function CampusStudentsPage() {
                 <select
                   value={bulkFastingType}
                   onChange={(e) => setBulkFastingType(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
                 >
                   <option value="">Select Fasting</option>
                   <option value="fasting">Fasting</option>
@@ -573,14 +614,19 @@ export default function CampusStudentsPage() {
                 <select
                   value={bulkCafeNumber}
                   onChange={(e) => setBulkCafeNumber(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
                 >
                   <option value="">Send to Cafe</option>
-                  {cafeNumbers.map((cafeNumber) => (
-                    <option key={cafeNumber} value={cafeNumber}>
-                      Cafe {cafeNumber}
-                    </option>
-                  ))}
+                  {cafes.map((c, index) => {
+                    const num = c.cafeNumber || getCafeNum(c.name) || (index + 1);
+                    const displayName = c.displayName || getCafeName(c.name);
+                    const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                    return (
+                      <option key={c.id || c._id} value={num} title={displayName}>
+                        {truncatedName}
+                      </option>
+                    );
+                  })}
                   <option value="clear">Clear Cafe Assignment</option>
                 </select>
                 {bulkCafeNumber && (
@@ -756,9 +802,8 @@ export default function CampusStudentsPage() {
       </div>
       {toast && (
         <div
-          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${
-            toast.type === "success" ? "bg-green-600" : "bg-red-600"
-          }`}
+          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            }`}
         >
           {toast.message}
         </div>

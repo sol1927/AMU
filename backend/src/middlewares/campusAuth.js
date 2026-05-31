@@ -23,7 +23,7 @@ export const protectCampus = async (req, res, next) => {
     let loggedInUser = null;
 
     if (isAccessToken) {
-      if (decoded.role !== "cafe manager") {
+      if (!["cafe", "cafe manager"].includes(decoded.role)) {
         return res
           .status(401)
           .json({ message: "Unauthorized role for campus access" });
@@ -42,6 +42,13 @@ export const protectCampus = async (req, res, next) => {
         });
       }
       selectedCafeNumber = loggedInUser.activeCafeNumber || null;
+      if (decoded.role === "cafe" && (!selectedCafeNumber || selectedCafeNumber <= 0)) {
+        const campusId = loggedInUser.campusId;
+        const allCafes = await User.findAll({ campusId, role: "cafe" });
+        const sortedCafes = allCafes.sort((a, b) => a.id - b.id);
+        const index = sortedCafes.findIndex((c) => c.id === loggedInUser.id);
+        selectedCafeNumber = index !== -1 ? index + 1 : 1;
+      }
     } else {
       campus = await User.findById(decoded.id);
       selectedCafeNumber = Number(decoded.cafeNumber) || null;
@@ -49,6 +56,20 @@ export const protectCampus = async (req, res, next) => {
 
     if (!campus || campus.role !== "campus")
       return res.status(401).json({ message: "Unauthorized" });
+
+    const registeredCafes = await User.findAll({
+      campusId: campus.campusId || campus.id,
+      role: "cafe",
+    });
+    const matchNums = registeredCafes.map((c) => {
+      const match = String(c.name || "").match(/\d+/);
+      return match ? Number(match[0]) : 0;
+    });
+    campus.cafeCount = Math.max(
+      campus.cafeCount || 0,
+      registeredCafes.length,
+      ...matchNums
+    );
 
     const now = new Date();
     const previousLastActiveAt = campus.lastActiveAt;

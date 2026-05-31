@@ -108,9 +108,10 @@ export default function LoginModal({
         onLoginSuccess?.(data.user);
         if (data.role === "admin") router.push("/dashboard");
         else if (data.role === "campus") router.push("/campus");
-        else if (data.role === "cafe" || data.role === "cafe manager")
+        else if (data.role === "cafe")
+          router.push("/cafe/dashboard");
+        else if (data.role === "cafe manager")
           router.push("/cafe-manager/dashboard");
-        else if (data.role === "ticker") router.push("/cafe/dashboard");
       }, 400);
     } catch (error) {
       clearTimeout(timeoutId);

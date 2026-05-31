@@ -485,8 +485,8 @@ export const syncCampusLiveMealWindow = async (
     cafeNumber,
     mealType: currentMealType,
     date: targetDayString,
-    year: getCurrentYear(targetDay),
-    semester: getCurrentSemester(targetDay),
+    year: getCurrentYear(currentDate),
+    semester: getCurrentSemester(currentDate),
     campusSnapshot,
     appliedWindow: {
       start: appliedWindow.start,

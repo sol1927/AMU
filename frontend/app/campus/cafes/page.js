@@ -5,7 +5,7 @@ import CampusNavbar from "../../components/CampusNavbar";
 import { BsArrowClockwise, BsThreeDotsVertical } from "react-icons/bs";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
-export default function CafeteriasPage() {
+export default function CafesPage() {
   const [cafes, setCafes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -13,11 +13,19 @@ export default function CafeteriasPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({
+    username: "",
+    displayName: "",
+    password: "",
+  });
 
   // Edit and Delete state
   const [cafeToEdit, setCafeToEdit] = useState(null);
-  const [editForm, setEditForm] = useState({ name: "", email: "", password: "" });
+  const [editForm, setEditForm] = useState({
+    username: "",
+    displayName: "",
+    password: "",
+  });
   const [cafeToDelete, setCafeToDelete] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [toast, setToast] = useState(null);
@@ -64,8 +72,8 @@ export default function CafeteriasPage() {
   useEffect(() => {
     if (cafeToEdit) {
       setEditForm({
-        name: cafeToEdit.name || "",
-        email: cafeToEdit.email || "",
+        username: cafeToEdit.name || "",
+        displayName: cafeToEdit.displayName || "",
         password: "",
       });
       setError("");
@@ -77,17 +85,31 @@ export default function CafeteriasPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
+
+    // Trim and double check space validation
+    const username = form.username.trim().toLowerCase();
+    if (/\s/.test(username)) {
+      setError("Username cannot contain spaces.");
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/campus/cafes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: username,
+          username: username,
+          displayName: form.displayName,
+          password: form.password,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add cafe");
-      setForm({ name: "", email: "", password: "" });
+      setForm({ username: "", displayName: "", password: "" });
       setShowAddModal(false);
-      showToast("Cafeteria operator registered successfully", "success");
+      showToast("Cafe operator registered successfully", "success");
       fetchCafes({ silent: true });
     } catch (err) {
       setError(err.message);
@@ -100,23 +122,35 @@ export default function CafeteriasPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
+
+    const username = editForm.username.trim().toLowerCase();
+    if (/\s/.test(username)) {
+      setError("Username cannot contain spaces.");
+      setSaving(false);
+      return;
+    }
+
     try {
       const payload = {
-        name: editForm.name,
-        email: editForm.email,
+        name: username,
+        username: username,
+        displayName: editForm.displayName,
       };
       if (editForm.password) {
         payload.password = editForm.password;
       }
-      const res = await fetch(`/api/campus/cafes?id=${cafeToEdit.id || cafeToEdit._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `/api/campus/cafes?id=${cafeToEdit.id || cafeToEdit._id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update cafe");
       setCafeToEdit(null);
-      showToast("Cafeteria operator updated successfully", "success");
+      showToast("Cafe operator updated successfully", "success");
       fetchCafes({ silent: true });
     } catch (err) {
       setError(err.message);
@@ -129,19 +163,31 @@ export default function CafeteriasPage() {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch(`/api/campus/cafes?id=${cafeToDelete.id || cafeToDelete._id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/campus/cafes?id=${cafeToDelete.id || cafeToDelete._id}`,
+        {
+          method: "DELETE",
+        },
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to delete cafe");
       setCafeToDelete(null);
-      showToast("Cafeteria operator deleted successfully", "success");
+      showToast("Cafe operator deleted successfully", "success");
       fetchCafes({ silent: true });
     } catch (err) {
       setError(err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const getCafeName = (name) => {
+    if (!name) return "Cafe";
+    if (/^cafe/i.test(name)) {
+      return name.replace(/^cafe/i, "Cafe ").trim();
+    }
+    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+    return formatted.replace(/([^-\s])(\d+)/g, "$1 $2").trim();
   };
 
   return (
@@ -153,13 +199,15 @@ export default function CafeteriasPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
-                  Cafeteria Directory
+                  Cafe Directory
                 </p>
                 <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
-                  Manage Cafeterias
+                  Manage Cafes
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm text-slate-600 dark:text-slate-400 md:text-base">
-                  This page displays the registered cafeteria operator accounts for your campus. Cafeteria operators log in to scan student ID cards during meal session windows.
+                  This page displays the registered cafe operator accounts for
+                  your campus. Cafe operators log in to scan student ID cards
+                  during meal session windows.
                 </p>
               </div>
 
@@ -170,7 +218,9 @@ export default function CafeteriasPage() {
                   disabled={loading || refreshing}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <BsArrowClockwise className={refreshing ? "animate-spin" : ""} />
+                  <BsArrowClockwise
+                    className={refreshing ? "animate-spin" : ""}
+                  />
                   {refreshing ? "Refreshing..." : "Refresh"}
                 </button>
 
@@ -182,7 +232,7 @@ export default function CafeteriasPage() {
                   }}
                   className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01]"
                 >
-                  + Add Cafeteria
+                  + Add Cafe
                 </button>
               </div>
             </div>
@@ -191,7 +241,10 @@ export default function CafeteriasPage() {
           <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {loading ? (
               Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="surface-card rounded-[28px] p-6 animate-pulse">
+                <div
+                  key={index}
+                  className="surface-card rounded-[28px] p-6 animate-pulse"
+                >
                   <div className="flex gap-4">
                     <div className="h-14 w-14 rounded-2xl bg-slate-200 dark:bg-slate-800" />
                     <div className="flex-1 space-y-2 py-1">
@@ -211,15 +264,19 @@ export default function CafeteriasPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-cyan-100 dark:bg-cyan-950 text-lg font-black text-cyan-700 dark:text-cyan-400">
-                        {cafe.name?.[0]?.toUpperCase() || "C"}
+                        {(cafe.displayName || cafe.name)?.[0]?.toUpperCase() ||
+                          "C"}
                       </div>
 
                       <div>
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                          {cafe.name}
+                          Name
                         </h2>
-                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-600 dark:text-cyan-400">
-                          Cafeteria Operator
+                        <p 
+                          title={cafe.displayName || getCafeName(cafe.name)}
+                          className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-300 max-w-[150px] truncate"
+                        >
+                          {cafe.displayName || getCafeName(cafe.name)}
                         </p>
                       </div>
                     </div>
@@ -229,7 +286,9 @@ export default function CafeteriasPage() {
                         className="menu-button rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                         onClick={() =>
                           setOpenMenuId(
-                            openMenuId === (cafe.id || cafe._id) ? null : (cafe.id || cafe._id)
+                            openMenuId === (cafe.id || cafe._id)
+                              ? null
+                              : cafe.id || cafe._id,
                           )
                         }
                       >
@@ -263,11 +322,15 @@ export default function CafeteriasPage() {
 
                   {/* Small Box showing status */}
                   <div className="mt-6 rounded-3xl bg-slate-50 dark:bg-slate-950 p-5 ring-1 ring-slate-200 dark:ring-slate-800">
-                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Operator Status</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                      Operator Status
+                    </p>
                     <div className="mt-2 flex items-center gap-2">
                       <span
                         className={`inline-block h-3.5 w-3.5 rounded-full ${
-                          cafe.isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-slate-700"
+                          cafe.isOnline
+                            ? "bg-emerald-500 animate-pulse"
+                            : "bg-slate-300 dark:bg-slate-700"
                         }`}
                       />
                       <p className="text-2xl font-black text-slate-900 dark:text-white">
@@ -276,7 +339,8 @@ export default function CafeteriasPage() {
                     </div>
                     {cafe.lastActiveAt && (
                       <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-                        Active: {new Date(cafe.lastActiveAt).toLocaleString([], {
+                        Active:{" "}
+                        {new Date(cafe.lastActiveAt).toLocaleString([], {
                           month: "short",
                           day: "numeric",
                           hour: "2-digit",
@@ -288,10 +352,13 @@ export default function CafeteriasPage() {
 
                   <div className="mt-5">
                     <p className="text-xs uppercase tracking-[0.28em] text-slate-400 font-semibold">
-                      Login Email
+                      Username
                     </p>
-                    <p className="mt-2 break-all text-sm text-slate-600 dark:text-slate-300">
-                      {cafe.email}
+                    <p 
+                      title={cafe.name}
+                      className="mt-2 text-sm text-slate-600 dark:text-slate-300 max-w-[150px] truncate"
+                    >
+                      {cafe.name}
                     </p>
                   </div>
                 </div>
@@ -299,17 +366,17 @@ export default function CafeteriasPage() {
             ) : (
               <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-950/50 p-8 text-center text-slate-600 dark:text-slate-400 md:col-span-2 xl:col-span-3">
                 <div className="text-xl font-semibold text-slate-900 dark:text-white">
-                  No cafeterias registered
+                  No cafes registered
                 </div>
                 <div className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-                  Add your first cafeteria to start assigning operators.
+                  Add your first cafe to start assigning operators.
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Add Cafeteria Modal */}
+        {/* Add Cafe Modal */}
         {showAddModal && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md"
@@ -321,43 +388,60 @@ export default function CafeteriasPage() {
               className="surface-panel animate-fadeIn flex w-full max-w-sm flex-col gap-4 rounded-3xl p-6 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add Cafeteria Operator</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                Add Cafe Operator
+              </h3>
 
-              {error && <div className="text-red-600 dark:text-red-400 text-sm mb-2">{error}</div>}
+              {error && (
+                <div className="text-red-600 dark:text-red-400 text-sm mb-2">
+                  {error}
+                </div>
+              )}
 
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Name</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Username
+                  </label>
                   <input
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
-                    placeholder="e.g. Cafe One Operator"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="e.g. cafe1"
+                    value={form.username}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\s/g, ""); // strictly prevent spaces
+                      setForm({ ...form, username: val });
+                    }}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Display Name
+                  </label>
                   <input
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
-                    placeholder="operator@campus.edu"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    required
+                    placeholder="e.g. Main Cafeteria"
+                    value={form.displayName}
+                    onChange={(e) =>
+                      setForm({ ...form, displayName: e.target.value })
+                    }
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Password
+                  </label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
                       placeholder="Min 6 characters"
                       value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, password: e.target.value })
+                      }
                       required
                     />
                     <button
@@ -365,7 +449,11 @@ export default function CafeteriasPage() {
                       onClick={() => setShowPassword((prev) => !prev)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
                     >
-                      {showPassword ? <AiOutlineEyeInvisible size={20} /> : <AiOutlineEye size={20} />}
+                      {showPassword ? (
+                        <AiOutlineEyeInvisible size={20} />
+                      ) : (
+                        <AiOutlineEye size={20} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -392,7 +480,7 @@ export default function CafeteriasPage() {
           </div>
         )}
 
-        {/* Edit Cafeteria Modal */}
+        {/* Edit Cafe Modal */}
         {cafeToEdit && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md"
@@ -404,50 +492,71 @@ export default function CafeteriasPage() {
               className="surface-panel animate-fadeIn flex w-full max-w-sm flex-col gap-4 rounded-3xl p-6 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Cafeteria Operator</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                Edit Cafe Operator
+              </h3>
 
-              {error && <div className="text-red-600 dark:text-red-400 text-sm mb-2">{error}</div>}
+              {error && (
+                <div className="text-red-600 dark:text-red-400 text-sm mb-2">
+                  {error}
+                </div>
+              )}
 
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Name</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Username
+                  </label>
                   <input
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
-                    placeholder="Name"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    placeholder="e.g. cafe1"
+                    value={editForm.username}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\s/g, ""); // strictly prevent spaces
+                      setEditForm({ ...editForm, username: val });
+                    }}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Display Name
+                  </label>
                   <input
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
-                    placeholder="Email"
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                    required
+                    placeholder="e.g. Main Cafeteria"
+                    value={editForm.displayName}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, displayName: e.target.value })
+                    }
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">New Password (optional)</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    New Password (optional)
+                  </label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
                       placeholder="Leave blank to keep current password"
                       value={editForm.password}
-                      onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, password: e.target.value })
+                      }
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
                     >
-                      {showPassword ? <AiOutlineEyeInvisible size={20} /> : <AiOutlineEye size={20} />}
+                      {showPassword ? (
+                        <AiOutlineEyeInvisible size={20} />
+                      ) : (
+                        <AiOutlineEye size={20} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -485,10 +594,14 @@ export default function CafeteriasPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="mb-2 text-xl font-bold text-slate-900 dark:text-white">
-                Delete Cafeteria
+                Delete Cafe
               </h2>
               <p className="mb-6 text-sm text-slate-600 dark:text-slate-400">
-                Are you sure you want to delete cafeteria operator <strong className="text-slate-800 dark:text-slate-200">{cafeToDelete.name}</strong>? This action cannot be undone.
+                Are you sure you want to delete cafe operator{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {cafeToDelete.name}
+                </strong>
+                ? This action cannot be undone.
               </p>
               <div className="flex justify-end gap-3">
                 <button

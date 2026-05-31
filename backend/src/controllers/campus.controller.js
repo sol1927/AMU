@@ -27,16 +27,19 @@ import { logInternalError, sendServerError } from "../utils/safeError.js";
 // List all cafes for the current campus
 export const listCafes = async (req, res) => {
   try {
-    if (!["campus", "cafe manager"].includes(req.userRole)) {
+    if (!["campus", "cafe manager", "cafe"].includes(req.userRole)) {
       return res.status(403).json({ message: "Access denied" });
     }
     const campusId = req.campus?.campusId || req.user?.campusId;
     const allUsers = await User.findAll({
       campusId,
     });
-    const cafes = allUsers.filter((u) => u.role === "cafe");
-    const tickers = allUsers.filter((u) => u.role === "ticker");
-    res.json({ cafes, tickers });
+    const sortedCafes = allUsers.filter((u) => u.role === "cafe").sort((a, b) => a.id - b.id);
+    const cafes = sortedCafes.map((cafe, index) => ({
+      ...cafe,
+      cafeNumber: index + 1,
+    }));
+    res.json({ cafes, tickers: [] });
   } catch (err) {
     logInternalError("list-cafes", err);
     sendServerError(res, "Could not fetch cafes");
@@ -49,8 +52,10 @@ export const createCafe = async (req, res) => {
     if (!["campus", "cafe manager"].includes(req.userRole)) {
       return res.status(403).json({ message: "Access denied" });
     }
-    const { name, email, username, password } = req.body;
-    const cafeUsername = String(username || email || "").toLowerCase().trim();
+    const { name, email, username, password, displayName } = req.body;
+    const cafeUsername = String(username || email || "")
+      .toLowerCase()
+      .trim();
     const campusId = req.campus?.campusId || req.user?.campusId;
 
     if (!name || !cafeUsername || !password) {
@@ -59,7 +64,9 @@ export const createCafe = async (req, res) => {
         .json({ message: "Cafe name, username, and password are required." });
     }
     if (/\s/.test(cafeUsername)) {
-      return res.status(400).json({ message: "Username cannot contain spaces." });
+      return res
+        .status(400)
+        .json({ message: "Username cannot contain spaces." });
     }
     const existingCafe = await User.findOne({
       name: cafeUsername,
@@ -76,8 +83,9 @@ export const createCafe = async (req, res) => {
       password,
       role: "cafe",
       campusId,
+      displayName: displayName ? displayName.trim() : null,
       createdBy: req.userId,
-      mustChangePassword: true,
+      mustChangePassword: false,
     });
     res.status(201).json({ cafe });
   } catch (err) {
@@ -98,19 +106,26 @@ export const updateCafe = async (req, res) => {
     if (!cafe || cafe.role !== "cafe" || cafe.campusId !== campusId) {
       return res.status(404).json({ message: "Cafe not found" });
     }
-    const { name, email, username, password } = req.body;
-    const cafeUsername = String(username || email || name || "").toLowerCase().trim();
+    const { name, email, username, password, displayName } = req.body;
+    const cafeUsername = String(username || email || name || "")
+      .toLowerCase()
+      .trim();
     const updateData = {};
     if (cafeUsername) {
       if (/\s/.test(cafeUsername)) {
-        return res.status(400).json({ message: "Username cannot contain spaces." });
+        return res
+          .status(400)
+          .json({ message: "Username cannot contain spaces." });
       }
       updateData.name = cafeUsername;
       updateData.email = null;
     }
+    if (displayName !== undefined) {
+      updateData.displayName = displayName ? displayName.trim() : null;
+    }
     if (password) {
       updateData.password = password;
-      updateData.mustChangePassword = true;
+      updateData.mustChangePassword = false;
     }
     const updated = await User.updateById(id, updateData);
     res.json({ cafe: updated });
@@ -704,7 +719,7 @@ export const getCampusDashboard = async (req, res) => {
 export const heartbeatCampus = async (req, res) => {
   try {
     const now = new Date();
-    // 1. Update the actual logged-in user (can be campus, cafe, or ticker)
+    // 1. Update the actual logged-in user (can be campus or cafe)
     if (req.userId) {
       const userUpdates = {
         isOnline: true,
@@ -716,7 +731,7 @@ export const heartbeatCampus = async (req, res) => {
       await User.updateById(req.userId, userUpdates);
     }
 
-    // 2. Also update the parent campus if the logged-in user is a cafe/ticker
+    // 2. Also update the parent campus if the logged-in user is a cafe
     if (req.campus?.id && Number(req.campus.id) !== Number(req.userId)) {
       await User.updateById(req.campus.id, {
         isOnline: true,
@@ -1034,4 +1049,144 @@ export const logoutCampus = async (req, res) => {
     .clearCookie("campusToken", getSessionCookieOptions())
     .clearCookie("accessToken", getSessionCookieOptions())
     .json({ message: "Logged out" });
+};
+
+// --- CAFE MANAGER USER MANAGEMENT ---
+// List all cafe managers for the current campus
+export const listCafeManagers = async (req, res) => {
+  try {
+    if (req.userRole !== "campus") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const campusId = req.campus?.campusId || req.user?.campusId;
+    const allUsers = await User.findAll({
+      campusId,
+    });
+    const cafeManagers = allUsers.filter((u) => u.role === "cafe manager");
+    res.json({ cafeManagers });
+  } catch (err) {
+    logInternalError("list-cafe-managers", err);
+    sendServerError(res, "Could not fetch cafe managers");
+  }
+};
+
+// Create a new cafe manager
+export const createCafeManager = async (req, res) => {
+  try {
+    if (req.userRole !== "campus") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const { name, email, password } = req.body;
+    const normalizedEmail = email?.toLowerCase().trim();
+    const campusId = req.campus?.campusId || req.user?.campusId;
+
+    if (!name || !normalizedEmail || !password) {
+      return res
+        .status(400)
+        .json({ message: "Name, email, and password are required." });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    // Check if user with this email already exists
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ message: "A user with this email already exists." });
+    }
+
+    const cafeManager = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password,
+      role: "cafe manager",
+      campusId,
+      createdBy: req.userId,
+      mustChangePassword: true,
+    });
+    res.status(201).json({ cafeManager });
+  } catch (err) {
+    logInternalError("create-cafe-manager", err);
+    sendServerError(res, "Could not create cafe manager");
+  }
+};
+
+// Update a cafe manager
+export const updateCafeManager = async (req, res) => {
+  try {
+    if (req.userRole !== "campus") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const { id } = req.params;
+    const cafeManager = await User.findById(id);
+    const campusId = req.campus?.campusId || req.user?.campusId;
+    if (
+      !cafeManager ||
+      cafeManager.role !== "cafe manager" ||
+      cafeManager.campusId !== campusId
+    ) {
+      return res.status(404).json({ message: "Cafe manager not found" });
+    }
+    const { name, email, password } = req.body;
+    const updateData = {};
+    if (name) {
+      updateData.name = name.trim();
+    }
+    if (email) {
+      const normalizedEmail = email.toLowerCase().trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({ message: "Invalid email format." });
+      }
+      const existingUser = await User.findOne({
+        email: normalizedEmail,
+        excludeId: id,
+      });
+      if (existingUser) {
+        return res
+          .status(400)
+          .json({ message: "A user with this email already exists." });
+      }
+      updateData.email = normalizedEmail;
+    }
+    if (password) {
+      updateData.password = password;
+      updateData.mustChangePassword = true;
+    }
+    const updated = await User.updateById(id, updateData);
+    res.json({ cafeManager: updated });
+  } catch (err) {
+    logInternalError("update-cafe-manager", err);
+    sendServerError(res, "Could not update cafe manager");
+  }
+};
+
+// Delete a cafe manager
+export const deleteCafeManager = async (req, res) => {
+  try {
+    if (req.userRole !== "campus") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const { id } = req.params;
+    const cafeManager = await User.findById(id);
+    const campusId = req.campus?.campusId || req.user?.campusId;
+    if (
+      !cafeManager ||
+      cafeManager.role !== "cafe manager" ||
+      cafeManager.campusId !== campusId
+    ) {
+      return res.status(404).json({ message: "Cafe manager not found" });
+    }
+    await User.deleteById(id);
+    res.json({ success: true });
+  } catch (err) {
+    logInternalError("delete-cafe-manager", err);
+    sendServerError(res, "Could not delete cafe manager");
+  }
 };

@@ -32,7 +32,7 @@ export default function CafeDashboardPage() {
   }, [currentUser]);
 
   useEffect(() => {
-    if (!currentUser || !["cafe", "cafe manager"].includes(currentUser.role)) {
+    if (!currentUser || currentUser.role !== "cafe manager") {
       router.replace("/");
       return;
     }
@@ -55,12 +55,12 @@ export default function CafeDashboardPage() {
     fetchStats();
   }, [currentUser, activeCafeNum, router]);
 
-  if (!currentUser || !["cafe", "cafe manager"].includes(currentUser.role)) {
+  if (!currentUser || currentUser.role !== "cafe manager") {
     return null;
   }
 
   return (
-    <div className="page-shell min-h-screen px-6 pb-12 pt-20 md:px-20 md:pt-28">
+    <div className="page-shell min-h-screen px-6 pb-12 pt-6 md:px-20 md:pt-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 animate-fadeIn">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -152,7 +152,7 @@ export default function CafeDashboardPage() {
 
           <button
             onClick={() =>
-              router.push(isCafeManager ? "/cafe-manager/cafes" : "/cafe-manager/tickers")
+              router.push("/cafe-manager/cafes")
             }
             className="surface-card flex flex-col items-start rounded-3xl p-6 text-left transition hover:shadow-lg"
           >
@@ -160,12 +160,10 @@ export default function CafeDashboardPage() {
               <HiOutlineClipboardList className="h-6 w-6" />
             </div>
             <h3 className="text-lg font-bold text-slate-900">
-              {isCafeManager ? "Manage Cafes" : "Manage Tickers"}
+              Manage Cafes
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              {isCafeManager
-                ? "Create, update, and manage cafeteria accounts."
-                : "Create, update, and manage credentials for scanning staff."}
+              Create, update, and manage cafeteria accounts.
             </p>
           </button>
 

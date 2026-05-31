@@ -54,6 +54,16 @@ const capitalizeWords = (str) => {
     .replace(/(^|[\s-])\S/g, (match) => match.toUpperCase());
 };
 
+const getCafeDisplayName = (cafe) => {
+  if (!cafe) return "";
+  if (cafe.displayName) return cafe.displayName;
+  const numMatch = cafe.name?.match(/\d+/);
+  return numMatch
+    ? `Cafe ${numMatch[0]}`
+    : cafe.name?.charAt(0).toUpperCase() + cafe.name?.slice(1);
+};
+
+
 export default function CampusDashboardPage() {
   const router = useRouter();
   const { currentCampus, loading, selectCafeNumber } = useCampus();
@@ -64,6 +74,7 @@ export default function CampusDashboardPage() {
   // Removed cafe selection modal logic
   const [detailMode, setDetailMode] = useState("regular");
   const [showSnapshot, setShowSnapshot] = useState(false);
+  const [selectedCafe, setSelectedCafe] = useState("");
   const initialSession = getInitialDashboardSession();
 
   const [stats, setStats] = useState({
@@ -107,6 +118,7 @@ export default function CampusDashboardPage() {
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [toast, setToast] = useState(null);
   const [approvals, setApprovals] = useState([]);
   const [loadingApprovals, setLoadingApprovals] = useState(false);
@@ -153,14 +165,24 @@ export default function CampusDashboardPage() {
   };
 
   const fetchDashboardStats = useCallback(
-    async (manual = false) => {
+    async (manual = false, targetCafe = selectedCafe, showLoading = false) => {
       if (manual) {
         setIsRefreshing(true);
         fetchLiveCafes();
       }
+      if (showLoading) {
+        setLoadingStats(true);
+      }
 
       try {
-        const res = await fetch(`${url}/meal/dashboard`, {
+        let endpoint = `${url}/meal/dashboard`;
+        if (targetCafe === "all") {
+          endpoint = `${url}/meal/dashboard?all=true`;
+        } else if (targetCafe) {
+          endpoint = `${url}/meal/dashboard?cafeNumber=${targetCafe}`;
+        }
+
+        const res = await fetch(endpoint, {
           credentials: "include",
         });
 
@@ -216,9 +238,10 @@ export default function CampusDashboardPage() {
         showToast("Failed to load dashboard");
       } finally {
         setIsRefreshing(false);
+        setLoadingStats(false);
       }
     },
-    [fetchLiveCafes],
+    [fetchLiveCafes, selectedCafe],
   );
 
   const fetchApprovals = useCallback(async () => {
@@ -235,6 +258,18 @@ export default function CampusDashboardPage() {
       setLoadingApprovals(false);
     }
   }, []);
+
+  const getSelectedCafeLabel = () => {
+    if (selectedCafe === "all") return "All Cafes (Combined Snapshot)";
+    if (!currentCampus?.selectedCafeNumber) return "";
+    const selectedCafeObj = cafesList.find((c, idx) => {
+      const num = c.cafeNumber || (idx + 1);
+      return num === currentCampus.selectedCafeNumber;
+    });
+    return selectedCafeObj
+      ? getCafeDisplayName(selectedCafeObj)
+      : `Cafe ${currentCampus.selectedCafeNumber}`;
+  };
 
   const handleApprove = async (id) => {
     try {
@@ -274,13 +309,19 @@ export default function CampusDashboardPage() {
   };
 
   useEffect(() => {
-    if (currentCampus?.selectedCafeNumber) {
-      fetchDashboardStats();
+    if (currentCampus?.selectedCafeNumber && selectedCafe !== "all") {
+      setSelectedCafe(String(currentCampus.selectedCafeNumber));
+    }
+  }, [currentCampus?.selectedCafeNumber]);
+
+  useEffect(() => {
+    if (selectedCafe) {
+      fetchDashboardStats(false, selectedCafe, true);
     }
     fetchApprovals();
     fetchLiveCafes();
   }, [
-    currentCampus?.selectedCafeNumber,
+    selectedCafe,
     fetchDashboardStats,
     fetchApprovals,
     fetchLiveCafes,
@@ -401,14 +442,19 @@ export default function CampusDashboardPage() {
             </span>
             <div className="flex flex-col gap-1.5 items-end">
               {cafesList.filter(isCafeOnline).length > 0 ? (
-                cafesList.filter(isCafeOnline).map((cafe) => (
-                  <span
-                    key={cafe.id}
-                    className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-bold px-3 py-1.5 rounded-2xl border border-emerald-200 shadow-sm animate-fadeIn"
-                  >
-                    {cafe.name}
-                  </span>
-                ))
+                cafesList.filter(isCafeOnline).map((cafe) => {
+                  const displayName = getCafeDisplayName(cafe);
+                  const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                  return (
+                    <span
+                      key={cafe.id}
+                      title={displayName}
+                      className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-bold px-3 py-1.5 rounded-2xl border border-emerald-200 shadow-sm animate-fadeIn cursor-default"
+                    >
+                      {truncatedName}
+                    </span>
+                  );
+                })
               ) : (
                 <span className="inline-flex items-center bg-rose-50 text-rose-600 font-bold px-3 py-1.5 rounded-2xl border border-rose-200 shadow-sm animate-fadeIn animate-pulse">
                   No Live Cafe
@@ -434,14 +480,19 @@ export default function CampusDashboardPage() {
                 <span className="font-bold text-slate-500 uppercase tracking-wider">
                   Live Stations:
                 </span>
-                {cafesList.filter(isCafeOnline).map((cafe) => (
-                  <span
-                    key={cafe.id}
-                    className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-250/20 shadow-sm"
-                  >
-                    {cafe.name}
-                  </span>
-                ))}
+                {cafesList.filter(isCafeOnline).map((cafe) => {
+                  const displayName = getCafeDisplayName(cafe);
+                  const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                  return (
+                    <span
+                      key={cafe.id}
+                      title={displayName}
+                      className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-250/20 shadow-sm cursor-default"
+                    >
+                      {truncatedName}
+                    </span>
+                  );
+                })}
               </>
             ) : (
               <>
@@ -520,10 +571,10 @@ export default function CampusDashboardPage() {
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center shadow-sm">
                       <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Cafeterias
+                        Cafes
                       </span>
                       <span className="mt-1 block text-3xl font-black text-fuchsia-600">
-                        {currentCampus?.cafeNumbers?.length || 0}
+                        {cafesList.length || 0}
                       </span>
                     </div>
                   </div>
@@ -574,9 +625,9 @@ export default function CampusDashboardPage() {
                     </div>
                   </button>
 
-                  {/* Cafeteria Management */}
+                  {/* Cafe Management */}
                   <button
-                    onClick={() => router.push("/campus/cafeterias")}
+                    onClick={() => router.push("/campus/cafes")}
                     className="surface-card rounded-3xl p-6 text-left hover:shadow-lg transition duration-300 group flex flex-col justify-between min-h-48"
                   >
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 transition-colors group-hover:bg-purple-600 group-hover:text-white">
@@ -584,10 +635,10 @@ export default function CampusDashboardPage() {
                     </div>
                     <div className="mt-4">
                       <h4 className="font-bold text-slate-900 group-hover:text-purple-600 transition-colors">
-                        Campus Cafeterias
+                        Campus Cafes
                       </h4>
                       <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                        Add, review, and authorize cafeteria accounts,
+                        Add, review, and authorize cafe operator accounts,
                         monitoring active stations.
                       </p>
                     </div>
@@ -762,30 +813,48 @@ export default function CampusDashboardPage() {
                 </label>
                 <select
                   id="cafe-select"
-                  className="mb-4 rounded-xl border px-4 py-2 text-base bg-white text-slate-800"
-                  value={currentCampus?.selectedCafeNumber || ""}
+                  className="mb-4 rounded-xl border px-4 py-2 text-base bg-white text-slate-800 w-44 truncate"
+                  value={selectedCafe}
                   onChange={async (e) => {
-                    try {
-                      await selectCafeNumber(Number(e.target.value));
-                    } catch (err) {
-                      showToast(err?.message || "Failed to switch cafe.");
+                    const val = e.target.value;
+                    setSelectedCafe(val);
+                    if (val !== "all") {
+                      try {
+                        await selectCafeNumber(Number(val));
+                      } catch (err) {
+                        showToast(err?.message || "Failed to switch cafe.");
+                      }
                     }
                   }}
                 >
                   <option value="" disabled>
                     Select a cafe
                   </option>
-                  {(currentCampus?.cafeNumbers || [1]).map((num) => (
-                    <option key={num} value={num}>
-                      Cafe {num}
-                    </option>
-                  ))}
+                  <option value="all">
+                    All Cafes
+                  </option>
+                  {cafesList.map((c, index) => {
+                    const num = c.cafeNumber || (index + 1);
+                    const displayName = getCafeDisplayName(c);
+                    const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                    return (
+                      <option key={c.id || c._id} value={num} title={displayName}>
+                        {truncatedName}
+                      </option>
+                    );
+                  })}
                 </select>
 
-                {currentCampus?.selectedCafeNumber && (
-                  <div className="w-full mt-4">
-                    <h4 className="text-lg font-bold mb-2 text-blue-600 text-center">
-                      Snapshot for Cafe {currentCampus.selectedCafeNumber}
+                {selectedCafe && (
+                  <div className={`w-full mt-4 transition-opacity duration-200 ${loadingStats ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+                    <h4
+                      title={getSelectedCafeLabel()}
+                      className="text-lg font-bold mb-2 text-blue-600 text-center truncate max-w-full px-4"
+                    >
+                      Snapshot for {(() => {
+                        const label = getSelectedCafeLabel();
+                        return label.length > 20 ? label.slice(0, 17) + "..." : label;
+                      })()}
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="rounded-xl bg-blue-50 p-4 text-center">
@@ -827,7 +896,7 @@ export default function CampusDashboardPage() {
             </section>
 
             {/* Interactive Student Snapshot grid & Fasting Breakdown */}
-            <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <section className={`grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr] transition-opacity duration-200 ${loadingStats ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
               <div className="surface-panel rounded-3xl p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>

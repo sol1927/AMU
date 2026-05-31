@@ -15,7 +15,7 @@ export default function SelectCafeNumberPage() {
   const autoAdvanceRef = useRef(false);
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== "ticker") {
+    if (!currentUser || currentUser.role !== "cafe") {
       router.replace("/");
       return;
     }
@@ -89,14 +89,14 @@ export default function SelectCafeNumberPage() {
         router.replace("/cafe/dashboard");
       } catch (err) {
         autoAdvanceRef.current = false;
-        console.error("Failed to auto-select ticker station:", err);
+        console.error("Failed to auto-select cafe station:", err);
       }
     };
 
     syncCafeNumber();
   }, [loading, cafeNumbers, currentUser, router, setCurrentUser]);
 
-  if (!currentUser || currentUser.role !== "ticker") return null;
+  if (!currentUser || currentUser.role !== "cafe") return null;
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center">

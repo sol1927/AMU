@@ -47,17 +47,18 @@ const getCurrentMealSession = (schedule) => {
   };
 };
 
-export default function TickerScanPage() {
+export default function CafeScanPage() {
   const router = useRouter();
   const { currentUser } = useUser();
 
   const [student, setStudent] = useState(null);
   const [allowed, setAllowed] = useState(null);
   const [manualInput, setManualInput] = useState("");
+  const [showManualScan, setShowManualScan] = useState(false);
   const [shokeKey, setShokeKey] = useState(0);
   const [mealSchedule, setMealSchedule] = useState(null);
   const [currentMealSession, setCurrentMealSession] = useState(() =>
-    getCurrentMealSession(null)
+    getCurrentMealSession(null),
   );
 
   const hiddenInputRef = useRef(null);
@@ -76,7 +77,10 @@ export default function TickerScanPage() {
   };
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== "ticker") {
+    if (
+      !currentUser ||
+      currentUser.role !== "cafe"
+    ) {
       router.replace("/");
       return;
     }
@@ -97,6 +101,12 @@ export default function TickerScanPage() {
     hiddenInputRef.current?.focus();
     lastTimeRef.current = Date.now();
   }, []);
+
+  useEffect(() => {
+    if (showManualScan) {
+      manualInputRef.current?.focus();
+    }
+  }, [showManualScan]);
 
   useEffect(() => {
     const fetchMealSchedule = async () => {
@@ -159,8 +169,7 @@ export default function TickerScanPage() {
       const statusMessage =
         (typeof data?.student?.statusMessage === "string"
           ? data.student.statusMessage.trim()
-          : "") ||
-        (!allowed ? message : "");
+          : "") || (!allowed ? message : "");
 
       if (data?.student) {
         setStudent({
@@ -181,8 +190,7 @@ export default function TickerScanPage() {
         setStudent({
           name: displayName,
           studentId,
-          statusMessage:
-            message === "Student not found" ? undefined : message,
+          statusMessage: message === "Student not found" ? undefined : message,
         });
         setAllowed(allowed);
         return;
@@ -239,18 +247,20 @@ export default function TickerScanPage() {
     window.location.reload();
   };
 
-  if (!currentUser || currentUser.role !== "ticker") return null;
+  if (
+    !currentUser ||
+    currentUser.role !== "cafe"
+  )
+    return null;
 
   const getCardClasses = () => {
-    if (!student) return "bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500";
+    if (!student)
+      return "bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500";
     if (student.isInternship)
       return "bg-gradient-to-r from-pink-500 to-red-600 text-white shadow-lg animate-shake";
     if (student.name === "Student not found")
       return "bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg animate-shake";
-    if (
-      student.name === "Time is up / ሰዓት አልቋል" ||
-      student.name === "ሰዓት አልቋል"
-    )
+    if (student.name === "Time is up / ሰዓት አልቋል" || student.name === "ሰዓት አልቋል")
       return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold animate-shake";
     if (allowed)
       return "bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg";
@@ -365,43 +375,72 @@ export default function TickerScanPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-4 bottom-4 z-40 flex flex-col items-center justify-between gap-3 md:flex-row">
-        <div className="hidden w-[140px] md:block"></div>
+      <div className="fixed right-4 bottom-4 z-40 flex justify-end">
+        <div className="surface-panel w-full max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+          {!showManualScan ? (
+            <div className="flex flex-col gap-2">
+              <div className="rounded-2xl bg-blue-600 px-3 py-2 text-white">
+                <div className="truncate text-sm font-bold">
+                  {currentMealSession.label}
+                </div>
+                <div className="truncate text-xs text-blue-100">
+                  {currentMealSession.window}
+                </div>
+              </div>
 
-        <div className="surface-panel flex w-full max-w-md flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-3 md:flex-row md:p-4 shadow-xl">
-          <div className="flex min-w-[180px] flex-col items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-white">
-            <span className="whitespace-nowrap font-bold">
-              {currentMealSession.label}
-            </span>
-            <span className="text-xs font-medium text-blue-100">
-              {currentMealSession.window}
-            </span>
-          </div>
-          <input
-            ref={manualInputRef}
-            type="text"
-            placeholder="Enter Student ID..."
-            value={manualInput}
-            onChange={(event) => setManualInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") handleManualScan();
-            }}
-            className="field-surface min-w-0 flex-1 rounded-xl px-4 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50/50 focus:bg-white dark:focus:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          />
-          <button
-            onClick={handleManualScan}
-            className="app-primary-btn shrink-0 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 text-sm transition hover:-translate-y-0.5 active:scale-95"
-          >
-            Scan
-          </button>
-        </div>
-        <div className="flex w-full justify-center md:w-[140px] md:justify-end">
-          <button
-            onClick={handleRefresh}
-            className="rounded-xl border border-slate-300 bg-white dark:border-slate-800 dark:bg-slate-900 px-4 py-2 font-semibold text-slate-700 dark:text-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm"
-          >
-            Refresh
-          </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowManualScan(true)}
+                  className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-95"
+                >
+                  Manual Scan
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  className="flex-1 rounded-xl border border-slate-300 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Manual Scan
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowManualScan(false)}
+                  className="rounded-full border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  Hide
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={manualInputRef}
+                  type="text"
+                  placeholder="Student ID"
+                  value={manualInput}
+                  onChange={(event) => setManualInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleManualScan();
+                  }}
+                  className="field-surface min-w-0 flex-1 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50/50 focus:bg-white dark:focus:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleManualScan}
+                  className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 active:scale-95"
+                >
+                  Scan
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

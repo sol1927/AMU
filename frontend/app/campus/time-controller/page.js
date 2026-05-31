@@ -151,41 +151,44 @@ export default function CampusTimeControllerPage() {
   }
 
   return (
-    <div className="page-shell flex h-screen flex-col overflow-hidden bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <>
       <CampusNavbar />
-
-      <main className="flex-1 overflow-y-auto px-4 pb-10 pt-24 md:px-8">
+      <div className="page-shell min-h-screen px-4 pb-12 pt-24 md:px-8 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
         <div className="mx-auto max-w-6xl">
-          <section className="surface-panel rounded-[28px] p-6 md:p-8 mb-6">
-            <p className="text-sm font-black uppercase tracking-[0.35em] text-cyan-600 dark:text-cyan-400">
-              Campus Control
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl text-slate-900 dark:text-white">
-              Meal Time Controller
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400 md:text-base leading-relaxed">
-              Configure the breakfast, lunch, and dinner operational hours for your campus.
-              Card validations, student scanning terminal access, and dashboard charts utilize this window setup.
-            </p>
+          <section className="surface-card rounded-3xl p-5 mb-6 shadow-sm border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                Campus Control
+              </span>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+                Meal Time Controller
+              </h1>
+              <p className="mt-1 text-xs text-slate-700 dark:text-slate-300 max-w-2xl">
+                Configure operational hours for breakfast, lunch, and dinner
+                scanning windows.
+              </p>
+            </div>
           </section>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-3">
               {mealCards.map((meal) => (
-                <div key={meal.key} className="surface-card rounded-[28px] p-6 shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-transform hover:-translate-y-1">
+                <div
+                  key={meal.key}
+                  className="surface-card rounded-[28px] p-6 shadow-sm border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 transition-transform hover:-translate-y-1"
+                >
                   <div
-                    className={`inline-flex rounded-2xl bg-gradient-to-r px-4 py-2 text-sm font-bold text-white ${meal.accent}`}
+                    className={`inline-flex rounded-2xl bg-linear-to-r px-4 py-2 text-sm font-bold text-white ${meal.accent}`}
                   >
                     {meal.title}
                   </div>
-                  <p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                    {meal.accent.description}
+                  <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">
                     {meal.description}
                   </p>
 
                   <div className="mt-6 space-y-4">
                     <label className="block">
-                      <span className="mb-2 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      <span className="mb-2 block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Start time
                       </span>
                       <input
@@ -194,14 +197,14 @@ export default function CampusTimeControllerPage() {
                         onChange={(event) =>
                           handleChange(meal.key, "start", event.target.value)
                         }
-                        className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-3 outline-none transition focus:border-blue-500 dark:bg-slate-950 dark:focus:bg-slate-950 text-sm"
+                        className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white px-4 py-3 outline-none transition focus:border-blue-500 text-sm text-slate-900 dark:text-slate-900 font-medium"
                         required
                         disabled={loading || saving}
                       />
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      <span className="mb-2 block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         End time
                       </span>
                       <input
@@ -210,15 +213,17 @@ export default function CampusTimeControllerPage() {
                         onChange={(event) =>
                           handleChange(meal.key, "end", event.target.value)
                         }
-                        className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-3 outline-none transition focus:border-blue-500 dark:bg-slate-950 dark:focus:bg-slate-950 text-sm"
+                        className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white px-4 py-3 outline-none transition focus:border-blue-500 text-sm text-slate-900 dark:text-slate-900 font-medium"
                         required
                         disabled={loading || saving}
                       />
                     </label>
                   </div>
 
-                  <div className="mt-5 rounded-2xl bg-slate-50 dark:bg-slate-950 px-4 py-3 text-sm text-slate-600 dark:text-slate-400 ring-1 ring-slate-200 dark:ring-slate-800 font-medium">
-                    Current window: {schedule[meal.key]?.label || `${schedule[meal.key]?.start} - ${schedule[meal.key]?.end}`}
+                  <div className="mt-5 rounded-2xl bg-white px-4 py-3 text-sm text-slate-900 ring-1 ring-slate-200 font-medium">
+                    Current window:{" "}
+                    {schedule[meal.key]?.label ||
+                      `${schedule[meal.key]?.start} - ${schedule[meal.key]?.end}`}
                   </div>
                 </div>
               ))}
@@ -251,7 +256,7 @@ export default function CampusTimeControllerPage() {
             </div>
           </form>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

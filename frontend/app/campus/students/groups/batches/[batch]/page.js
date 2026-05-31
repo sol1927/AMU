@@ -36,6 +36,68 @@ export default function BatchStudentsPage() {
     setTimeout(() => setToast(null), 2000);
   };
 
+  const [cafes, setCafes] = useState([]);
+  const [bulkCafeNumber, setBulkCafeNumber] = useState("");
+  const [savingBulkCafeNumber, setSavingBulkCafeNumber] = useState(false);
+
+  const getCafeNum = (name) => {
+    if (!name) return null;
+    const match = name.match(/\d+/);
+    return match ? Number(match[0]) : null;
+  };
+
+  const getCafeName = (name) => {
+    if (!name) return "Cafe";
+    if (/^cafe/i.test(name)) {
+      return name.replace(/^cafe/i, "Cafe ").trim();
+    }
+    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+    return formatted.replace(/([^-\s])(\d+)/g, "$1 $2").trim();
+  };
+
+  const getEffectiveStudentCafeNumber = (student) => {
+    const explicitCafe = Number(student?.cafeNumber);
+    if (explicitCafe === 0) {
+      return null;
+    }
+
+    if (Number.isInteger(explicitCafe) && explicitCafe > 0) {
+      return explicitCafe;
+    }
+
+    const batchCafe = currentCampus?.batchCafeAssignments?.[String(student?.batch ?? "")];
+    const batchCafeNumber = Number(batchCafe);
+    return Number.isInteger(batchCafeNumber) && batchCafeNumber > 0
+      ? batchCafeNumber
+      : null;
+  };
+
+  const getStudentCafeLabel = (student) => {
+    const cafeNumber = getEffectiveStudentCafeNumber(student);
+    if (!cafeNumber) return "Unassigned";
+    const matchedCafe = cafes.find(
+      (c, index) => (c.cafeNumber || getCafeNum(c.name) || (index + 1)) === cafeNumber,
+    );
+    return matchedCafe
+      ? matchedCafe.displayName || getCafeName(matchedCafe.name)
+      : `Cafe ${cafeNumber}`;
+  };
+
+  useEffect(() => {
+    const fetchCafes = async () => {
+      try {
+        const res = await fetch("/api/campus/cafes");
+        if (res.ok) {
+          const data = await res.json();
+          setCafes(data.cafes || []);
+        }
+      } catch (err) {
+        console.error("Failed to load cafes:", err);
+      }
+    };
+    fetchCafes();
+  }, [currentCampus]);
+
   const fetchStudentsByBatch = async (
     currentBatch,
     query = "",
@@ -135,6 +197,7 @@ export default function BatchStudentsPage() {
     if (selectedStudents.length === 0) {
       setBulkFastingType("");
       setBulkInternshipAction("");
+      setBulkCafeNumber("");
     }
   }, [selectedStudents]);
 
@@ -142,6 +205,61 @@ export default function BatchStudentsPage() {
     setSelectedStudents((prev) =>
       prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
     );
+  };
+
+  const handleBulkCafeNumberUpdate = async () => {
+    if (!bulkCafeNumber) return;
+
+    try {
+      setSavingBulkCafeNumber(true);
+      const nextCafeNumber =
+        bulkCafeNumber === "clear" ? 0 : Number(bulkCafeNumber);
+
+      const res = await fetch(`${url}/campus/students/bulk-cafe-number`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedStudents,
+          cafeNumber: nextCafeNumber,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          getApiMessage(
+            data,
+            "We could not update cafe assignments right now.",
+          ),
+        );
+      }
+
+      setStudents((prev) =>
+        prev.map((student) =>
+          selectedStudents.includes(student._id)
+            ? { ...student, cafeNumber: nextCafeNumber }
+            : student,
+        ),
+      );
+
+      setSelectedStudents([]);
+      setSelectAll(false);
+      setBulkCafeNumber("");
+      showToast(
+        nextCafeNumber
+          ? `Students sent to Cafe ${nextCafeNumber} successfully`
+          : "Student cafe assignments cleared successfully",
+        "success",
+      );
+    } catch (err) {
+      showToast(
+        getErrorMessage(err, "We could not update cafe assignments right now."),
+        "error",
+      );
+    } finally {
+      setSavingBulkCafeNumber(false);
+    }
   };
 
   const handleBulkFastingUpdate = async () => {
@@ -272,11 +390,10 @@ export default function BatchStudentsPage() {
               <button
                 onClick={handleRefreshStudents}
                 disabled={refreshingStudents}
-                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
-                  refreshingStudents
+                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
                     ? "cursor-not-allowed bg-slate-400"
                     : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
+                  }`}
               >
                 {refreshingStudents ? "Refreshing..." : "Refresh"}
               </button>
@@ -314,20 +431,24 @@ export default function BatchStudentsPage() {
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[200px] truncate"
             >
               <option className="bg-gray-900 text-white" value="">
                 All Departments
               </option>
-              {departmentOptions.map((department) => (
-                <option
-                  key={department}
-                  className="bg-gray-900 text-white"
-                  value={department}
-                >
-                  {department}
-                </option>
-              ))}
+              {departmentOptions.map((department) => {
+                const truncatedDept = department.length > 25 ? department.slice(0, 22) + "..." : department;
+                return (
+                  <option
+                    key={department}
+                    className="bg-gray-900 text-white"
+                    value={department}
+                    title={department}
+                  >
+                    {truncatedDept}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -336,7 +457,7 @@ export default function BatchStudentsPage() {
               <select
                 value={bulkInternshipAction}
                 onChange={(e) => setBulkInternshipAction(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
               >
                 <option className="bg-gray-900 text-white" value="">
                   Internship Status
@@ -361,7 +482,7 @@ export default function BatchStudentsPage() {
               <select
                 value={bulkFastingType}
                 onChange={(e) => setBulkFastingType(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
               >
                 <option className="bg-gray-900 text-white" value="">
                   Select Fasting
@@ -388,6 +509,34 @@ export default function BatchStudentsPage() {
                   {savingBulkFasting ? "Saving..." : "Save"}
                 </button>
               )}
+
+              <select
+                value={bulkCafeNumber}
+                onChange={(e) => setBulkCafeNumber(e.target.value)}
+                className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
+              >
+                <option className="bg-gray-900 text-white" value="">Send to Cafe</option>
+                {cafes.map((c, index) => {
+                  const num = c.cafeNumber || getCafeNum(c.name) || (index + 1);
+                  const displayName = c.displayName || getCafeName(c.name);
+                  const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                  return (
+                    <option key={c.id || c._id} className="bg-gray-900 text-white" value={num} title={displayName}>
+                      {truncatedName}
+                    </option>
+                  );
+                })}
+                <option className="bg-gray-900 text-white" value="clear">Clear Cafe Assignment</option>
+              </select>
+              {bulkCafeNumber && (
+                <button
+                  disabled={savingBulkCafeNumber}
+                  onClick={handleBulkCafeNumberUpdate}
+                  className="rounded bg-cyan-600 px-3 py-2 text-sm text-white hover:bg-cyan-700 disabled:opacity-50"
+                >
+                  {savingBulkCafeNumber ? "Saving..." : "Send"}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -406,6 +555,7 @@ export default function BatchStudentsPage() {
               <span className="w-[120px]">Student ID</span>
               <span className="w-[120px]">Department</span>
               <span className="w-[80px]">Batch</span>
+              <span className="w-[120px]">Cafe</span>
               <span className="w-[140px]">Fasting</span>
               <span className="w-[120px]">Internship</span>
               <div className="ml-auto flex w-6 justify-end">
@@ -450,6 +600,7 @@ export default function BatchStudentsPage() {
               <span className="w-[120px] truncate">{student.studentId}</span>
               <span className="w-[120px] truncate">{student.department}</span>
               <span className="w-[80px] truncate">{batch}</span>
+              <span className="w-[120px] truncate" title={getStudentCafeLabel(student)}>{getStudentCafeLabel(student)}</span>
               <span className="w-[140px] truncate">{getFastingLabel(student.fastingType)}</span>
               <span className="w-[120px]">
                 {student.isInternship ? (
@@ -473,9 +624,8 @@ export default function BatchStudentsPage() {
       </div>
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${
-            toast.type === "success" ? "bg-green-600" : "bg-red-600"
-          }`}
+          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            }`}
         >
           {toast.message}
         </div>

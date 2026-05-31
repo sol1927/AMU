@@ -92,15 +92,15 @@ export const seedDatabase = async () => {
           email: null, // ensure email is null, not undefined
           password: cafePassword,
           role: "cafe",
-          mustChangePassword: true,
+          mustChangePassword: false,
           campusId: campusUser.campusId || campusUser.id,
           createdBy: campusUser.id,
         });
         console.log("Default cafe created");
       } else {
-        await User.updateById(existingCafe.id, { mustChangePassword: true });
+        await User.updateById(existingCafe.id, { mustChangePassword: false });
         cafeUser = await User.findById(existingCafe.id);
-        console.log("Cafe already exists, reset mustChangePassword to true");
+        console.log("Cafe already exists, cleared mustChangePassword");
       }
     } else {
       console.log(

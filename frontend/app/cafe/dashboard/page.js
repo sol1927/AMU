@@ -22,7 +22,7 @@ export default function CafeOperatorDashboardPage() {
     currentUser?.activeCafeNumber || currentUser?.selectedCafeNumber || 1;
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== "ticker") {
+    if (!currentUser || currentUser.role !== "cafe") {
       router.replace("/");
       return;
     }
@@ -45,10 +45,11 @@ export default function CafeOperatorDashboardPage() {
     fetchStats();
   }, [currentUser, activeCafeNum, router]);
 
-  if (!currentUser || currentUser.role !== "ticker") return null;
+  if (!currentUser || currentUser.role !== "cafe") return null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 animate-fadeIn">
+    <div className="page-shell min-h-screen px-6 pb-12 pt-6 md:px-20 md:pt-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 animate-fadeIn">
       {/* Welcome Section */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -162,6 +163,7 @@ export default function CafeOperatorDashboardPage() {
             </p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

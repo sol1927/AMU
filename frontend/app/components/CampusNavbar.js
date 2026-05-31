@@ -106,8 +106,13 @@ export default function CampusNavbar() {
     },
     {
       icon: HiOutlineSwitchHorizontal,
-      label: "Cafeterias",
-      onClick: () => router.push("/campus/cafeterias"),
+      label: "Cafes",
+      onClick: () => router.push("/campus/cafes"),
+    },
+    {
+      icon: HiOutlineUserCircle,
+      label: "Cafe Managers",
+      onClick: () => router.push("/campus/cafe-managers"),
     },
     {
       icon: HiOutlineDocumentText,
@@ -177,7 +182,10 @@ export default function CampusNavbar() {
                   <span className="block text-[10px] uppercase tracking-wider text-slate-400 font-semibold leading-none mb-0.5">
                     Welcome
                   </span>
-                  <span className="block max-w-40 truncate font-semibold text-slate-700 leading-tight">
+                  <span
+                    title={capitalizeWords(currentCampus?.name || "Campus")}
+                    className="block max-w-[150px] truncate font-semibold text-slate-700 leading-tight"
+                  >
                     {capitalizeWords(currentCampus?.name || "Campus")}
                   </span>
                   {/* Cafe number or 'No cafe selected' removed for campus */}
@@ -191,11 +199,10 @@ export default function CampusNavbar() {
               </button>
 
               <div
-                className={`absolute right-0 mt-4 w-72 max-w-[90vw] overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${
-                  openMenu
+                className={`absolute right-0 mt-4 w-72 max-w-[90vw] overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${openMenu
                     ? "opacity-100 scale-100"
                     : "pointer-events-none opacity-0 scale-95"
-                }`}
+                  }`}
                 role="menu"
                 aria-label="Campus menu"
               >
@@ -216,7 +223,10 @@ export default function CampusNavbar() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">
+                      <p
+                        title={`Welcome, ${capitalizeWords(currentCampus?.name || "Campus")}`}
+                        className="truncate text-sm font-semibold text-slate-900"
+                      >
                         Welcome, {capitalizeWords(currentCampus?.name || "Campus")}
                       </p>
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-500">

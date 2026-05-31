@@ -12,7 +12,7 @@ import PropTypes from "prop-types";
 const UserContext = createContext();
 UserContext.displayName = "UserContext";
 
-const url = process.env.NEXT_PUBLIC_API_URL;
+const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export const UserProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(undefined);
@@ -63,7 +63,10 @@ export const UserProvider = ({ children }) => {
   }, [fetchUser, sessionChecked]);
 
   useEffect(() => {
-    if (!currentUser || (currentUser.role !== "cafe" && currentUser.role !== "ticker")) {
+    if (
+      !currentUser ||
+      currentUser.role !== "cafe"
+    ) {
       return undefined;
     }
 

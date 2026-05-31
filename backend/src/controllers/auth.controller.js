@@ -64,7 +64,7 @@ export const login = async (req, res) => {
     let role = null;
 
     if (isUsernameLogin) {
-      // Cafe and ticker login by username.
+      // Cafe login by username.
       user =
         (await User.findOne({ name: identifier }, { includePassword: true })) ||
         (await User.findOne(
@@ -72,7 +72,7 @@ export const login = async (req, res) => {
           { includePassword: true },
         ));
       role = user?.role;
-      if (!["cafe", "ticker"].includes(role)) {
+      if (role !== "cafe") {
         return res
           .status(401)
           .json({ message: "Invalid username or password." });
@@ -119,6 +119,10 @@ export const login = async (req, res) => {
 
     user = await resetAccountLock(role, user.id, { includePassword: true });
 
+    if (role === "cafe" && user.mustChangePassword) {
+      user = await User.updateById(user.id, { mustChangePassword: false }, { includePassword: true });
+    }
+
     const token =
       role === "campus"
         ? signCampusToken(user.id)
@@ -127,14 +131,21 @@ export const login = async (req, res) => {
     const cookieName = role === "campus" ? "campusToken" : "accessToken";
     res.cookie(cookieName, token, getSessionCookieOptions());
 
-    if (["campus", "cafe", "cafe manager", "ticker"].includes(role)) {
+    if (["campus", "cafe", "cafe manager"].includes(role)) {
       const loginTime = new Date();
       let activeCafeNumber = user.activeCafeNumber || null;
       let cafeNumbers = [];
 
-      if (["cafe", "cafe manager", "ticker"].includes(role)) {
+      if (["cafe", "cafe manager"].includes(role)) {
         const campus = await findCampusForAccount(user);
         cafeNumbers = buildCafeNumbers(campus?.cafeCount);
+        if (role === "cafe") {
+          const campusId = user.campusId;
+          const allCafes = await User.findAll({ campusId, role: "cafe" });
+          const sortedCafes = allCafes.sort((a, b) => a.id - b.id);
+          const index = sortedCafes.findIndex((c) => c.id === user.id);
+          activeCafeNumber = index !== -1 ? index + 1 : null;
+        }
         if (!Number.isInteger(activeCafeNumber) || activeCafeNumber < 1) {
           activeCafeNumber = cafeNumbers[0] || 1;
         }
@@ -158,7 +169,7 @@ export const login = async (req, res) => {
           selectedCafeNumber: null,
           cafeNumbers: buildCafeNumbers(user.cafeCount),
         };
-      } else if (["cafe", "cafe manager", "ticker"].includes(role)) {
+      } else if (["cafe", "cafe manager"].includes(role)) {
         user = {
           ...user,
           selectedCafeNumber: activeCafeNumber,
@@ -224,3 +235,19 @@ export const logout = async (req, res) => {
     .cookie("deviceOtpToken", "", options)
     .json({ message: "Logged out" });
 };
+
+// Select active cafe station number
+export const selectCafeNumber = async (req, res) => {
+  try {
+    const { cafeNumber } = req.body;
+    const normalizedCafeNumber = Number(cafeNumber);
+    await User.updateById(req.userId, {
+      activeCafeNumber: normalizedCafeNumber,
+    });
+    res.json({ success: true, selectedCafeNumber: normalizedCafeNumber });
+  } catch (err) {
+    logInternalError("select-cafe-number", err);
+    res.status(500).json({ message: "Could not select cafe number" });
+  }
+};
+

@@ -1,17 +1,12 @@
 "use client";
 
 import React from "react";
-import PropTypes from "prop-types";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
 import ThemeToggle from "./ThemeToggle";
 import ConfirmModal from "./ConfirmModal";
-import {
-  HiOutlineViewGrid,
-  HiOutlineLogout,
-  HiOutlineUserCircle,
-} from "react-icons/hi";
+import { HiOutlineLogout, HiOutlineUserCircle } from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -89,7 +84,10 @@ export default function CafeManagerNavbar() {
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
                 <HiOutlineUserCircle className="h-7 w-7" />
               </div>
-              <span className="hidden min-w-30 truncate font-medium text-slate-700 sm:inline-block">
+              <span
+                title={currentUser?.name || "Cafe Manager"}
+                className="hidden max-w-[150px] truncate font-medium text-slate-700 sm:inline-block"
+              >
                 {currentUser?.name || "Cafe Manager"}
               </span>
               <span
@@ -109,7 +107,10 @@ export default function CafeManagerNavbar() {
                     <HiOutlineUserCircle className="h-7 w-7" />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">
+                    <p
+                      title={currentUser?.name || "Cafe Manager"}
+                      className="truncate text-sm font-semibold text-slate-900"
+                    >
                       {currentUser?.name || "Cafe Manager"}
                     </p>
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
@@ -186,10 +187,10 @@ export default function CafeManagerNavbar() {
       </div>
       <ConfirmModal
         open={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
+        onCancel={() => setShowLogoutModal(false)}
         onConfirm={confirmLogout}
-        title="Logout"
-        description="Are you sure you want to logout?"
+        title="Logout Confirmation"
+        message="Are you sure you want to logout?"
       />
     </header>
   );

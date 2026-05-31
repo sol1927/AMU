@@ -33,6 +33,16 @@ const matchesSearch = (student, search) => {
 const byName = (left, right) =>
   String(left.name || "").localeCompare(String(right.name || ""));
 
+const mapStudentWithEffectiveCafe = (student, campus) => {
+  if (!student) return student;
+  const normalized = normalizeStudent(student);
+  normalized.effectiveCafeNumber = getEffectiveStudentCafeNumber(
+    student,
+    campus,
+  );
+  return normalized;
+};
+
 const hasSyncChanges = (existingStudent, sourceStudent) =>
   String(existingStudent.name || "") !== String(sourceStudent.name || "") ||
   Number(existingStudent.batch) !== Number(sourceStudent.batch) ||
@@ -78,7 +88,7 @@ const getStudentSyncUserMessage = (error) => {
   return "We could not fetch students right now. Please try again.";
 };
 
-const resolveScopedCampus = async (req) => {
+const resolveScopedCampusBase = async (req) => {
   if (req.campus) {
     return req.campus;
   }
@@ -88,7 +98,6 @@ const resolveScopedCampus = async (req) => {
     if (
       req.userRole === "cafe" ||
       req.userRole === "cafe manager" ||
-      req.userRole === "ticker" ||
       req.userRole === "campus"
     ) {
       const loggedInUser = await User.findById(req.userId);
@@ -116,8 +125,7 @@ const resolveScopedCampus = async (req) => {
 
   if (
     req.userRole === "cafe" ||
-    req.userRole === "cafe manager" ||
-    req.userRole === "ticker"
+    req.userRole === "cafe manager"
   ) {
     const loggedInUser = await User.findById(req.userId);
     if (
@@ -132,6 +140,26 @@ const resolveScopedCampus = async (req) => {
   }
 
   return null;
+};
+
+const resolveScopedCampus = async (req) => {
+  const campus = await resolveScopedCampusBase(req);
+  if (campus) {
+    const registeredCafes = await User.findAll({
+      campusId: campus.campusId || campus.id,
+      role: "cafe",
+    });
+    const matchNums = registeredCafes.map((c) => {
+      const match = String(c.name || "").match(/\d+/);
+      return match ? Number(match[0]) : 0;
+    });
+    campus.cafeCount = Math.max(
+      campus.cafeCount || 0,
+      registeredCafes.length,
+      ...matchNums
+    );
+  }
+  return campus;
 };
 
 export const getCampusStudents = async (req, res) => {
@@ -190,7 +218,9 @@ export const getCampusStudents = async (req, res) => {
     const totalStudents = students.length;
 
     res.json({
-      students: students.map((student) => normalizeStudent(student)),
+      students: students.map((student) =>
+        mapStudentWithEffectiveCafe(student, campus),
+      ),
       totalStudents,
     });
   } catch {
@@ -248,7 +278,9 @@ export const getCampusStudentsAll = async (req, res) => {
     });
 
     res.json({
-      students: students.map((student) => normalizeStudent(student)),
+      students: students.map((student) =>
+        mapStudentWithEffectiveCafe(student, campus),
+      ),
       totalStudents: students.length,
       cafeTotals,
     });
@@ -576,9 +608,12 @@ export const getCampusBatches = async (req, res) => {
     }
 
     let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
-    students = req.cafeNumber
-      ? filterStudentsForCafeNumber(students, campus, req.cafeNumber)
-      : students;
+    if (req.userRole === "cafe") {
+      const cafeNumber = req.cafeNumber;
+      students = cafeNumber
+        ? filterStudentsForCafeNumber(students, campus, cafeNumber)
+        : [];
+    }
 
     const batchMap = students.reduce((accumulator, student) => {
       const batchValue = Number(student.batch);
@@ -598,6 +633,30 @@ export const getCampusBatches = async (req, res) => {
       accumulator.get(batchKey).studentCount += 1;
       return accumulator;
     }, new Map());
+
+    if (
+      campus?.batchCafeAssignments &&
+      typeof campus.batchCafeAssignments === "object" &&
+      !Array.isArray(campus.batchCafeAssignments)
+    ) {
+      Object.keys(campus.batchCafeAssignments).forEach((batchKey) => {
+        const batchValue = Number(batchKey);
+        if (Number.isNaN(batchValue)) {
+          return;
+        }
+
+        if (!batchMap.has(String(batchValue))) {
+          batchMap.set(String(batchValue), {
+            batch: batchValue,
+            studentCount: 0,
+            assignedCafeNumber: getAssignedCafeNumberForBatch(
+              campus,
+              batchValue,
+            ),
+          });
+        }
+      });
+    }
 
     const batches = Array.from(batchMap.values()).sort(
       (a, b) => a.batch - b.batch,
@@ -631,9 +690,12 @@ export const getStudentsByBatch = async (req, res) => {
       ...getStudentCampusQuery(campus),
       batch: batchNum,
     });
-    students = req.cafeNumber
-      ? filterStudentsForCafeNumber(students, campus, req.cafeNumber)
-      : students;
+    if (req.userRole === "cafe") {
+      const cafeNumber = req.cafeNumber;
+      students = cafeNumber
+        ? filterStudentsForCafeNumber(students, campus, cafeNumber)
+        : [];
+    }
 
     if (
       fastingType &&
@@ -660,7 +722,9 @@ export const getStudentsByBatch = async (req, res) => {
       .filter((student) => matchesSearch(student, search))
       .sort(byName);
     res.json({
-      students: students.map((student) => normalizeStudent(student)),
+      students: students.map((student) =>
+        mapStudentWithEffectiveCafe(student, campus),
+      ),
     });
   } catch {
     res.status(500).json({ message: "Failed to fetch students" });
@@ -765,7 +829,7 @@ export const updateStudentCafeNumber = async (req, res) => {
 
       return res.json({
         message: `Student assigned to Cafe ${cafeNumber} successfully.`,
-        student: normalizeStudent(updatedStudent),
+        student: mapStudentWithEffectiveCafe(updatedStudent, campus),
       });
     }
 
@@ -775,7 +839,7 @@ export const updateStudentCafeNumber = async (req, res) => {
 
     return res.json({
       message: "Student cafe assignment cleared successfully.",
-      student: normalizeStudent(updatedStudent),
+      student: mapStudentWithEffectiveCafe(updatedStudent, campus),
     });
   } catch (err) {
     logInternalError("update-student-cafe-number", err);

@@ -33,6 +33,10 @@ import {
   createCafe,
   updateCafe,
   deleteCafe,
+  listCafeManagers,
+  createCafeManager,
+  updateCafeManager,
+  deleteCafeManager,
 } from "../controllers/campus.controller.js";
 
 import {
@@ -48,6 +52,12 @@ router.get("/cafes", protectCampus, listCafes);
 router.post("/cafes", protectCampus, createCafe);
 router.patch("/cafes/:id", protectCampus, updateCafe);
 router.delete("/cafes/:id", protectCampus, deleteCafe);
+
+// Cafe manager management (by campus)
+router.get("/cafe-managers", protectCampus, listCafeManagers);
+router.post("/cafe-managers", protectCampus, createCafeManager);
+router.patch("/cafe-managers/:id", protectCampus, updateCafeManager);
+router.delete("/cafe-managers/:id", protectCampus, deleteCafeManager);
 
 router.post("/logout", protectCampus, logoutCampus);
 router.get("/dashboard", protectCampus, getCampusDashboard);
@@ -68,13 +78,11 @@ router.post("/verify-campus-password", protectCampus, verifyCampusPassword);
 router.get(
   "/students/batches",
   protectCampus,
-  requireCampusCafeSelection,
   getCampusBatches,
 );
 router.get(
   "/students/batch/:batch",
   protectCampus,
-  requireCampusCafeSelection,
   getStudentsByBatch,
 );
 router.patch(

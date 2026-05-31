@@ -2,10 +2,21 @@ import { getDB } from "../config/db.js";
 import bcrypt from "bcryptjs";
 import { mapRow, mapRows, normalizeDate, omitPassword } from "./modelUtils.js";
 
+const parseJsonSafe = (val) => {
+  if (!val) return null;
+  if (typeof val === "object") return val;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return null;
+  }
+};
+
 const mapUserRow = (row) => ({
   ...row,
   logo: row.logo_url ? { url: row.logo_url } : undefined,
   mustChangePassword: !!row.mustChangePassword,
+  batchCafeAssignments: parseJsonSafe(row.batchCafeAssignments),
 });
 
 const sanitizeUser = (row, includePassword = false) =>
@@ -45,6 +56,8 @@ const createTable = async () => {
       cafeCount INT DEFAULT 1,
       activeCafeNumber INT DEFAULT NULL,
       batchCafeAssignments JSON,
+      -- Cafe display name (for cafe role users)
+      displayName VARCHAR(255),
       createdBy INT,
       --
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -74,6 +87,7 @@ const createTable = async () => {
   await addColumn("cafeCount", "INT DEFAULT 1");
   await addColumn("activeCafeNumber", "INT DEFAULT NULL");
   await addColumn("batchCafeAssignments", "JSON");
+  await addColumn("displayName", "VARCHAR(255)");
   await addColumn("createdBy", "INT");
   try {
     await getDB().execute(
@@ -86,11 +100,19 @@ const createTable = async () => {
 
 const findAll = async (filter = {}, options = {}) => {
   let query =
-    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdBy, createdAt, updatedAt FROM users WHERE 1=1";
+    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, displayName, createdBy, createdAt, updatedAt FROM users WHERE 1=1";
   const params = [];
   if (filter.campusId !== undefined) {
     query += " AND campusId = ?";
     params.push(filter.campusId);
+  }
+  if (filter.name !== undefined) {
+    query += " AND name = ?";
+    params.push(filter.name);
+  }
+  if (filter.nameInsensitive !== undefined) {
+    query += " AND LOWER(name) = LOWER(?)";
+    params.push(filter.nameInsensitive);
   }
   if (filter.email) {
     query += " AND email = ?";
@@ -119,7 +141,7 @@ const findAll = async (filter = {}, options = {}) => {
 
 const findById = async (id, options = {}) => {
   const [rows] = await getDB().execute(
-    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdBy, createdAt, updatedAt FROM users WHERE id = ?",
+    "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, displayName, createdBy, createdAt, updatedAt FROM users WHERE id = ?",
     [id],
   );
   return sanitizeUser(rows[0] || null, options.includePassword);
@@ -148,11 +170,12 @@ const create = async (data) => {
     activeCafeNumber = null,
     batchCafeAssignments = null,
     createdBy = null,
+    displayName = null,
   } = data;
   const hashedPassword = await bcrypt.hash(password, 10);
   const query = `
-    INSERT INTO users (name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, createdBy)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO users (name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, displayName, createdBy)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     name,
@@ -173,6 +196,7 @@ const create = async (data) => {
     cafeCount,
     activeCafeNumber,
     batchCafeAssignments,
+    nullable(displayName),
     createdBy,
   ];
   const [result] = await getDB().execute(query, params);
@@ -256,6 +280,10 @@ const updateById = async (id, data, options = {}) => {
   if (data.resetTokenExpires !== undefined) {
     fields.push("resetTokenExpires = ?");
     params.push(nullable(data.resetTokenExpires));
+  }
+  if (data.displayName !== undefined) {
+    fields.push("displayName = ?");
+    params.push(nullable(data.displayName));
   }
   if (fields.length === 0) return null;
   const query = `UPDATE users SET ${fields.join(", ")} WHERE id = ?`;

@@ -15,6 +15,7 @@ export default function CafeProfilePage() {
 
   const [savingChanges, setSavingChanges] = useState(false);
   const [name, setName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -101,7 +102,7 @@ export default function CafeProfilePage() {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name, displayName }),
         });
         const dataName = await resName.json();
         if (!resName.ok) {
@@ -281,15 +282,33 @@ export default function CafeProfilePage() {
           <form onSubmit={handleSaveChanges} className="space-y-4">
             <div>
               <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5 ml-1">
-                Full Name
+                Username
               </label>
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 outline-none focus:border-blue-500 dark:bg-slate-950 dark:focus:bg-slate-950 text-sm"
-                required
+                disabled
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 outline-none text-slate-500 dark:bg-slate-950 text-sm opacity-60 cursor-not-allowed"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                Username cannot be changed
+              </p>
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5 ml-1">
+                Cafe Display Name
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Main Cafeteria"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 outline-none focus:border-blue-500 dark:bg-slate-950 dark:focus:bg-slate-950 text-sm"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                This is how your cafe appears to students
+              </p>
             </div>
 
             {/* Password overrides */}

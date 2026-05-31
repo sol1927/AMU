@@ -25,9 +25,8 @@ const NavbarItem = ({ icon: Icon, label, onClick, danger }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50 ${
-      danger ? "text-red-500 hover:bg-red-50" : "text-slate-700"
-    }`}
+    className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50 ${danger ? "text-red-500 hover:bg-red-50" : "text-slate-700"
+      }`}
   >
     <Icon className={`h-5 w-5 ${danger ? "text-red-500" : "text-slate-400"}`} />
     <span className="text-sm font-medium">{label}</span>
@@ -167,7 +166,10 @@ export default function AdminNavbar() {
                   </span>
                 )}
               </div>
-              <span className="hidden min-w-[120px] truncate font-medium text-slate-700 sm:inline-block">
+              <span
+                title={capitalizeWords(currentUser?.name) || "Admin"}
+                className="hidden max-w-[150px] truncate font-medium text-slate-700 sm:inline-block"
+              >
                 {capitalizeWords(currentUser?.name) || "Admin"}
               </span>
               <span
@@ -178,11 +180,10 @@ export default function AdminNavbar() {
             </button>
 
             <div
-              className={`absolute right-0 mt-4 w-80 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${
-                openMenu
+              className={`absolute right-0 mt-4 w-80 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${openMenu
                   ? "opacity-100 scale-100"
                   : "pointer-events-none opacity-0 scale-95"
-              }`}
+                }`}
               role="menu"
               aria-label="Admin menu"
             >
@@ -203,7 +204,10 @@ export default function AdminNavbar() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">
+                    <p
+                      title={capitalizeWords(currentUser?.name) || "Admin"}
+                      className="truncate text-sm font-semibold text-slate-900"
+                    >
                       {capitalizeWords(currentUser?.name) || "Admin"}
                     </p>
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">

@@ -14,7 +14,7 @@ export default function CafeManagerLayout({ children }) {
 
   useEffect(() => {
     if (currentUser !== undefined) {
-      if (currentUser === null || (currentUser.role !== "cafe" && currentUser.role !== "cafe manager")) {
+      if (currentUser === null || currentUser.role !== "cafe manager") {
         router.replace("/");
         return;
       }
@@ -40,7 +40,9 @@ export default function CafeManagerLayout({ children }) {
   return (
     <div className="min-h-screen pt-20 bg-slate-50/50 text-slate-900 transition-colors duration-300">
       <CafeManagerNavbar />
-      <main className="mx-auto max-w-screen-2xl p-6">{children}</main>
+      <main className="mx-auto max-w-screen-2xl px-4 pb-4 pt-0">
+        {children}
+      </main>
     </div>
   );
 }

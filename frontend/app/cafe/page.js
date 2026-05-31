@@ -9,12 +9,18 @@ export default function CafeOperatorPage() {
   const { currentUser } = useUser();
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== "ticker") {
+    if (!currentUser) {
       router.replace("/");
       return;
     }
 
-    router.replace("/cafe/dashboard");
+    if (currentUser.role === "cafe manager") {
+      router.replace("/cafe-manager/dashboard");
+    } else if (currentUser.role === "cafe") {
+      router.replace("/cafe/dashboard");
+    } else {
+      router.replace("/");
+    }
   }, [currentUser, router]);
 
   return null;

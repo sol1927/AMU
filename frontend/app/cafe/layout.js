@@ -3,7 +3,7 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import TickerNavbar from "../components/TickerNavbar";
+import CafeNavbar from "../components/CafeNavbar";
 import { useUser } from "../context/UserContext";
 import PropTypes from "prop-types";
 
@@ -14,7 +14,7 @@ export default function CafeOperatorLayout({ children }) {
 
   useEffect(() => {
     if (currentUser !== undefined) {
-      if (currentUser === null || currentUser.role !== "ticker") {
+      if (currentUser === null || currentUser.role !== "cafe") {
         router.replace("/");
         return;
       }
@@ -38,9 +38,9 @@ export default function CafeOperatorLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-slate-50/50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
-      <TickerNavbar />
-      <main className="mx-auto max-w-screen-2xl p-6">{children}</main>
+    <div className="min-h-screen pt-20 bg-slate-50/50 text-slate-900 transition-colors duration-300">
+      <CafeNavbar />
+      <main className="mx-auto max-w-screen-2xl px-4 pb-4 pt-0">{children}</main>
     </div>
   );
 }

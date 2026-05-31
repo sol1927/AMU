@@ -98,13 +98,8 @@ export const filterStudentsForCafeNumber = (
   cafeNumber,
 ) => {
   const normalizedCafeNumber = Number(cafeNumber);
-  const normalizedCafeCount = normalizeCafeCount(campus?.cafeCount);
 
   if (!Number.isInteger(normalizedCafeNumber) || normalizedCafeNumber < 1) {
-    return students;
-  }
-
-  if (normalizedCafeCount <= 1) {
     return students;
   }
 

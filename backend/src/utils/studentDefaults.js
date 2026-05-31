@@ -24,6 +24,10 @@ export const normalizeStudent = (student = {}) => {
   normalizedStudent.fastingType = getStudentFastingType(normalizedStudent);
   normalizedStudent.mealStatus = getStudentMealStatus(normalizedStudent);
 
+  if (normalizedStudent.id && !normalizedStudent._id) {
+    normalizedStudent._id = normalizedStudent.id;
+  }
+
   return normalizedStudent;
 };
 

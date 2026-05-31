@@ -1,6 +1,7 @@
 import StationScan from "../models/stationScan.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
+import User from "../models/user.model.js";
 import {
   finalizeExpiredStationScans,
   getDashboardMealContext,
@@ -182,6 +183,15 @@ export const scanStudentStation = async (req, res) => {
 
     const campusForScope = (await User.findById(req.campus.id)) || req.campus;
 
+    const assignedCafeNumber = getEffectiveStudentCafeNumber(
+      student,
+      campusForScope,
+    );
+
+    if (!assignedCafeNumber || assignedCafeNumber <= 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
     const accessibleStudents = filterStudentsForCafeNumber(
       [student],
       campusForScope,
@@ -189,10 +199,6 @@ export const scanStudentStation = async (req, res) => {
     );
 
     if (accessibleStudents.length === 0) {
-      const assignedCafeNumber = getEffectiveStudentCafeNumber(
-        student,
-        campusForScope,
-      );
       const cafeMismatchMessage = getStudentCafeMismatchMessage(
         student,
         campusForScope,
@@ -361,6 +367,7 @@ export const getCampusDashboardStats = async (req, res) => {
   try {
     const campusId = req.campus.id;
     const studentSyncQuery = getStudentCampusSyncQuery(req.campus);
+    const totalCampusStudents = await CafeStudent.countDocuments(studentSyncQuery);
 
     const now = new Date();
     const { mealType, label, targetDate } = await getDashboardMealContext(
@@ -372,47 +379,133 @@ export const getCampusDashboardStats = async (req, res) => {
     const semester = getCurrentSemester(targetDate);
     const mealSchedule = await getMealSchedule(campusId);
 
-    const meal = await Meal.findOne({
-      campus: campusId,
-      cafeNumber: req.cafeNumber,
-      date: mealDayString,
-      year,
-      semester,
-      mealType,
-    });
+    const isAllCafes = req.query.all === "true";
+    let activeCafeNumber = req.cafeNumber;
+    if (req.query.cafeNumber) {
+      const parsedQueryNum = Number(req.query.cafeNumber);
+      if (Number.isInteger(parsedQueryNum) && parsedQueryNum > 0) {
+        activeCafeNumber = parsedQueryNum;
+      }
+    }
 
-    const recentScans = await StationScan.findAll({
-      campus: campusId,
-      cafeNumber: req.cafeNumber,
-      date: mealDayString,
-      mealType,
-      orderByCreatedAtDesc: true,
-      limit: 5,
-    });
+    let activeSummary;
+    let recentScans = [];
 
-    const campusStudents = filterStudentsForCafeNumber(
-      await CafeStudent.findAll(studentSyncQuery),
-      req.campus,
-      req.cafeNumber,
-    );
-    const servedScans = await StationScan.findAll({
-      campus: campusId,
-      cafeNumber: req.cafeNumber,
-      date: mealDayString,
-      mealType,
-    });
+    if (isAllCafes) {
+      const allStudents = await CafeStudent.findAll(studentSyncQuery);
+      const cafeNumbers = req.campus.cafeNumbers || [];
 
-    const servedStudentIds = servedScans.map((s) => s.studentId);
+      let totalRegular = 0;
+      let totalInternship = 0;
+      let totalServed = 0;
+      let totalPending = 0;
 
-    const activeSummary = buildMealSummarySnapshot(
-      campusStudents,
-      servedStudentIds,
-    );
+      const combinedFastingBreakdown = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
+      const combinedRegularFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
+      const combinedInternshipFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
+      const combinedServedFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
+      const combinedPendingFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
 
-    if (meal && !meal.summarySnapshot) {
-      await Meal.updateById(meal.id, { summarySnapshot: activeSummary }).catch(
-        () => null,
+      recentScans = await StationScan.findAll({
+        campus: campusId,
+        date: mealDayString,
+        mealType,
+        orderByCreatedAtDesc: true,
+        limit: 5,
+      });
+
+      for (const cafeNum of cafeNumbers) {
+        const cafeStudents = filterStudentsForCafeNumber(
+          allStudents,
+          req.campus,
+          cafeNum,
+        );
+        const servedScans = await StationScan.findAll({
+          campus: campusId,
+          cafeNumber: cafeNum,
+          date: mealDayString,
+          mealType,
+        });
+
+        const servedStudentIds = servedScans.map((s) => s.studentId);
+        const summary = buildMealSummarySnapshot(cafeStudents, servedStudentIds);
+
+        if (summary) {
+          totalRegular += summary.regularStudents || 0;
+          totalInternship += summary.internshipStudents || 0;
+          totalServed += summary.servedStudents || 0;
+          totalPending += summary.pendingStudents || 0;
+
+          const addBreakdown = (target, source) => {
+            if (!source) return;
+            target.fasting += source.fasting || 0;
+            target.sundayFasting += source.sundayFasting || 0;
+            target.muslimFasting += source.muslimFasting || 0;
+            target.notFasting += source.notFasting || 0;
+          };
+
+          addBreakdown(combinedFastingBreakdown, summary.fastingBreakdown);
+          addBreakdown(combinedRegularFasting, summary.regularFastingBreakdown);
+          addBreakdown(combinedInternshipFasting, summary.internshipFastingBreakdown);
+          addBreakdown(combinedServedFasting, summary.servedFastingBreakdown);
+          addBreakdown(combinedPendingFasting, summary.pendingFastingBreakdown);
+        }
+      }
+
+      activeSummary = {
+        regularStudents: totalRegular,
+        internshipStudents: totalInternship,
+        servedStudents: totalServed,
+        pendingStudents: totalPending,
+        fastingBreakdown: combinedFastingBreakdown,
+        regularFastingBreakdown: combinedRegularFasting,
+        internshipFastingBreakdown: combinedInternshipFasting,
+        servedFastingBreakdown: combinedServedFasting,
+        pendingFastingBreakdown: combinedPendingFasting,
+      };
+    } else {
+      recentScans = await StationScan.findAll({
+        campus: campusId,
+        cafeNumber: activeCafeNumber,
+        date: mealDayString,
+        mealType,
+        orderByCreatedAtDesc: true,
+        limit: 5,
+      });
+
+      const campusStudents = filterStudentsForCafeNumber(
+        await CafeStudent.findAll(studentSyncQuery),
+        req.campus,
+        activeCafeNumber,
       );
+      const servedScans = await StationScan.findAll({
+        campus: campusId,
+        cafeNumber: activeCafeNumber,
+        date: mealDayString,
+        mealType,
+      });
+
+      const servedStudentIds = servedScans.map((s) => s.studentId);
+
+      activeSummary = buildMealSummarySnapshot(
+        campusStudents,
+        servedStudentIds,
+      );
+
+      const meal = await Meal.findOne({
+        campus: campusId,
+        cafeNumber: activeCafeNumber,
+        date: mealDayString,
+        year,
+        semester,
+        mealType,
+      });
+
+      if (meal && !meal.summarySnapshot) {
+        await Meal.updateById(meal.id, { summarySnapshot: activeSummary }).catch(
+          () => null,
+        );
+      }
     }
 
     res.json({
@@ -420,9 +513,9 @@ export const getCampusDashboardStats = async (req, res) => {
       mealLabel: label,
       mealSchedule,
       mealDate: mealDayString,
-      cafeNumber: req.cafeNumber,
-      cafeDisplayName: getCafeDisplayName(req.campus.name, req.cafeNumber),
-      totalStudents: activeSummary?.totalStudents ?? 0,
+      cafeNumber: isAllCafes ? 0 : activeCafeNumber,
+      cafeDisplayName: isAllCafes ? "All Cafes" : getCafeDisplayName(req.campus.name, activeCafeNumber),
+      totalStudents: totalCampusStudents,
       regularStudents: activeSummary?.regularStudents ?? 0,
       internshipStudents: activeSummary?.internshipStudents ?? 0,
       servedStudents: activeSummary?.servedStudents ?? 0,

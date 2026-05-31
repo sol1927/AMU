@@ -592,7 +592,7 @@ export default function CampusMealsPage() {
             </h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-600 dark:text-slate-400 md:text-base">
               Review history for any date and meal session, filtered by total
-              campus history or specific cafeterias.
+              campus history or specific cafes.
             </p>
             <div className="mt-4 flex gap-2">
               <button
@@ -623,13 +623,13 @@ export default function CampusMealsPage() {
             <div className="surface-card rounded-[28px] p-6">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Filters</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Select the cafeteria, date, and meal session you want to review.
+                Select the cafe, date, and meal session you want to review.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Cafeteria
+                    Cafe
                   </span>
                   <select
                     value={selectedCafe}

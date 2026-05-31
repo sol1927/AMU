@@ -24,14 +24,14 @@ export default function CampusStudentGroupsPage() {
   };
 
   const fetchBatches = useCallback(async () => {
-    if (!currentCampus?.selectedCafeNumber) return;
+    if (!currentCampus) return;
     setLoading(true);
     try {
       const [batchesRes, studentsRes] = await Promise.all([
         fetch(`${url}/campus/students/batches`, {
           credentials: "include",
         }),
-        fetch(`${url}/campus/students`, {
+        fetch(`${url}/campus/students/all`, {
           credentials: "include",
         }),
       ]);
@@ -49,23 +49,32 @@ export default function CampusStudentGroupsPage() {
 
       if (!studentsRes.ok) {
         throw new Error(
-          getApiMessage(studentsData, "We could not load student counts right now."),
+          getApiMessage(
+            studentsData,
+            "We could not load student counts right now.",
+          ),
         );
       }
 
       const nextBatches = batchesData.batches || [];
-      const counts = (studentsData.students || []).reduce((accumulator, student) => {
-        const batchKey = String(student.batch ?? "");
-        if (!batchKey) return accumulator;
-        accumulator[batchKey] = (accumulator[batchKey] || 0) + 1;
-        return accumulator;
-      }, {});
+      const counts = (studentsData.students || []).reduce(
+        (accumulator, student) => {
+          const batchKey = String(student.batch ?? "");
+          if (!batchKey) return accumulator;
+          accumulator[batchKey] = (accumulator[batchKey] || 0) + 1;
+          return accumulator;
+        },
+        {},
+      );
 
       setBatches(nextBatches);
       setBatchCounts(counts);
       setError("");
     } catch (err) {
-      const message = getErrorMessage(err, "We could not load batches right now.");
+      const message = getErrorMessage(
+        err,
+        "We could not load batches right now.",
+      );
       setError(message);
       showToast(message);
     } finally {
@@ -94,8 +103,7 @@ export default function CampusStudentGroupsPage() {
               <span className="text-blue-600">{currentCampus.name}</span>
             </h1>
             <p className="mt-1 text-sm text-slate-600 md:text-base">
-              Manage the batches assigned to Cafe{" "}
-              {currentCampus?.selectedCafeNumber || "--"}
+              Browse all batches for this campus.
             </p>
           </div>
 
