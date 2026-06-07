@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useUser } from "../../context/UserContext";
 import { getAppDayString } from "@/app/utils/appTimezone";
 import { downloadCsv } from "@/app/utils/exportCsv";
@@ -100,6 +100,11 @@ const toSafeFilePart = (value, fallback = "data") =>
     .replace(/^-+|-+$/g, "")
     .toLowerCase() || fallback;
 
+const getCafeNumberFromName = (name) => {
+  const match = String(name || "").match(/\d+/);
+  return match ? Number(match[0]) : null;
+};
+
 export default function CafeMealsPage() {
   const { currentUser } = useUser();
   const [activeTab, setActiveTab] = useState("sessionHistory"); // 'sessionHistory' or 'attendanceReports'
@@ -112,7 +117,7 @@ export default function CafeMealsPage() {
   const [error, setError] = useState("");
   const [mealSchedule, setMealSchedule] = useState(null);
   const [historyRange, setHistoryRange] = useState("daily");
-  const [cafeNumbers, setCafeNumbers] = useState([1]);
+  const [cafes, setCafes] = useState([]);
 
   // Attendance Reports States
   const [reportType, setReportType] = useState("daily"); // 'daily', 'weekly', 'monthly'
@@ -126,24 +131,74 @@ export default function CafeMealsPage() {
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState("");
 
+  const cafeOptions = useMemo(() => {
+    const seen = new Set();
+
+    return cafes
+      .map((cafe, index) => {
+        const value =
+          Number(cafe?.cafeNumber) ||
+          getCafeNumberFromName(cafe?.name) ||
+          index + 1;
+
+        let label = cafe?.displayName?.trim();
+        if (!label && cafe?.name) {
+          const extractedNumber = getCafeNumberFromName(cafe.name);
+          label = extractedNumber
+            ? `Cafe ${extractedNumber}`
+            : cafe.name.trim();
+        }
+        if (!label) {
+          label = `Cafe ${value}`;
+        }
+
+        return {
+          value: String(value),
+          label,
+        };
+      })
+      .filter((cafe) => {
+        if (seen.has(cafe.value)) return false;
+        seen.add(cafe.value);
+        return true;
+      });
+  }, [cafes]);
+
   useEffect(() => {
-    const fetchCafeNumbers = async () => {
+    const fetchCafes = async () => {
       try {
-        const res = await fetch(`${url}/cafe/cafe-numbers`, {
+        const res = await fetch(`${url}/campus/cafes`, {
           credentials: "include",
         });
         if (res.ok) {
           const data = await res.json();
-          setCafeNumbers(
-            Array.isArray(data.cafeNumbers) ? data.cafeNumbers : [1],
-          );
+          setCafes(Array.isArray(data.cafes) ? data.cafes : []);
         }
       } catch {
-        setCafeNumbers([1]);
+        setCafes([]);
       }
     };
-    fetchCafeNumbers();
+    fetchCafes();
   }, []);
+
+  useEffect(() => {
+    if (selectedCafe || cafeOptions.length === 0) return;
+
+    const defaultCafe =
+      currentUser?.activeCafeNumber ||
+      currentUser?.selectedCafeNumber ||
+      cafeOptions[0]?.value ||
+      "";
+
+    if (defaultCafe) {
+      setSelectedCafe(String(defaultCafe));
+    }
+  }, [
+    cafeOptions,
+    currentUser?.activeCafeNumber,
+    currentUser?.selectedCafeNumber,
+    selectedCafe,
+  ]);
 
   useEffect(() => {
     const today = getAppDayString();
@@ -292,6 +347,16 @@ export default function CafeMealsPage() {
     }
   };
 
+  const selectedCafeOption = useMemo(
+    () => cafeOptions.find((cafe) => cafe.value === selectedCafe),
+    [cafeOptions, selectedCafe],
+  );
+
+  const reportCafeOption = useMemo(
+    () => cafeOptions.find((cafe) => cafe.value === reportCafe),
+    [cafeOptions, reportCafe],
+  );
+
   const activeBreakdown = getActiveBreakdown();
   const snapshotMealLabel = getSnapshotMealLabel(mealSummary?.mealType);
   const snapshotCounts = {
@@ -304,11 +369,10 @@ export default function CafeMealsPage() {
 
   const formatSnapshotTitle = (ms) => {
     if (!ms) return "";
-    // prefer a cleaned cafeDisplayName
+    if (selectedCafeOption?.label) return selectedCafeOption.label;
+
     let name = ms.cafeDisplayName ? String(ms.cafeDisplayName).trim() : "";
-    // remove 'System Admin' or similar prefixes
     name = name.replace(/system\s*admin(istrator)?\s*[:\-–—]?\s*/i, "").trim();
-    // if name explicitly contains 'Cafe N', prefer that short form
     const cafeMatch = name.match(/(Cafe\s*\d+)/i);
     if (cafeMatch) return cafeMatch[1];
     if (name) return name;
@@ -341,7 +405,12 @@ export default function CafeMealsPage() {
     const appliedWindow = getAppliedWindowForSummary(mealSummary);
     const rows = [
       ["Campus", mealSummary.campusName || ""],
-      ["Cafe", mealSummary.cafeDisplayName || `Cafe ${mealSummary.cafeNumber || ""}`],
+      [
+        "Cafe",
+        selectedCafeOption?.label ||
+          mealSummary.cafeDisplayName ||
+          `Cafe ${mealSummary.cafeNumber || ""}`,
+      ],
       ["Cafe Number", mealSummary.cafeNumber || ""],
       [
         "Date",
@@ -419,23 +488,27 @@ export default function CafeMealsPage() {
       ],
     ];
 
-    const safeCafe = toSafeFilePart(mealSummary.cafeDisplayName || "cafe");
+    const safeCafe = toSafeFilePart(
+      selectedCafeOption?.label || mealSummary.cafeDisplayName || "cafe",
+    );
     const safeMeal = toSafeFilePart(mealSummary.mealType || "meal");
     const safeDate = mealSummary.date
       ? new Date(mealSummary.date).toISOString().split("T")[0]
       : "date";
 
-    downloadCsv(
-      `${safeCafe}-${safeDate}-${safeMeal}-summary.csv`,
-      rows,
-    );
+    downloadCsv(`${safeCafe}-${safeDate}-${safeMeal}-summary.csv`, rows);
   };
 
   const handleExportReportSummary = () => {
     if (!reportData) return;
 
     const rows = [
-      ["Cafe", reportData.cafeDisplayName || `Cafe ${reportData.cafeNumber || "All"}`],
+      [
+        "Cafe",
+        reportCafeOption?.label ||
+          reportData.cafeDisplayName ||
+          `Cafe ${reportData.cafeNumber || "All"}`,
+      ],
       ["Cafe Number", reportData.cafeNumber || "All"],
       ["Period Type", activeReportTypeLabel],
       ["Period Start", reportData.period?.startDate || ""],
@@ -445,22 +518,23 @@ export default function CafeMealsPage() {
       ["Total Unserved", reportData.stats?.totalUnserved ?? ""],
     ];
 
-    Object.entries(reportData.stats?.breakdown || {}).forEach(([key, value]) => {
-      rows.push([
-        `${formatFastingTypeLabel(key)} Total`,
-        value?.total ?? "",
-      ]);
-      rows.push([
-        `${formatFastingTypeLabel(key)} Served`,
-        value?.served ?? "",
-      ]);
-      rows.push([
-        `${formatFastingTypeLabel(key)} Unserved`,
-        value?.unserved ?? "",
-      ]);
-    });
+    Object.entries(reportData.stats?.breakdown || {}).forEach(
+      ([key, value]) => {
+        rows.push([`${formatFastingTypeLabel(key)} Total`, value?.total ?? ""]);
+        rows.push([
+          `${formatFastingTypeLabel(key)} Served`,
+          value?.served ?? "",
+        ]);
+        rows.push([
+          `${formatFastingTypeLabel(key)} Unserved`,
+          value?.unserved ?? "",
+        ]);
+      },
+    );
 
-    const safeCafe = toSafeFilePart(reportData.cafeDisplayName || "cafes");
+    const safeCafe = toSafeFilePart(
+      reportCafeOption?.label || reportData.cafeDisplayName || "cafes",
+    );
     const safePeriod = toSafeFilePart(
       reportData.period?.startDate
         ? `${reportData.period.startDate}-${reportData.period.endDate || ""}`
@@ -530,7 +604,7 @@ export default function CafeMealsPage() {
                     Cafes
                   </p>
                   <p className="mt-2 text-lg font-black text-emerald-900">
-                    {cafeNumbers.length.toLocaleString()}
+                    {cafeOptions.length.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -592,9 +666,9 @@ export default function CafeMealsPage() {
                       className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
                     >
                       <option value="">All Cafes</option>
-                      {cafeNumbers.map((num) => (
-                        <option key={num} value={num}>
-                          Cafe {num}
+                      {cafeOptions.map((cafe) => (
+                        <option key={cafe.value} value={cafe.value}>
+                          {cafe.label}
                         </option>
                       ))}
                     </select>
@@ -624,10 +698,11 @@ export default function CafeMealsPage() {
                             key={mealType}
                             type="button"
                             onClick={() => setSelectedMealType(mealType)}
-                            className={`rounded-2xl border px-4 py-2.5 text-left transition ${active
+                            className={`rounded-2xl border px-4 py-2.5 text-left transition ${
+                              active
                                 ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
                                 : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-white"
-                              }`}
+                            }`}
                           >
                             <div className="text-sm font-semibold">
                               {getMealLabel(mealType)}
@@ -686,7 +761,9 @@ export default function CafeMealsPage() {
                     <div className="mt-3 rounded-2xl border border-blue-200 bg-white px-4 py-2.5 text-sm text-blue-800">
                       Applied time:{" "}
                       <span className="font-bold">
-                        {formatAppliedWindow(getAppliedWindowForSummary(mealSummary))}
+                        {formatAppliedWindow(
+                          getAppliedWindowForSummary(mealSummary),
+                        )}
                       </span>
                     </div>
                     <div className="mt-3 grid gap-2">
@@ -708,10 +785,11 @@ export default function CafeMealsPage() {
                         <button
                           type="button"
                           onClick={() => setDetailMode("total")}
-                          className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "total"
+                          className={`rounded-3xl p-3 text-left ring-1 transition ${
+                            detailMode === "total"
                               ? "bg-white ring-blue-300/50 ring-1"
                               : "bg-white ring-slate-200 ring-1 hover:bg-white"
-                            }`}
+                          }`}
                         >
                           <p className="text-sm text-blue-700 dark:text-blue-400">
                             Total Students
@@ -727,10 +805,11 @@ export default function CafeMealsPage() {
                         <button
                           type="button"
                           onClick={() => setDetailMode("regular")}
-                          className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "regular"
+                          className={`rounded-3xl p-3 text-left ring-1 transition ${
+                            detailMode === "regular"
                               ? "bg-white ring-blue-400/50 ring-1"
                               : "bg-white ring-blue-200 ring-1 hover:bg-white"
-                            }`}
+                          }`}
                         >
                           <p className="text-sm text-blue-700 dark:text-blue-400 text-slate-900 dark:text-white">
                             Regular Students
@@ -746,10 +825,11 @@ export default function CafeMealsPage() {
                         <button
                           type="button"
                           onClick={() => setDetailMode("internship")}
-                          className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "internship"
+                          className={`rounded-3xl p-3 text-left ring-1 transition ${
+                            detailMode === "internship"
                               ? "bg-white ring-fuchsia-300/50 ring-1"
                               : "bg-white ring-fuchsia-200 ring-1 hover:bg-white"
-                            }`}
+                          }`}
                         >
                           <p className="text-sm text-fuchsia-700 dark:text-fuchsia-400">
                             Internship Students
@@ -767,10 +847,11 @@ export default function CafeMealsPage() {
                         <button
                           type="button"
                           onClick={() => setDetailMode("served")}
-                          className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "served"
+                          className={`rounded-3xl p-3 text-left ring-1 transition ${
+                            detailMode === "served"
                               ? "bg-white ring-emerald-300/50 ring-1"
                               : "bg-white ring-emerald-200 ring-1 hover:bg-white"
-                            }`}
+                          }`}
                         >
                           <p className="text-sm text-emerald-700 dark:text-emerald-400">
                             Served Today
@@ -789,10 +870,11 @@ export default function CafeMealsPage() {
                         <button
                           type="button"
                           onClick={() => setDetailMode("notServed")}
-                          className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "notServed"
+                          className={`rounded-3xl p-3 text-left ring-1 transition ${
+                            detailMode === "notServed"
                               ? "bg-white ring-amber-300/50 ring-1"
                               : "bg-white ring-amber-200 ring-1 hover:bg-white"
-                            }`}
+                          }`}
                         >
                           <p className="text-sm text-amber-700 dark:text-amber-400">
                             Pending
@@ -891,10 +973,11 @@ export default function CafeMealsPage() {
                           key={type}
                           type="button"
                           onClick={() => setReportType(type)}
-                          className={`flex-1 rounded-2xl border py-2.5 text-center text-sm font-semibold capitalize transition ${reportType === type
+                          className={`flex-1 rounded-2xl border py-2.5 text-center text-sm font-semibold capitalize transition ${
+                            reportType === type
                               ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
                               : "border-slate-200 bg-white text-slate-600 hover:bg-white"
-                            }`}
+                          }`}
                         >
                           {type}
                         </button>
@@ -912,9 +995,9 @@ export default function CafeMealsPage() {
                       className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
                     >
                       <option value="">All Cafeterias</option>
-                      {cafeNumbers.map((num) => (
-                        <option key={num} value={num}>
-                          Cafe {num}
+                      {cafeOptions.map((cafe) => (
+                        <option key={cafe.value} value={cafe.value}>
+                          {cafe.label}
                         </option>
                       ))}
                     </select>
@@ -1040,10 +1123,11 @@ export default function CafeMealsPage() {
                 {reportData ? (
                   <div className="mt-2 flex flex-col h-full">
                     <h2 className="text-2xl font-black leading-tight text-[var(--app-text)] md:text-3xl">
-                      {reportData.cafeNumber
-                        ? reportData.cafeDisplayName ||
-                        `Cafe ${reportData.cafeNumber}`
-                        : "All Cafes"}
+                      {reportCafeOption?.label ||
+                        (reportData.cafeNumber
+                          ? reportData.cafeDisplayName ||
+                            `Cafe ${reportData.cafeNumber}`
+                          : "All Cafes")}
                     </h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                       {reportType === "daily"
@@ -1147,10 +1231,7 @@ export default function CafeMealsPage() {
                           <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
                             {Object.entries(reportData.stats.breakdown).map(
                               ([key, rowData]) => (
-                                <tr
-                                  key={key}
-                                  className="hover:bg-white"
-                                >
+                                <tr key={key} className="hover:bg-white">
                                   <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
                                     {formatFastingTypeLabel(key)}
                                   </td>
@@ -1181,7 +1262,7 @@ export default function CafeMealsPage() {
                             const servedPct =
                               categoryData.total > 0
                                 ? (categoryData.served / categoryData.total) *
-                                100
+                                  100
                                 : 0;
                             const colors = [
                               "from-blue-500 to-cyan-500",
