@@ -188,11 +188,13 @@ export default function CafeProfilePage() {
 
   if (!currentUser) return null;
   return (
-    <div className="page-shell relative flex min-h-screen items-center justify-center px-4 py-8 pt-4 md:px-20">
-      <div className="surface-panel w-full max-w-3xl rounded-3xl p-6 shadow-xl">
-        <h1 className="mb-4 text-center text-xl font-bold md:text-2xl">Edit Profile</h1>
+    <div className="page-shell fixed inset-0 flex items-start justify-center overflow-y-auto px-4 pt-24 pb-8 md:px-10">
+      <div className="surface-panel w-full max-w-3xl max-h-[calc(100vh-12rem)] flex-col rounded-3xl p-4 shadow-xl md:p-6">
+        <h1 className="mb-2 text-center text-xl font-bold md:text-2xl">
+          Edit Profile
+        </h1>
 
-        <div className="relative mb-6 flex flex-col items-center">
+        <div className="relative mb-3 flex flex-col items-center">
           <div className="relative h-20 w-20">
             <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-white/20 shadow-lg transition-shadow duration-300 hover:shadow-blue-500/50">
               {currentUser?.campus?.logo?.url || currentUser?.logo?.url ? (
@@ -216,20 +218,23 @@ export default function CafeProfilePage() {
               {currentUser.displayName || currentUser.name}
             </p>
             <p className="mt-0.5 text-xs text-[var(--app-text-soft)]">
-              Cafeteria account
+              Cafe manager account
             </p>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid flex-1 min-h-0 gap-4 overflow-hidden md:grid-cols-2">
           {/* Left Column - Password Form */}
-          <form onSubmit={handleSaveChanges} className="space-y-4">
-            <h3 className="text-base font-bold text-inherit border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+          <form
+            onSubmit={handleSaveChanges}
+            className="space-y-3 overflow-hidden"
+          >
+            <h3 className="mb-2 border-b border-slate-100 pb-2 text-base font-bold text-inherit dark:border-slate-800">
               Update Password
             </h3>
-            
+
             <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider text-yellow-600 block mb-1.5 ml-1">
+              <label className="mb-1.5 ml-1 block text-[10px] font-bold uppercase tracking-wider text-yellow-600">
                 Current Password (required to change password)
               </label>
               <div className="relative">
@@ -254,9 +259,9 @@ export default function CafeProfilePage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5 ml-1">
+                <label className="mb-1.5 ml-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   New Password
                 </label>
                 <div className="relative">
@@ -282,7 +287,7 @@ export default function CafeProfilePage() {
               </div>
 
               <div>
-                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5 ml-1">
+                <label className="mb-1.5 ml-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Confirm New Password
                 </label>
                 <div className="relative">
@@ -309,10 +314,10 @@ export default function CafeProfilePage() {
             </div>
 
             {error && (
-              <p className="text-red-500 text-xs font-semibold">{error}</p>
+              <p className="text-xs font-semibold text-red-500">{error}</p>
             )}
             {message && (
-              <p className="text-green-500 text-xs font-semibold">{message}</p>
+              <p className="text-xs font-semibold text-green-500">{message}</p>
             )}
 
             <button
@@ -325,20 +330,26 @@ export default function CafeProfilePage() {
           </form>
 
           {/* Right Column - Email change separate verification flow */}
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-inherit border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+          <div className="space-y-3 overflow-hidden">
+            <h3 className="mb-2 border-b border-slate-100 pb-2 text-base font-bold text-inherit dark:border-slate-800">
               Change Email Address
             </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs leading-relaxed text-slate-500">
               Changing your email address requires verifying your ownership of
               the new email via a one-time passcode (OTP).
             </p>
             <p className="text-xs text-slate-400 italic">
-              Current email: <span className="font-semibold text-inherit">{currentUser.email}</span>
+              Current email:{" "}
+              <span className="font-semibold text-inherit">
+                {currentUser.email}
+              </span>
             </p>
 
             {!showOtpField ? (
-              <form onSubmit={handleRequestOtp} className="flex flex-col sm:flex-row gap-3">
+              <form
+                onSubmit={handleRequestOtp}
+                className="flex flex-col gap-3 sm:flex-row"
+              >
                 <input
                   type="email"
                   value={newEmail}
@@ -349,7 +360,7 @@ export default function CafeProfilePage() {
                 />
                 <button
                   type="submit"
-                  className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition shrink-0"
+                  className="shrink-0 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700"
                 >
                   Send OTP
                 </button>
@@ -392,10 +403,10 @@ export default function CafeProfilePage() {
             )}
 
             {emailError && (
-              <p className="text-red-500 text-xs font-semibold">{emailError}</p>
+              <p className="text-xs font-semibold text-red-500">{emailError}</p>
             )}
             {emailMessage && (
-              <p className="text-green-500 text-xs font-semibold">
+              <p className="text-xs font-semibold text-green-500">
                 {emailMessage}
               </p>
             )}

@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useUser } from "../../context/UserContext";
 import { getAppDayString } from "@/app/utils/appTimezone";
+import { downloadCsv } from "@/app/utils/exportCsv";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -41,6 +42,16 @@ const formatDate = (date) =>
 
 const formatWindowTime = (value, fallback = "Not available") =>
   value || fallback;
+
+const hasUsableWindow = (window) =>
+  Boolean(window && (window.label || (window.start && window.end)));
+
+const formatAppliedWindow = (window, fallback = "--:-- - --:--") => {
+  if (!hasUsableWindow(window)) return fallback;
+  if (window.label) return window.label;
+  if (window.start && window.end) return `${window.start} - ${window.end}`;
+  return fallback;
+};
 
 const formatFastingTypeLabel = (type) => {
   if (!type) return "Unknown";
@@ -81,6 +92,13 @@ const REPORT_MONTHS = [
 ];
 
 const REPORT_YEARS = ["2025", "2026", "2027", "2028", "2029", "2030"];
+
+const toSafeFilePart = (value, fallback = "data") =>
+  String(value || fallback)
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || fallback;
 
 export default function CafeMealsPage() {
   const { currentUser } = useUser();
@@ -298,54 +316,258 @@ export default function CafeMealsPage() {
     return "All Cafes";
   };
 
+  const getAppliedWindowForSummary = (summary) => {
+    const selectedScheduleWindow = mealSchedule?.[selectedMealType];
+    if (hasUsableWindow(selectedScheduleWindow)) {
+      return selectedScheduleWindow;
+    }
+
+    const directWindow = summary?.appliedMealWindow;
+    if (hasUsableWindow(directWindow)) {
+      return directWindow;
+    }
+
+    const scheduleWindow = summary?.mealSchedule?.[summary?.mealType];
+    if (hasUsableWindow(scheduleWindow)) {
+      return scheduleWindow;
+    }
+
+    return null;
+  };
+
+  const handleExportMealSummary = () => {
+    if (!mealSummary) return;
+
+    const appliedWindow = getAppliedWindowForSummary(mealSummary);
+    const rows = [
+      ["Campus", mealSummary.campusName || ""],
+      ["Cafe", mealSummary.cafeDisplayName || `Cafe ${mealSummary.cafeNumber || ""}`],
+      ["Cafe Number", mealSummary.cafeNumber || ""],
+      [
+        "Date",
+        mealSummary.date
+          ? new Date(mealSummary.date).toISOString().split("T")[0]
+          : "",
+      ],
+      ["Meal Type", getMealLabel(mealSummary.mealType)],
+      ["Applied Time", formatAppliedWindow(appliedWindow)],
+      ["Opened Time", mealSummary.actualMealWindow?.openedAt || ""],
+      ["Closed Time", mealSummary.actualMealWindow?.closedAt || ""],
+      ["Total Students", mealSummary.totalStudents ?? ""],
+      ["Regular Students", mealSummary.regularStudents ?? ""],
+      ["Internship Students", mealSummary.internshipStudents ?? ""],
+      ["Served Students", mealSummary.servedStudents ?? ""],
+      ["Pending Students", mealSummary.notServedStudents ?? ""],
+      ["Fasting", mealSummary.fastingBreakdown?.fasting ?? ""],
+      ["Sunday Fasting", mealSummary.fastingBreakdown?.sundayFasting ?? ""],
+      ["Muslim Fasting", mealSummary.fastingBreakdown?.muslimFasting ?? ""],
+      ["Not Fasting", mealSummary.fastingBreakdown?.notFasting ?? ""],
+      ["Regular Fasting", mealSummary.regularFastingBreakdown?.fasting ?? ""],
+      [
+        "Regular Sunday Fasting",
+        mealSummary.regularFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Regular Muslim Fasting",
+        mealSummary.regularFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Regular Not Fasting",
+        mealSummary.regularFastingBreakdown?.notFasting ?? "",
+      ],
+      [
+        "Internship Fasting",
+        mealSummary.internshipFastingBreakdown?.fasting ?? "",
+      ],
+      [
+        "Internship Sunday Fasting",
+        mealSummary.internshipFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Internship Muslim Fasting",
+        mealSummary.internshipFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Internship Not Fasting",
+        mealSummary.internshipFastingBreakdown?.notFasting ?? "",
+      ],
+      ["Served Fasting", mealSummary.servedFastingBreakdown?.fasting ?? ""],
+      [
+        "Served Sunday Fasting",
+        mealSummary.servedFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Served Muslim Fasting",
+        mealSummary.servedFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Served Not Fasting",
+        mealSummary.servedFastingBreakdown?.notFasting ?? "",
+      ],
+      ["Pending Fasting", mealSummary.notServedFastingBreakdown?.fasting ?? ""],
+      [
+        "Pending Sunday Fasting",
+        mealSummary.notServedFastingBreakdown?.sundayFasting ?? "",
+      ],
+      [
+        "Pending Muslim Fasting",
+        mealSummary.notServedFastingBreakdown?.muslimFasting ?? "",
+      ],
+      [
+        "Pending Not Fasting",
+        mealSummary.notServedFastingBreakdown?.notFasting ?? "",
+      ],
+    ];
+
+    const safeCafe = toSafeFilePart(mealSummary.cafeDisplayName || "cafe");
+    const safeMeal = toSafeFilePart(mealSummary.mealType || "meal");
+    const safeDate = mealSummary.date
+      ? new Date(mealSummary.date).toISOString().split("T")[0]
+      : "date";
+
+    downloadCsv(
+      `${safeCafe}-${safeDate}-${safeMeal}-summary.csv`,
+      rows,
+    );
+  };
+
+  const handleExportReportSummary = () => {
+    if (!reportData) return;
+
+    const rows = [
+      ["Cafe", reportData.cafeDisplayName || `Cafe ${reportData.cafeNumber || "All"}`],
+      ["Cafe Number", reportData.cafeNumber || "All"],
+      ["Period Type", activeReportTypeLabel],
+      ["Period Start", reportData.period?.startDate || ""],
+      ["Period End", reportData.period?.endDate || ""],
+      ["Total Regular", reportData.stats?.totalRegular ?? ""],
+      ["Total Served", reportData.stats?.totalServed ?? ""],
+      ["Total Unserved", reportData.stats?.totalUnserved ?? ""],
+    ];
+
+    Object.entries(reportData.stats?.breakdown || {}).forEach(([key, value]) => {
+      rows.push([
+        `${formatFastingTypeLabel(key)} Total`,
+        value?.total ?? "",
+      ]);
+      rows.push([
+        `${formatFastingTypeLabel(key)} Served`,
+        value?.served ?? "",
+      ]);
+      rows.push([
+        `${formatFastingTypeLabel(key)} Unserved`,
+        value?.unserved ?? "",
+      ]);
+    });
+
+    const safeCafe = toSafeFilePart(reportData.cafeDisplayName || "cafes");
+    const safePeriod = toSafeFilePart(
+      reportData.period?.startDate
+        ? `${reportData.period.startDate}-${reportData.period.endDate || ""}`
+        : "period",
+    );
+
+    downloadCsv(`${safeCafe}-${safePeriod}-report.csv`, rows);
+  };
+
+  const activeHistoryRangeLabel =
+    HISTORY_RANGE_OPTIONS.find((item) => item.value === historyRange)?.label ||
+    "Daily";
+  const activeReportTypeLabel =
+    REPORT_TYPES.find((item) => item.value === reportType)?.label || "Daily";
+
   return (
     <>
-      <div className="page-shell flex h-[calc(100vh-5rem)] flex-col overflow-hidden px-4 pb-4 pt-2 md:px-6 md:pt-3">
-        <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden">
-          <div className="surface-panel mb-4 rounded-[28px] p-5 md:p-6">
-            <p className="text-sm uppercase tracking-[0.35em] text-blue-500/80">
-              Cafe Manager Meals
-            </p>
-            <h1
-              className={`mt-2 text-3xl font-black tracking-tight md:text-4xl ${activeTab === "sessionHistory"
-                  ? "text-blue-600 dark:text-blue-600"
-                  : "text-blue-600 dark:text-blue-600"
-                }`}
-            >
-              {activeTab === "sessionHistory"
-                ? "Session Meal History"
-                : "Cafeteria Attendance Reports"}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm text-[var(--app-text-soft)] md:text-sm">
-              {activeTab === "sessionHistory"
-                ? "Check one date and one session to see how many students were available, served, and not served without listing individual students."
-                : "Generate attendance reports for regular students, including fasting breakdowns across daily, weekly, and monthly periods."}
-            </p>
+      <div className="page-shell relative min-h-[calc(100vh-5rem)] overflow-hidden px-4 pb-6 pt-3 md:px-6 md:pt-4">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-20 top-10 h-64 w-64 rounded-full bg-blue-200/20 blur-3xl" />
+          <div className="absolute right-0 top-28 h-72 w-72 rounded-full bg-sky-200/20 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-indigo-200/10 blur-3xl" />
+        </div>
+        <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden gap-5">
+          <div className="surface-panel relative overflow-hidden rounded-[32px] border border-slate-200/80 p-6 md:p-8">
+            <div className="absolute right-0 top-0 h-32 w-32 -translate-y-1/3 translate-x-1/3 rounded-full bg-blue-500/10 blur-3xl" />
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-xs font-bold uppercase tracking-[0.45em] text-blue-600/80">
+                  Cafe Manager Meals
+                </p>
+                <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900 md:text-5xl">
+                  {activeTab === "sessionHistory"
+                    ? "Session Meal History"
+                    : "Cafeteria Attendance Reports"}
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 md:text-base">
+                  {activeTab === "sessionHistory"
+                    ? "Review a single meal session with clear counts for served, pending, regular, and internship students."
+                    : "Build clear attendance reports for daily, weekly, or monthly periods with fasting breakdowns that are easy to scan."}
+                </p>
+              </div>
 
-            <div className="mt-4 flex border-b border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setActiveTab("sessionHistory")}
-                className={`pb-3 text-sm font-bold tracking-wide transition border-b-2 mr-6 ${activeTab === "sessionHistory"
-                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                  }`}
-              >
-                Session History
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("attendanceReports")}
-                className={`pb-3 text-sm font-bold tracking-wide transition border-b-2 ${activeTab === "attendanceReports"
-                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                  }`}
-              >
-                Attendance Reports
-              </button>
+              <div className="grid gap-3 sm:grid-cols-3 lg:w-[28rem]">
+                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Active View
+                  </p>
+                  <p className="mt-2 text-lg font-black text-slate-900">
+                    {activeTab === "sessionHistory"
+                      ? "Meal Snapshot"
+                      : "Attendance Report"}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
+                    Summary Range
+                  </p>
+                  <p className="mt-2 text-lg font-black text-blue-900">
+                    {activeTab === "sessionHistory"
+                      ? activeHistoryRangeLabel
+                      : activeReportTypeLabel}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">
+                    Cafes
+                  </p>
+                  <p className="mt-2 text-lg font-black text-emerald-900">
+                    {cafeNumbers.length.toLocaleString()}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Period selectors moved to Attendance Reports only */}
+            <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-2 shadow-inner">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("sessionHistory")}
+                  className={`rounded-[22px] px-4 py-3 text-left transition ${
+                    activeTab === "sessionHistory"
+                      ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
+                      : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+                  }`}
+                >
+                  <div className="text-sm font-bold">Session History</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Check one date and one meal session.
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("attendanceReports")}
+                  className={`rounded-[22px] px-4 py-3 text-left transition ${
+                    activeTab === "attendanceReports"
+                      ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
+                      : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+                  }`}
+                >
+                  <div className="text-sm font-bold">Attendance Reports</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Generate daily, weekly, or monthly reports.
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
 
           {activeTab === "sessionHistory" && (
@@ -400,11 +622,11 @@ export default function CafeMealsPage() {
                         return (
                           <button
                             key={mealType}
-                            type="button;;"
+                            type="button"
                             onClick={() => setSelectedMealType(mealType)}
                             className={`rounded-2xl border px-4 py-2.5 text-left transition ${active
-                                ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400"
-                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900"
+                                ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-white"
                               }`}
                           >
                             <div className="text-sm font-semibold">
@@ -440,6 +662,15 @@ export default function CafeMealsPage() {
                 <p className="text-xs uppercase tracking-[0.3em] text-blue-500/80">
                   Snapshot
                 </p>
+                {mealSummary && (
+                  <button
+                    type="button"
+                    onClick={handleExportMealSummary}
+                    className="mt-3 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Export Summary
+                  </button>
+                )}
 
                 {mealSummary ? (
                   <>
@@ -452,13 +683,10 @@ export default function CafeMealsPage() {
                         {getMealLabel(mealSummary.mealType)}
                       </p>
                     </div>
-                    <div className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-2.5 text-sm text-blue-800 dark:text-blue-300">
+                    <div className="mt-3 rounded-2xl border border-blue-200 bg-white px-4 py-2.5 text-sm text-blue-800">
                       Applied time:{" "}
                       <span className="font-bold">
-                        {formatWindowTime(
-                          mealSummary.appliedMealWindow?.label,
-                          "--:-- - --:--",
-                        )}
+                        {formatAppliedWindow(getAppliedWindowForSummary(mealSummary))}
                       </span>
                     </div>
                     <div className="mt-3 grid gap-2">
@@ -481,8 +709,8 @@ export default function CafeMealsPage() {
                           type="button"
                           onClick={() => setDetailMode("total")}
                           className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "total"
-                              ? "bg-blue-50 dark:bg-blue-950/20 ring-blue-300/50 dark:ring-blue-800"
-                              : "bg-white dark:bg-slate-950 ring-slate-200 dark:ring-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900"
+                              ? "bg-white ring-blue-300/50 ring-1"
+                              : "bg-white ring-slate-200 ring-1 hover:bg-white"
                             }`}
                         >
                           <p className="text-sm text-blue-700 dark:text-blue-400">
@@ -500,8 +728,8 @@ export default function CafeMealsPage() {
                           type="button"
                           onClick={() => setDetailMode("regular")}
                           className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "regular"
-                              ? "bg-blue-100 dark:bg-blue-950/30 ring-blue-400/50 dark:ring-blue-800"
-                              : "bg-blue-50/60 dark:bg-blue-950/10 ring-blue-200 dark:ring-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                              ? "bg-white ring-blue-400/50 ring-1"
+                              : "bg-white ring-blue-200 ring-1 hover:bg-white"
                             }`}
                         >
                           <p className="text-sm text-blue-700 dark:text-blue-400 text-slate-900 dark:text-white">
@@ -519,8 +747,8 @@ export default function CafeMealsPage() {
                           type="button"
                           onClick={() => setDetailMode("internship")}
                           className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "internship"
-                              ? "bg-fuchsia-50 dark:bg-fuchsia-950/20 ring-fuchsia-300/50 dark:ring-fuchsia-800"
-                              : "bg-fuchsia-50/70 dark:bg-fuchsia-950/10 ring-fuchsia-200 dark:ring-fuchsia-900 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/20"
+                              ? "bg-white ring-fuchsia-300/50 ring-1"
+                              : "bg-white ring-fuchsia-200 ring-1 hover:bg-white"
                             }`}
                         >
                           <p className="text-sm text-fuchsia-700 dark:text-fuchsia-400">
@@ -540,8 +768,8 @@ export default function CafeMealsPage() {
                           type="button"
                           onClick={() => setDetailMode("served")}
                           className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "served"
-                              ? "bg-emerald-50 dark:bg-emerald-950/20 ring-emerald-300/50 dark:ring-emerald-800"
-                              : "bg-emerald-50/70 dark:bg-emerald-950/10 ring-emerald-200 dark:ring-emerald-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                              ? "bg-white ring-emerald-300/50 ring-1"
+                              : "bg-white ring-emerald-200 ring-1 hover:bg-white"
                             }`}
                         >
                           <p className="text-sm text-emerald-700 dark:text-emerald-400">
@@ -562,8 +790,8 @@ export default function CafeMealsPage() {
                           type="button"
                           onClick={() => setDetailMode("notServed")}
                           className={`rounded-3xl p-3 text-left ring-1 transition ${detailMode === "notServed"
-                              ? "bg-amber-50 dark:bg-amber-950/20 ring-amber-300/50 dark:ring-amber-800"
-                              : "bg-amber-50/70 dark:bg-amber-950/10 ring-amber-200 dark:ring-amber-900 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                              ? "bg-white ring-amber-300/50 ring-1"
+                              : "bg-white ring-amber-200 ring-1 hover:bg-white"
                             }`}
                         >
                           <p className="text-sm text-amber-700 dark:text-amber-400">
@@ -582,7 +810,7 @@ export default function CafeMealsPage() {
                       </div>
 
                       {mealSummary?.fastingBreakdown && (
-                        <div className="rounded-3xl bg-slate-50 dark:bg-slate-900/30 p-3 ring-1 ring-slate-200 dark:ring-slate-800 mt-3">
+                        <div className="rounded-3xl bg-white p-3 ring-1 ring-slate-200 mt-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div>
                               <p className="text-xs font-semibold text-slate-900 dark:text-white">
@@ -594,7 +822,7 @@ export default function CafeMealsPage() {
                             </div>
                           </div>
                           <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-amber-50 dark:bg-amber-950/20 p-2.5 ring-1 ring-amber-200 dark:ring-amber-900">
+                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-white p-2.5 ring-1 ring-amber-200">
                               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                                 Fasting
                               </p>
@@ -602,7 +830,7 @@ export default function CafeMealsPage() {
                                 {activeBreakdown?.fasting ?? 0}
                               </p>
                             </div>
-                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-violet-50 dark:bg-violet-950/20 p-2.5 ring-1 ring-violet-200 dark:ring-violet-900">
+                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-white p-2.5 ring-1 ring-violet-200">
                               <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-400">
                                 Sunday Fasting
                               </p>
@@ -610,7 +838,7 @@ export default function CafeMealsPage() {
                                 {activeBreakdown?.sundayFasting ?? 0}
                               </p>
                             </div>
-                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 p-2.5 ring-1 ring-emerald-200 dark:ring-emerald-900">
+                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-white p-2.5 ring-1 ring-emerald-200">
                               <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
                                 Muslim Fasting
                               </p>
@@ -618,7 +846,7 @@ export default function CafeMealsPage() {
                                 {activeBreakdown?.muslimFasting ?? 0}
                               </p>
                             </div>
-                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-slate-100 dark:bg-slate-900/40 p-2.5 ring-1 ring-slate-200 dark:ring-slate-800">
+                            <div className="flex min-h-[88px] flex-col justify-between rounded-2xl bg-white p-2.5 ring-1 ring-slate-200">
                               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-400">
                                 Not Fasting
                               </p>
@@ -632,7 +860,7 @@ export default function CafeMealsPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="mt-6 rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/20 p-6 text-sm text-slate-600 dark:text-slate-400">
+                  <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600">
                     Pick a date and session, then load the summary to see meal
                     history for that exact selection.
                   </div>
@@ -642,8 +870,8 @@ export default function CafeMealsPage() {
           )}
 
           {activeTab === "attendanceReports" && (
-            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] overflow-y-auto pr-1">
-              <div className="surface-card flex min-h-0 flex-col rounded-[28px] p-5">
+            <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] overflow-y-auto pr-1 pb-1">
+              <div className="surface-card flex min-h-0 flex-col rounded-[30px] border border-slate-200 bg-white/95 p-6 shadow-sm">
                 <h2 className="text-xl font-bold text-[var(--app-text)]">
                   Report Filters
                 </h2>
@@ -664,8 +892,8 @@ export default function CafeMealsPage() {
                           type="button"
                           onClick={() => setReportType(type)}
                           className={`flex-1 rounded-2xl border py-2.5 text-center text-sm font-semibold capitalize transition ${reportType === type
-                              ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400"
-                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
+                              ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-white"
                             }`}
                         >
                           {type}
@@ -795,10 +1023,19 @@ export default function CafeMealsPage() {
                 )}
               </div>
 
-              <div className="surface-panel flex min-h-0 flex-col rounded-[28px] p-5 overflow-y-auto">
+              <div className="surface-panel flex min-h-0 flex-col rounded-[30px] border border-slate-200 bg-white/95 p-6 shadow-sm overflow-y-auto">
                 <p className="text-xs uppercase tracking-[0.3em] text-blue-500/80">
                   Report Summary
                 </p>
+                {reportData && (
+                  <button
+                    type="button"
+                    onClick={handleExportReportSummary}
+                    className="mt-3 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Export Summary
+                  </button>
+                )}
 
                 {reportData ? (
                   <div className="mt-2 flex flex-col h-full">
@@ -817,36 +1054,36 @@ export default function CafeMealsPage() {
                     </p>
 
                     <div className="grid gap-3 grid-cols-3 mt-5">
-                      <div className="rounded-3xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-4 text-left">
-                        <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                      <div className="rounded-3xl bg-white border border-blue-100 p-4 text-left">
+                        <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">
                           Total Regular
                         </p>
-                        <p className="mt-1 text-2xl font-black text-blue-900 dark:text-blue-200">
+                        <p className="mt-1 text-2xl font-black text-blue-900">
                           {reportData.stats.totalRegular.toLocaleString()}
                         </p>
                       </div>
 
-                      <div className="rounded-3xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 p-4 text-left">
-                        <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                      <div className="rounded-3xl bg-white border border-emerald-100 p-4 text-left">
+                        <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
                           Served
                         </p>
-                        <p className="mt-1 text-2xl font-black text-emerald-900 dark:text-emerald-200">
+                        <p className="mt-1 text-2xl font-black text-emerald-900">
                           {reportData.stats.totalServed.toLocaleString()}
                         </p>
                       </div>
 
-                      <div className="rounded-3xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 p-4 text-left">
-                        <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+                      <div className="rounded-3xl bg-white border border-amber-100 p-4 text-left">
+                        <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
                           Unserved
                         </p>
-                        <p className="mt-1 text-2xl font-black text-amber-900 dark:text-amber-200">
+                        <p className="mt-1 text-2xl font-black text-amber-900">
                           {reportData.stats.totalUnserved.toLocaleString()}
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-6 p-4 rounded-3xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                      <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                    <div className="mt-6 rounded-3xl bg-white p-4 border border-slate-200">
+                      <h3 className="text-sm font-bold text-slate-800">
                         Served Progress Ratio
                       </h3>
                       <div className="mt-3">
@@ -870,7 +1107,7 @@ export default function CafeMealsPage() {
                             %)
                           </span>
                         </div>
-                        <div className="w-full h-4 rounded-full bg-slate-100 dark:bg-slate-900 overflow-hidden flex">
+                        <div className="w-full h-4 rounded-full bg-white overflow-hidden flex">
                           <div
                             style={{
                               width: `${(reportData.stats.totalServed / (reportData.stats.totalRegular || 1)) * 100}%`,
@@ -881,7 +1118,7 @@ export default function CafeMealsPage() {
                             style={{
                               width: `${(reportData.stats.totalUnserved / (reportData.stats.totalRegular || 1)) * 100}%`,
                             }}
-                            className="h-full bg-amber-500 dark:bg-amber-600"
+                            className="h-full bg-amber-500"
                           />
                         </div>
                       </div>
@@ -894,7 +1131,7 @@ export default function CafeMealsPage() {
                       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
                         <table className="w-full text-left border-collapse">
                           <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-900 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                            <tr className="bg-white text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                               <th className="px-4 py-3">Fasting Type</th>
                               <th className="px-4 py-3 text-right">
                                 Total Students
@@ -912,7 +1149,7 @@ export default function CafeMealsPage() {
                               ([key, rowData]) => (
                                 <tr
                                   key={key}
-                                  className="hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                                  className="hover:bg-white"
                                 >
                                   <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
                                     {formatFastingTypeLabel(key)}
@@ -934,7 +1171,7 @@ export default function CafeMealsPage() {
                       </div>
                     </div>
 
-                    <div className="mt-6 p-4 rounded-3xl bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800">
+                    <div className="mt-6 rounded-3xl bg-white p-4 border border-slate-200">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
                         Attendance by Fasting Type
                       </h3>
@@ -981,7 +1218,7 @@ export default function CafeMealsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-6 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/10 p-8 text-center text-sm text-slate-600 dark:text-slate-400">
+                  <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
                     <p className="font-semibold">No report generated yet</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Pick your parameters on the left and click &quot;Generate

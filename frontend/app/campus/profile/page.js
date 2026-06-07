@@ -3,9 +3,9 @@
 import { React, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import CampusNavbar from "../../components/CampusNavbar";
 import { useCampus } from "../../context/CampusContext";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
-import CampusNavbar from "../../components/CampusNavbar";
 import { getApiMessage, getErrorMessage } from "../../utils/userMessage";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -15,8 +15,6 @@ export default function CampusProfilePage() {
   const { currentCampus, refreshCampus, loading: campusLoading } = useCampus();
 
   const [savingChanges, setSavingChanges] = useState(false);
-
-  const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -26,44 +24,20 @@ export default function CampusProfilePage() {
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [syncing, setSyncing] = useState(false);
-  // Email Change state
+
   const [newEmail, setNewEmail] = useState("");
   const [showOtpField, setShowOtpField] = useState(false);
   const [otp, setOtp] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailError, setEmailError] = useState("");
-  const handleSyncStudents = async () => {
-    setSyncing(true);
-    setMessage("");
-    setError("");
-    try {
-      const res = await fetch(`${url}/campus/students/sync`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(getApiMessage(data, "Could not sync students."));
-      }
-      setMessage(getApiMessage(data, "Students synced successfully!"));
-      setTimeout(() => setMessage(""), 3000);
-    } catch (err) {
-      setError(getErrorMessage(err, "Could not sync students."));
-      setTimeout(() => setError(""), 3000);
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   useEffect(() => {
-    if (currentCampus) {
-      setName(currentCampus.name || "");
-      setLocation(currentCampus.location || "");
-      setEmail(currentCampus.email || "");
-    }
+    if (!currentCampus) return;
+    setLocation(currentCampus.location || "");
+    setEmail(currentCampus.email || "");
   }, [currentCampus]);
 
   useEffect(() => {
@@ -121,16 +95,14 @@ export default function CampusProfilePage() {
         );
       }
 
-      setMessage(
-        getApiMessage(
-          dataProfile,
-          "Profile updated successfully!"
-        ),
-      );
-
+      setMessage(getApiMessage(dataProfile, "Profile updated successfully!"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+
+      if (refreshCampus) {
+        await refreshCampus();
+      }
 
       setTimeout(() => setMessage(""), 5000);
     } catch (err) {
@@ -148,7 +120,7 @@ export default function CampusProfilePage() {
 
     if (
       !newEmail ||
-      newEmail.toLowerCase() === currentCampus.email.toLowerCase()
+      newEmail.toLowerCase() === String(currentCampus?.email || "").toLowerCase()
     ) {
       setEmailError("Please enter a new email address.");
       return;
@@ -188,9 +160,7 @@ export default function CampusProfilePage() {
       if (!res.ok) {
         throw new Error(getApiMessage(data, "Invalid or expired OTP."));
       }
-      setEmailMessage(
-        "Email updated successfully!",
-      );
+      setEmailMessage("Email updated successfully!");
       setShowOtpField(false);
       setNewEmail("");
       setOtp("");
@@ -204,266 +174,256 @@ export default function CampusProfilePage() {
   };
 
   if (campusLoading || !currentCampus) {
-    return (
-      <div className="page-shell p-10 pt-28 text-slate-500">Loading...</div>
-    );
+    return null;
   }
 
   return (
-    <div className="page-shell flex min-h-screen flex-col overflow-y-auto pb-10">
+    <>
       <CampusNavbar />
+      <div className="page-shell min-h-screen px-4 pb-10 pt-24 md:px-20">
+        <div className="mx-auto max-w-3xl">
+          <div className="surface-panel rounded-3xl p-6 shadow-xl">
+            <h1 className="mb-4 text-center text-xl font-bold md:text-2xl">
+              Edit Profile
+            </h1>
 
-      <main className="flex-1 flex items-center justify-center p-4 pt-20">
-        <div className="surface-panel w-full max-w-md scale-95 rounded-2xl p-5 sm:scale-100">
-
-
-          <div className="flex flex-col items-center mb-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-500 shadow-lg mb-2">
-              {currentCampus?.logo?.url ? (
-                <Image
-                  src={currentCampus.logo.url}
-                  alt="Logo"
-                  width={80}
-                  height={80}
-                  className="object-cover w-full h-full"
-                />
-              ) : (
-                <div className="w-full h-full bg-blue-600 flex items-center justify-center font-bold text-2xl">
-                  {name?.charAt(0)}
-                </div>
-              )}
-            </div>
-            <div className="mt-2 max-w-full px-4 text-center">
-              <h2 className="break-words text-lg font-bold text-slate-900">
-                {name || currentCampus?.name || "Campus"}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">Campus profile</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSaveChanges} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 sm:col-span-1">
-                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  disabled={true}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-3 py-1.5 outline-none text-slate-500 dark:bg-slate-950 text-sm opacity-60 cursor-not-allowed"
-                />
-              </div>
-              <div className="col-span-2 sm:col-span-1">
-                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="field-surface w-full rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <label className="text-[10px] text-yellow-500 uppercase tracking-wider ml-1">
-                Current Password (required to change password)
-              </label>
-              <div className="relative">
-                <input
-                  type={showCurrentPass ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-lg border border-yellow-200 bg-white px-3 py-1.5 pr-10 text-sm text-slate-900 outline-none focus:border-yellow-500/50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPass(!showCurrentPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                >
-                  {showCurrentPass ? (
-                    <AiOutlineEyeInvisible size={16} />
+            <div className="relative mb-6 flex flex-col items-center">
+              <div className="relative h-20 w-20">
+                <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-white/20 shadow-lg transition-shadow duration-300 hover:shadow-blue-500/50">
+                  {currentCampus?.logo?.url ? (
+                    <Image
+                      src={currentCampus.logo.url}
+                      alt="Logo"
+                      width={80}
+                      height={80}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
-                    <AiOutlineEye size={16} />
+                    <div className="flex h-full w-full items-center justify-center bg-slate-300 text-xl font-bold text-white">
+                      {currentCampus?.name?.charAt(0) || "C"}
+                    </div>
                   )}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
-                  New Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showNewPass ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="field-surface w-full rounded-lg px-3 py-1.5 pr-8 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
-                  >
-                    {showNewPass ? (
-                      <AiOutlineEyeInvisible size={14} />
-                    ) : (
-                      <AiOutlineEye size={14} />
-                    )}
-                  </button>
                 </div>
               </div>
-              <div>
-                <label className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPass ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="field-surface w-full rounded-lg px-3 py-1.5 pr-8 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPass(!showConfirmPass)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
-                  >
-                    {showConfirmPass ? (
-                      <AiOutlineEyeInvisible size={14} />
-                    ) : (
-                      <AiOutlineEye size={14} />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
 
-            <div className="h-4 flex items-center justify-center">
-              {message && (
-                <p className="text-green-400 text-[11px] text-center">
-                  {message}
+              <div className="mt-2 max-w-full px-4 text-center">
+                <p className="break-words text-base font-semibold text-[var(--app-text)]">
+                  {currentCampus?.name || "Campus"}
                 </p>
-              )}
-              {error && (
-                <p className="text-red-400 text-[11px] text-center">{error}</p>
-              )}
+                <p className="mt-0.5 text-xs text-[var(--app-text-soft)]">
+                  Campus account
+                </p>
+              </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={savingChanges}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-xl text-sm font-bold shadow-lg transition-all disabled:opacity-50 mt-2"
-            >
-              {savingChanges ? "Saving..." : "Save Changes"}
-            </button>
-          </form>
+            <div className="grid gap-6 md:grid-cols-2">
+              <form onSubmit={handleSaveChanges} className="space-y-4">
+                <div>
+                  <h3 className="mb-2 border-b border-slate-100 pb-2 text-base font-bold text-inherit dark:border-slate-800">
+                    Profile Information
+                  </h3>
 
-          {/* Email change separate verification flow */}
-          <div className="mt-4 border-t border-slate-700/30 pt-4 space-y-3">
-            <div className="text-left">
-              <h3 className="text-xs font-semibold text-slate-800">
-                Change Email Address
-              </h3>
-              <p className="text-[10px] text-slate-500 leading-normal text-left">
-                Changing your email address requires verifying your ownership of
-                the new email via a one-time passcode (OTP).
-              </p>
-              <p className="text-[10px] text-slate-400 italic mt-0.5 text-left">
-                Current email: {email}
-              </p>
-            </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1.5 ml-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="Campus location"
+                        className="field-surface w-full rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
 
-            {!showOtpField ? (
-              <form onSubmit={handleRequestOtp} className="flex gap-2">
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="new-email@example.com"
-                  className="flex-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white px-3 py-1.5 outline-none focus:border-blue-500 dark:bg-white text-xs"
-                  required
-                />
+                <h3 className="mb-2 border-b border-slate-100 pb-2 text-base font-bold text-inherit dark:border-slate-800">
+                  Update Password
+                </h3>
+
+                <div>
+                  <label className="mb-1.5 ml-1 block text-[10px] font-bold uppercase tracking-wider text-yellow-600">
+                    Current Password (required to change password)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPass ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="field-surface w-full rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:border-yellow-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    >
+                      {showCurrentPass ? (
+                        <AiOutlineEyeInvisible size={18} />
+                      ) : (
+                        <AiOutlineEye size={18} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 ml-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPass ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="field-surface w-full rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      >
+                        {showNewPass ? (
+                          <AiOutlineEyeInvisible size={18} />
+                        ) : (
+                          <AiOutlineEye size={18} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 ml-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Confirm New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPass ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="field-surface w-full rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPass(!showConfirmPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      >
+                        {showConfirmPass ? (
+                          <AiOutlineEyeInvisible size={18} />
+                        ) : (
+                          <AiOutlineEye size={18} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="text-xs font-semibold text-red-500">{error}</p>
+                )}
+                {message && (
+                  <p className="text-xs font-semibold text-green-500">
+                    {message}
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold px-3 rounded-lg text-xs transition"
+                  disabled={savingChanges}
+                  className="w-full rounded-2xl bg-blue-600 py-2.5 text-sm font-bold text-white transition shadow-lg shadow-blue-500/10 hover:bg-blue-700 disabled:opacity-55"
                 >
-                  Send OTP
+                  {savingChanges ? "Saving..." : "Save Changes"}
                 </button>
               </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-2">
-                <div className="text-[10px] text-slate-500 text-left">
-                  Enter the 6-digit OTP code sent to{" "}
-                  <strong className="text-slate-800 dark:text-white">
-                    {newEmail}
-                  </strong>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    placeholder="e.g. 123456"
-                    className="flex-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white px-3 py-1.5 outline-none focus:border-blue-500 dark:bg-white text-xs text-center font-bold tracking-widest"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 rounded-lg text-xs transition"
+
+              <div className="space-y-4">
+                <h3 className="mb-2 border-b border-slate-100 pb-2 text-base font-bold text-inherit dark:border-slate-800">
+                  Change Email Address
+                </h3>
+                <p className="text-xs leading-relaxed text-slate-500">
+                  Changing your email address requires verifying your ownership
+                  of the new email via a one-time passcode (OTP).
+                </p>
+                <p className="text-xs italic text-slate-400">
+                  Current email:{" "}
+                  <span className="font-semibold text-inherit">{email}</span>
+                </p>
+
+                {!showOtpField ? (
+                  <form
+                    onSubmit={handleRequestOtp}
+                    className="flex flex-col gap-3 sm:flex-row"
                   >
-                    Verify & Update Email
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowOtpField(false)}
-                  className="text-[10px] text-blue-500 font-semibold underline block text-left"
-                >
-                  Change target email
-                </button>
-              </form>
-            )}
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="new-email@example.com"
+                      className="field-surface flex-1 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      className="shrink-0 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700"
+                    >
+                      Send OTP
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="space-y-3">
+                    <div className="text-xs text-slate-500">
+                      Enter the 6-digit OTP code sent to{" "}
+                      <strong className="font-semibold text-inherit">
+                        {newEmail}
+                      </strong>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        placeholder="e.g. 123456"
+                        className="field-surface flex-1 rounded-xl px-4 py-2.5 text-center text-sm font-bold tracking-widest outline-none focus:border-blue-500"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        className="shrink-0 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                      >
+                        Verify & Update
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowOtpField(false)}
+                      className="block text-xs font-semibold text-blue-500 underline"
+                    >
+                      Change target email
+                    </button>
+                  </form>
+                )}
 
-            {emailError && (
-              <p className="text-red-500 text-[10px] font-semibold text-center">
-                {emailError}
-              </p>
-            )}
-            {emailMessage && (
-              <p className="text-green-500 text-[10px] font-semibold text-center">
-                {emailMessage}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4 border-t border-slate-700/30 pt-4">
-            <h3 className="text-xs font-semibold text-slate-800 mb-1">
-              Synchronize Student Roster
-            </h3>
-            <p className="text-[10px] text-slate-500 mb-2 text-left">
-              Import latest student records and cafe assignments from the
-              external university registry.
-            </p>
-            <button
-              type="button"
-              onClick={handleSyncStudents}
-              disabled={syncing}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded-xl text-xs font-bold shadow-lg transition-all disabled:opacity-50"
-            >
-              {syncing ? "Syncing..." : "Fetch Students"}
-            </button>
+                {emailError && (
+                  <p className="text-xs font-semibold text-red-500">
+                    {emailError}
+                  </p>
+                )}
+                {emailMessage && (
+                  <p className="text-xs font-semibold text-green-500">
+                    {emailMessage}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
