@@ -27,7 +27,6 @@ export default function CampusesPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [toast, setToast] = useState(null);
-  const [syncingCampusId, setSyncingCampusId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const showToast = (message, type = "success") => {
@@ -148,50 +147,7 @@ export default function CampusesPage() {
     showToast("Campus deleted");
   };
 
-  const handleSyncCampusStudents = async (id) => {
-    try {
-      setSyncingCampusId(id);
 
-      const res = await fetch(`${url}/dashboard/campuses/${id}/sync-students`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(
-          getApiMessage(data, "We could not fetch cafe students right now."),
-          "error",
-        );
-        return;
-      }
-
-      setCampuses((prev) =>
-        prev.map((campus) =>
-          campus._id === id
-            ? {
-                ...campus,
-                students:
-                  typeof data.currentCafeStudentCount === "number"
-                    ? data.currentCafeStudentCount
-                    : (campus.students ?? 0) + (data.syncedCount ?? 0),
-              }
-            : campus,
-        ),
-      );
-      showToast(
-        getApiMessage(data, "Cafe students fetched successfully."),
-        "success",
-      );
-    } catch (error) {
-      showToast(
-        getErrorMessage(error, "We could not fetch cafe students right now."),
-        "error",
-      );
-    } finally {
-      setSyncingCampusId(null);
-    }
-  };
 
   return (
     <>
@@ -299,7 +255,7 @@ export default function CampusesPage() {
                         !showAdminPasswordPrompt && (
                           <div className="menu-button absolute right-0 top-full z-50 mt-2 w-28 rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl">
                             <button
-                              className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                              className="block w-full rounded-xl bg-transparent px-3 py-2 text-lcd baceft text-sm text-slate-700 transition hover:bg-slate-50 dark:bg-transparent"
                               onClick={() => {
                                 setCampusToEdit(campus._id);
                                 setPendingAction("edit");
@@ -310,7 +266,7 @@ export default function CampusesPage() {
                               Edit
                             </button>
                             <button
-                              className="block w-full rounded-xl px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-500/10"
+                              className="block w-full rounded-xl bg-transparent px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-500/10 dark:bg-transparent"
                               onClick={() => {
                                 setCampusToDelete(campus._id);
                                 setPendingAction("delete");

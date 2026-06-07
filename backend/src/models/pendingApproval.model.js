@@ -1,12 +1,10 @@
 import { getDB } from "../config/db.js";
-import { mapRow, mapRows, normalizeDate } from "./modelUtils.js";
+import { mapRow, mapRows } from "./modelUtils.js";
 
 const mapApprovalRow = (row) => ({
   ...row,
   pendingData: typeof row.pendingData === "string" ? JSON.parse(row.pendingData) : row.pendingData || {},
 });
-
-const nullable = (value) => (value === undefined ? null : value);
 
 const createTable = async () => {
   const query = `
@@ -25,6 +23,13 @@ const createTable = async () => {
 };
 
 const findAll = async (filter = {}) => {
+  try {
+    const purgeQuery = "DELETE FROM pending_approvals WHERE status = 'pending' AND createdAt < NOW() - INTERVAL 1 DAY";
+    await getDB().execute(purgeQuery);
+  } catch (err) {
+    console.error("Failed to purge expired pending approvals:", err);
+  }
+
   let query = "SELECT id, requesterId, approverRole, requestType, pendingData, status, createdAt, updatedAt FROM pending_approvals WHERE 1=1";
   const params = [];
 

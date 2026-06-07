@@ -26,9 +26,7 @@ export default function CafeDashboardPage() {
     currentUser?.activeCafeNumber || currentUser?.selectedCafeNumber || 1;
 
   useEffect(() => {
-    if (currentUser?.mustChangePassword) {
-      setShowSecurityWarning(true);
-    }
+    setShowSecurityWarning(!!currentUser?.mustChangePassword);
   }, [currentUser]);
 
   useEffect(() => {
@@ -67,13 +65,13 @@ export default function CafeDashboardPage() {
             <h1 className="text-4xl font-extrabold tracking-tight text-blue-700 sm:text-5xl">
               {isCafeManager ? "Cafe Manager Dashboard" : "Cafe Dashboard"}
             </h1>
-            <p className="mt-2 text-lg text-slate-600">
+            <p className="mt-2 text-lg text-slate-600 dark:text-slate-400">
               {isCafeManager
                 ? "Manage cafe accounts, student records, and cafeteria operations."
                 : "Manage your cafe station, scanning, and student records."}
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+          <div className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white dark:bg-emerald-700 dark:text-white">
             <HiOutlineCheckCircle className="h-5 w-5" />
             <span>
               {isCafeManager
@@ -91,12 +89,12 @@ export default function CafeDashboardPage() {
                 <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-700">
                   {isCafeManager ? "Manager Workspace" : "Active Station"}
                 </span>
-                <h2 className="mt-4 text-3xl font-black text-slate-900">
+                <h2 className="mt-4 text-3xl font-black text-inherit">
                   {isCafeManager
                     ? "Cafe Manager Console"
                     : `Cafe Station ${activeCafeNum}`}
                 </h2>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   {isCafeManager
                     ? "Create and manage cafe accounts, review student records, and keep cafeteria operations organized."
                     : `Managing meal sessions and access authentication for student cohorts under Cafe Station ${activeCafeNum}.`}
@@ -104,12 +102,14 @@ export default function CafeDashboardPage() {
               </div>
               {!isCafeManager && (
                 <div className="pt-4">
-                <button
-                  onClick={() => router.push("/cafe-manager/select-cafe-number")}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-700 active:scale-95"
-                >
-                  Change Station
-                </button>
+                  <button
+                    onClick={() =>
+                      router.push("/cafe-manager/select-cafe-number")
+                    }
+                    className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-700 active:scale-95"
+                  >
+                    Change Station
+                  </button>
                 </div>
               )}
             </div>
@@ -122,10 +122,10 @@ export default function CafeDashboardPage() {
               </div>
             </div>
             <div className="mt-8">
-              <span className="block text-sm font-semibold uppercase tracking-wider text-slate-400">
+              <span className="block text-sm font-semibold uppercase tracking-wider text-inherit">
                 Assigned Cohort Students
               </span>
-              <span className="mt-1 block text-5xl font-black text-slate-900">
+              <span className="mt-1 block text-5xl font-black text-inherit">
                 {stats.totalStudents}
               </span>
             </div>
@@ -141,28 +141,22 @@ export default function CafeDashboardPage() {
               <div className="mb-4 rounded-2xl bg-blue-50 p-3 text-blue-600">
                 <TbScan className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
-                Launch Scanner
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
+              <h3 className="text-lg font-bold text-inherit">Launch Scanner</h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 Open the scanning terminal to authenticate student ID cards.
               </p>
             </button>
           )}
 
           <button
-            onClick={() =>
-              router.push("/cafe-manager/cafes")
-            }
+            onClick={() => router.push("/cafe-manager/cafes")}
             className="surface-card flex flex-col items-start rounded-3xl p-6 text-left transition hover:shadow-lg"
           >
             <div className="mb-4 rounded-2xl bg-sky-50 p-3 text-sky-600">
               <HiOutlineClipboardList className="h-6 w-6" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">
-              Manage Cafes
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
+            <h3 className="text-lg font-bold text-inherit">Manage Cafes</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Create, update, and manage cafeteria accounts.
             </p>
           </button>
@@ -174,10 +168,10 @@ export default function CafeDashboardPage() {
             <div className="mb-4 rounded-2xl bg-fuchsia-50 p-3 text-fuchsia-600">
               <HiOutlineUsers className="h-6 w-6" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">
+            <h3 className="text-lg font-bold text-inherit">
               Student Directory
             </h3>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {isCafeManager
                 ? "Browse and search students across your managed cafes."
                 : "Browse and search students assigned to your cafe station."}
@@ -188,34 +182,34 @@ export default function CafeDashboardPage() {
         <section className="surface-panel rounded-3xl p-8">
           <div className="mb-6 flex items-center gap-3">
             <HiOutlineInformationCircle className="h-6 w-6 text-slate-400" />
-            <h4 className="text-lg font-bold text-slate-900">
+            <h4 className="text-lg font-bold text-inherit">
               Daily Scanning Guidelines
             </h4>
           </div>
           <div className="grid gap-6 sm:grid-cols-3 text-sm">
             <div className="space-y-2">
-              <div className="font-semibold text-slate-800">
+              <div className="font-semibold text-inherit">
                 1. Position Device
               </div>
-              <p className="text-slate-500">
+              <p className="text-slate-500 dark:text-slate-400">
                 Ensure the scanning scanner is positioned in direct sight, with
                 stable network access to prevent latency.
               </p>
             </div>
             <div className="space-y-2">
-              <div className="font-semibold text-slate-800">
+              <div className="font-semibold text-inherit">
                 2. Verify Scan Prompt
               </div>
-              <p className="text-slate-500">
+              <p className="text-slate-500 dark:text-slate-400">
                 Listen for the audio prompt or look for the green confirmation
                 screen on each student card validation.
               </p>
             </div>
             <div className="space-y-2">
-              <div className="font-semibold text-slate-800">
+              <div className="font-semibold text-inherit">
                 3. Duplicate Warning
               </div>
-              <p className="text-slate-500">
+              <p className="text-slate-500 dark:text-slate-400">
                 If a student attempts to scan twice during the same session, the
                 terminal will flash red and deny exit access.
               </p>

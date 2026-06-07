@@ -52,6 +52,8 @@ export default function LandingPage() {
           : "Open Dashboard"
       : "Sign In Now";
 
+  const logoUrl = currentUser?.logo?.url || currentCampus?.logo?.url || "/logo.png";
+
   useEffect(() => {
     refreshUser();
     refreshCampus();
@@ -111,7 +113,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-[90rem] items-center justify-between px-6 py-6">
           <div className="flex items-center gap-3">
             <div className="relative h-10 w-10 overflow-hidden rounded-full border border-blue-200 shadow-md">
-              <Image src="/logo.png" alt="Logo" fill className="object-cover" />
+              <Image src={logoUrl} alt="Logo" fill className="object-cover" unoptimized />
             </div>
 
             <h1 className="text-xl font-bold text-slate-900">

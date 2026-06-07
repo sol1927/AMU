@@ -17,6 +17,8 @@ export default function CafeManagerNavbar() {
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const menuRef = React.useRef(null);
 
+  const brandLogo = currentUser?.logo?.url || "/logo.png";
+
   React.useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -55,12 +57,13 @@ export default function CafeManagerNavbar() {
           className="flex items-center gap-3 transition hover:opacity-90"
         >
           <Image
-            src="/logo.png"
+            src={brandLogo}
             alt="GibiGebeta"
             width={44}
             height={44}
             className="rounded-full object-cover"
             priority
+            unoptimized
           />
           <div className="text-left">
             <span className="block text-xl font-semibold tracking-tight text-slate-900">
@@ -82,13 +85,24 @@ export default function CafeManagerNavbar() {
               className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
             >
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
-                <HiOutlineUserCircle className="h-7 w-7" />
+                {currentUser?.logo?.url ? (
+                  <Image
+                    src={currentUser.logo.url}
+                    alt="Profile"
+                    width={36}
+                    height={36}
+                    className="h-full w-full rounded-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <HiOutlineUserCircle className="h-7 w-7" />
+                )}
               </div>
               <span
-                title={currentUser?.name || "Cafe Manager"}
+                title={currentUser?.displayName || currentUser?.name || "Cafe Manager"}
                 className="hidden max-w-[150px] truncate font-medium text-slate-700 sm:inline-block"
               >
-                {currentUser?.name || "Cafe Manager"}
+                {currentUser?.displayName || currentUser?.name || "Cafe Manager"}
               </span>
               <span
                 className={`text-xs text-slate-500 transition-transform duration-300 ${openMenu ? "rotate-180" : ""}`}
@@ -104,14 +118,25 @@ export default function CafeManagerNavbar() {
               <div className="bg-slate-50 px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-700">
-                    <HiOutlineUserCircle className="h-7 w-7" />
+                    {currentUser?.logo?.url ? (
+                      <Image
+                        src={currentUser.logo.url}
+                        alt="Profile"
+                        width={40}
+                        height={40}
+                        className="h-full w-full rounded-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <HiOutlineUserCircle className="h-7 w-7" />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p
-                      title={currentUser?.name || "Cafe Manager"}
+                      title={currentUser?.displayName || currentUser?.name || "Cafe Manager"}
                       className="truncate text-sm font-semibold text-slate-900"
                     >
-                      {currentUser?.name || "Cafe Manager"}
+                      {currentUser?.displayName || currentUser?.name || "Cafe Manager"}
                     </p>
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
                       Signed in as cafe manager

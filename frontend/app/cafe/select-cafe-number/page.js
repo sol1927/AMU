@@ -100,8 +100,8 @@ export default function SelectCafeNumberPage() {
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center">
-      <div className="w-full rounded-[2.5rem] border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 mb-6">
+      <div className="surface-card w-full rounded-[2.5rem] p-8 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-slate-950 dark:text-blue-400 mb-6">
           <HiOutlineOfficeBuilding className="h-8 w-8" />
         </div>
 

@@ -18,7 +18,7 @@ const signCampusToken = (userId, cafeNumber = null) =>
     process.env.JWT_SECRET,
   );
 
-const getAccountModel = (role) => User;
+const getAccountModel = () => User;
 
 const findCampusForAccount = async (account) => {
   if (!account?.campusId) return null;

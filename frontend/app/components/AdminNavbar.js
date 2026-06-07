@@ -14,7 +14,6 @@ import {
   HiOutlineOfficeBuilding,
   HiOutlineUsers,
   HiOutlineClipboardList,
-  HiOutlineClock,
   HiOutlineLogout,
   HiOutlineUserCircle,
 } from "react-icons/hi";
@@ -46,6 +45,8 @@ export default function AdminNavbar() {
   const [openMenu, setOpenMenu] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const menuRef = useRef(null);
+
+  const brandLogo = currentUser?.logo?.url || "/logo.png";
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -122,12 +123,13 @@ export default function AdminNavbar() {
           className="flex items-center gap-3 transition hover:opacity-90"
         >
           <Image
-            src="/logo.png"
+            src={brandLogo}
             alt="GibiGebeta"
             width={44}
             height={44}
             className="rounded-full object-cover"
             priority
+            unoptimized
           />
           <div className="text-left">
             <span className="block text-xl font-semibold tracking-tight text-slate-900">

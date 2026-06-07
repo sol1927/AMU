@@ -11,12 +11,11 @@ const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CafeProfilePage() {
   const router = useRouter();
-  const { currentUser, setCurrentUser, refreshUser } = useUser();
+  const { currentUser, refreshUser } = useUser();
 
   const [savingChanges, setSavingChanges] = useState(false);
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -28,12 +27,6 @@ export default function CafeProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Pending approvals
-  const [pendingApproval, setPendingApproval] = useState(null);
-
-  // Profile photo
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
   // Email Change state
   const [newEmail, setNewEmail] = useState("");
   const [showOtpField, setShowOtpField] = useState(false);
@@ -41,25 +34,10 @@ export default function CafeProfilePage() {
   const [emailMessage, setEmailMessage] = useState("");
   const [emailError, setEmailError] = useState("");
 
-  const fetchPendingApproval = async () => {
-    try {
-      const res = await fetch(`${url}/approvals/me`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPendingApproval(data.pending || null);
-      }
-    } catch (err) {
-      console.error("Failed to fetch pending approval:", err);
-    }
-  };
-
   useEffect(() => {
     if (!currentUser) return;
     setName(currentUser.name || "");
-    setEmail(currentUser.email || "");
-    fetchPendingApproval();
+    setDisplayName(currentUser.displayName || "");
   }, [currentUser]);
 
   useEffect(() => {
@@ -124,11 +102,17 @@ export default function CafeProfilePage() {
         }
       }
 
-      setMessage("Changes submitted successfully! Awaiting Campus approval.");
+      setMessage(
+        currentUser.role === "cafe manager"
+          ? "Profile updated successfully!"
+          : "Changes submitted successfully! Awaiting Campus approval.",
+      );
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      fetchPendingApproval();
+      if (currentUser.role === "cafe manager" && refreshUser) {
+        await refreshUser();
+      }
       setTimeout(() => setMessage(""), 5000);
     } catch (err) {
       setError(getErrorMessage(err, "Could not save profile changes."));
@@ -136,40 +120,6 @@ export default function CafeProfilePage() {
     } finally {
       setSavingChanges(false);
     }
-  };
-
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingPhoto(true);
-    setMessage("");
-    setError("");
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onloadend = async () => {
-      try {
-        const res = await fetch(`${url}/profile/me/photo`, {
-          method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoUrl: reader.result }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(getApiMessage(data, "Photo upload failed."));
-        }
-        setMessage("Photo update submitted! Awaiting Campus approval.");
-        fetchPendingApproval();
-        setTimeout(() => setMessage(""), 5000);
-      } catch (err) {
-        setError(getErrorMessage(err, "Photo upload failed."));
-        setTimeout(() => setError(""), 5000);
-      } finally {
-        setUploadingPhoto(false);
-      }
-    };
   };
 
   const handleRequestOtp = async (e) => {
@@ -220,12 +170,16 @@ export default function CafeProfilePage() {
         throw new Error(getApiMessage(data, "Invalid or expired OTP."));
       }
       setEmailMessage(
-        "Email update request submitted! Awaiting Campus approval.",
+        currentUser.role === "cafe manager"
+          ? "Email updated successfully!"
+          : "Email update request submitted! Awaiting Campus approval.",
       );
       setShowOtpField(false);
       setNewEmail("");
       setOtp("");
-      fetchPendingApproval();
+      if (currentUser.role === "cafe manager" && refreshUser) {
+        await refreshUser();
+      }
       setTimeout(() => setEmailMessage(""), 5000);
     } catch (err) {
       setEmailError(getErrorMessage(err, "OTP verification failed."));
@@ -234,85 +188,47 @@ export default function CafeProfilePage() {
 
   if (!currentUser) return null;
   return (
-    <div className="page-shell relative flex min-h-screen items-center justify-center px-6 py-12 pt-28 md:px-20">
-      <div className="surface-panel w-full max-w-lg rounded-2xl p-6">
-        {pendingApproval && (
-          <div className="mb-6 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-5 text-sm text-amber-800 dark:text-amber-400 flex items-center gap-3">
-            <span className="text-xl">⏳</span>
-            <div>
-              <p className="font-bold">Pending Profile Updates</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                You have proposed changes waiting for your Campus administrator
-                to approve.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <h1 className="mb-6 text-center text-2xl font-bold">Edit Profile</h1>
+    <div className="page-shell relative flex min-h-screen items-center justify-center px-4 py-8 pt-4 md:px-20">
+      <div className="surface-panel w-full max-w-3xl rounded-3xl p-6 shadow-xl">
+        <h1 className="mb-4 text-center text-xl font-bold md:text-2xl">Edit Profile</h1>
 
         <div className="relative mb-6 flex flex-col items-center">
-          <div className="relative h-28 w-28">
-            <div className="h-28 w-28 overflow-hidden rounded-full border-2 border-white/20 shadow-lg transition-shadow duration-300 hover:shadow-blue-500/50">
+          <div className="relative h-20 w-20">
+            <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-white/20 shadow-lg transition-shadow duration-300 hover:shadow-blue-500/50">
               {currentUser?.campus?.logo?.url || currentUser?.logo?.url ? (
                 <Image
                   src={currentUser?.campus?.logo?.url || currentUser.logo.url}
                   alt="Logo"
-                  width={112}
-                  height={112}
+                  width={80}
+                  height={80}
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-300 font-bold text-white">
+                <div className="flex h-full w-full items-center justify-center bg-slate-300 font-bold text-white text-xl">
                   {name?.charAt(0) || "C"}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="mt-4 max-w-full px-4 text-center">
-            <p className="break-words text-lg font-semibold text-slate-900 dark:text-white">
-              {currentUser.name}
+          <div className="mt-2 max-w-full px-4 text-center">
+            <p className="break-words text-base font-semibold text-[var(--app-text)]">
+              {currentUser.displayName || currentUser.name}
             </p>
-            <p className="mt-1 text-sm text-slate-500">Cafeteria account</p>
+            <p className="mt-0.5 text-xs text-[var(--app-text-soft)]">
+              Cafeteria account
+            </p>
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Left Column - Password Form */}
           <form onSubmit={handleSaveChanges} className="space-y-4">
+            <h3 className="text-base font-bold text-inherit border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+              Update Password
+            </h3>
+            
             <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5 ml-1">
-                Username
-              </label>
-              <input
-                type="text"
-                value={name}
-                disabled
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 outline-none text-slate-500 dark:bg-slate-950 text-sm opacity-60 cursor-not-allowed"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Username cannot be changed
-              </p>
-            </div>
-
-            <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5 ml-1">
-                Cafe Display Name
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Main Cafeteria"
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 outline-none focus:border-blue-500 dark:bg-slate-950 dark:focus:bg-slate-950 text-sm"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                This is how your cafe appears to students
-              </p>
-            </div>
-
-            {/* Password overrides */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
               <label className="text-[10px] uppercase font-bold tracking-wider text-yellow-600 block mb-1.5 ml-1">
                 Current Password (required to change password)
               </label>
@@ -322,7 +238,7 @@ export default function CafeProfilePage() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-yellow-250/50 bg-white px-4 py-2.5 pr-10 text-sm text-slate-900 outline-none focus:border-yellow-500"
+                  className="w-full rounded-xl border border-yellow-200/50 bg-white px-4 py-2.5 pr-10 text-sm text-slate-900 outline-none focus:border-yellow-500"
                 />
                 <button
                   type="button"
@@ -349,7 +265,7 @@ export default function CafeProfilePage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 pr-10 text-sm dark:bg-slate-950"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-4 py-2.5 pr-10 text-sm dark:bg-white"
                   />
                   <button
                     type="button"
@@ -375,7 +291,7 @@ export default function CafeProfilePage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 pr-10 text-sm dark:bg-slate-950"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-4 py-2.5 pr-10 text-sm dark:bg-white"
                   />
                   <button
                     type="button"
@@ -402,37 +318,38 @@ export default function CafeProfilePage() {
             <button
               type="submit"
               disabled={savingChanges}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl text-sm transition shadow-lg shadow-blue-500/10 disabled:opacity-55"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-2xl text-sm transition shadow-lg shadow-blue-500/10 disabled:opacity-55"
             >
-              {savingChanges ? "Saving..." : "Save Profile Changes"}
+              {savingChanges ? "Saving..." : "Save Password Changes"}
             </button>
           </form>
 
-          {/* Email change separate verification flow */}
-          <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Change Email Address
-              </h3>
-              <p className="text-xs text-slate-500">
-                Changing your email address requires verifying your ownership of
-                the new email via a one-time passcode (OTP).
-              </p>
-            </div>
+          {/* Right Column - Email change separate verification flow */}
+          <div className="space-y-4">
+            <h3 className="text-base font-bold text-inherit border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+              Change Email Address
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Changing your email address requires verifying your ownership of
+              the new email via a one-time passcode (OTP).
+            </p>
+            <p className="text-xs text-slate-400 italic">
+              Current email: <span className="font-semibold text-inherit">{currentUser.email}</span>
+            </p>
 
             {!showOtpField ? (
-              <form onSubmit={handleRequestOtp} className="flex gap-3">
+              <form onSubmit={handleRequestOtp} className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="new-email@example.com"
-                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 outline-none focus:border-blue-500 dark:bg-slate-950 text-sm"
+                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-4 py-2.5 outline-none focus:border-blue-500 dark:bg-white text-sm"
                   required
                 />
                 <button
                   type="submit"
-                  className="bg-slate-900 hover:bg-slate-850 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold px-5 rounded-xl text-sm transition"
+                  className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition shrink-0"
                 >
                   Send OTP
                 </button>
@@ -441,25 +358,27 @@ export default function CafeProfilePage() {
               <form onSubmit={handleVerifyOtp} className="space-y-3">
                 <div className="text-xs text-slate-500">
                   Enter the 6-digit OTP code sent to{" "}
-                  <strong className="text-slate-800 dark:text-white">
+                  <strong className="text-inherit font-semibold">
                     {newEmail}
                   </strong>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     maxLength={6}
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
                     placeholder="e.g. 123456"
-                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 px-4 py-2.5 outline-none focus:border-blue-500 dark:bg-slate-950 text-sm text-center font-bold tracking-widest"
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-4 py-2.5 outline-none focus:border-blue-500 dark:bg-white text-sm text-center font-bold tracking-widest"
                     required
                   />
                   <button
                     type="submit"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 rounded-xl text-sm transition"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition shrink-0"
                   >
-                    Verify & Submit Request
+                    {currentUser.role === "cafe manager"
+                      ? "Verify & Update"
+                      : "Verify & Submit"}
                   </button>
                 </div>
                 <button

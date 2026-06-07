@@ -4,12 +4,6 @@ import { React, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
-import {
-  buildAppDateTime,
-  getAppDayString,
-  getAppMinutesFromDate,
-} from "@/app/utils/appTimezone";
-
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 const capitalizeWords = (str) => {
@@ -20,138 +14,28 @@ const capitalizeWords = (str) => {
     .join(" ");
 };
 
-const formatActivityTime = (value, fallback = "Not opened yet") => {
-  if (!value) return fallback;
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return fallback;
-  }
-
-  return parsed.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Africa/Addis_Ababa",
-  });
-};
-
-const getAppliedWindowStatus = (appliedWindowLabel) => {
-  if (!appliedWindowLabel) return "--:-- - --:--";
-
-  const parts = String(appliedWindowLabel)
-    .split("-")
-    .map((part) => part.trim());
-  if (parts.length !== 2) return appliedWindowLabel;
-
-  const [endHour, endMinute] = parts[1].split(":").map(Number);
-  if (Number.isNaN(endHour) || Number.isNaN(endMinute)) {
-    return appliedWindowLabel;
-  }
-
-  const nowMinutes = getAppMinutesFromDate();
-  const endMinutes = endHour * 60 + endMinute;
-
-  return nowMinutes >= endMinutes ? "Completed" : appliedWindowLabel;
-};
-
-const isAppliedWindowCompleted = (appliedWindowLabel) =>
-  getAppliedWindowStatus(appliedWindowLabel) === "Completed";
-
-const getAppliedWindowPhase = (appliedWindowLabel) => {
-  if (!appliedWindowLabel) return "unknown";
-
-  const parts = String(appliedWindowLabel)
-    .split("-")
-    .map((part) => part.trim());
-  if (parts.length !== 2) return "active";
-
-  const [startHour, startMinute] = parts[0].split(":").map(Number);
-  const [endHour, endMinute] = parts[1].split(":").map(Number);
-
-  if (
-    Number.isNaN(startHour) ||
-    Number.isNaN(startMinute) ||
-    Number.isNaN(endHour) ||
-    Number.isNaN(endMinute)
-  ) {
-    return "active";
-  }
-
-  const nowMinutes = getAppMinutesFromDate();
-  const startMinutes = startHour * 60 + startMinute;
-  const endMinutes = endHour * 60 + endMinute;
-
-  if (nowMinutes < startMinutes) return "before_start";
-  if (nowMinutes >= endMinutes) return "completed";
-  return "active";
-};
-
-const getAppliedWindowStartTime = (appliedWindowLabel) => {
-  if (!appliedWindowLabel) return null;
-
-  const parts = String(appliedWindowLabel)
-    .split("-")
-    .map((part) => part.trim());
-  if (parts.length !== 2) return null;
-
-  const [startHour, startMinute] = parts[0].split(":").map(Number);
-  if (Number.isNaN(startHour) || Number.isNaN(startMinute)) {
-    return null;
-  }
-
-  return buildAppDateTime(getAppDayString(), startHour, startMinute);
-};
-
-const getLiveCampusOpenedTime = (campus) => {
-  if (campus.openingTime) {
-    return formatActivityTime(campus.openingTime);
-  }
-
-  if (
-    campus.isLive &&
-    getAppliedWindowPhase(campus.currentSessionAppliedWindow) === "active"
-  ) {
-    const appliedStartTime = getAppliedWindowStartTime(
-      campus.currentSessionAppliedWindow,
-    );
-
-    if (appliedStartTime) {
-      return formatActivityTime(appliedStartTime.toISOString());
-    }
-  }
-
-  return "Not opened yet";
-};
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { currentUser } = useUser();
   const [campuses, setCampuses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshingLiveCampuses, setRefreshingLiveCampuses] = useState(false);
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const [approvals, setApprovals] = useState([]);
-  const [loadingApprovals, setLoadingApprovals] = useState(false);
 
   useEffect(() => {
-    if (currentUser?.mustChangePassword) {
-      setShowSecurityWarning(true);
-    }
+    setShowSecurityWarning(!!currentUser?.mustChangePassword);
   }, [currentUser]);
 
   const fetchCampuses = async (manual = false) => {
     if (!currentUser) {
       setCampuses([]);
       setLoading(false);
-      setRefreshingLiveCampuses(false);
       return;
     }
 
     try {
-      if (manual) {
-        setRefreshingLiveCampuses(true);
-      } else {
+      if (!manual) {
         setLoading(true);
       }
 
@@ -177,12 +61,10 @@ export default function AdminDashboardPage() {
       setCampuses([]);
     } finally {
       setLoading(false);
-      setRefreshingLiveCampuses(false);
     }
   };
 
   const fetchApprovals = async () => {
-    setLoadingApprovals(true);
     try {
       const res = await fetch(`${url}/approvals`, { credentials: "include" });
       const data = await res.json();
@@ -191,8 +73,6 @@ export default function AdminDashboardPage() {
       }
     } catch (err) {
       console.error("Failed to fetch approvals:", err);
-    } finally {
-      setLoadingApprovals(false);
     }
   };
 
@@ -278,27 +158,6 @@ export default function AdminDashboardPage() {
     [],
   );
 
-  const liveCampuses = useMemo(
-    () =>
-      campuses.flatMap((campus) => {
-        if (!campus.isLive) {
-          return [];
-        }
-
-        if (
-          Array.isArray(campus.liveCafeSessions) &&
-          campus.liveCafeSessions.length > 0
-        ) {
-          return campus.liveCafeSessions.map((session) => ({
-            ...campus,
-            ...session,
-          }));
-        }
-
-        return [campus];
-      }),
-    [campuses],
-  );
 
   return (
     <div className="page-shell px-4 pb-10 pt-24 md:px-8">
@@ -402,7 +261,7 @@ export default function AdminDashboardPage() {
                           <span className="text-xs font-semibold text-slate-400 uppercase w-20">
                             Name:
                           </span>
-                          <span className="flex-1 text-right break-words text-slate-850 font-medium">
+                          <span className="flex-1 text-right break-words text-slate-800 dark:text-slate-200 font-medium">
                             {req.pendingData.name}
                           </span>
                         </div>
@@ -412,7 +271,7 @@ export default function AdminDashboardPage() {
                           <span className="text-xs font-semibold text-slate-400 uppercase w-20">
                             Location:
                           </span>
-                          <span className="flex-1 text-right break-words text-slate-850 font-medium">
+                          <span className="flex-1 text-right break-words text-slate-800 dark:text-slate-200 font-medium">
                             {req.pendingData.location}
                           </span>
                         </div>
@@ -422,7 +281,7 @@ export default function AdminDashboardPage() {
                           <span className="text-xs font-semibold text-slate-400 uppercase w-20">
                             Email:
                           </span>
-                          <span className="flex-1 text-right break-words text-slate-850 font-medium">
+                          <span className="flex-1 text-right break-words text-slate-800 dark:text-slate-200 font-medium">
                             {req.pendingData.email}
                           </span>
                         </div>

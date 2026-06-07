@@ -1,7 +1,12 @@
 import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
 
-export const verifyToken = (req, res, next) => {
-  const token = req.cookies.accessToken;
+export const verifyToken = async (req, res, next) => {
+  let token = req.cookies.accessToken;
+  if (!token) {
+    token = req.cookies.campusToken;
+  }
+  
   if (!token)
     return res
       .status(401)
@@ -11,6 +16,12 @@ export const verifyToken = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.id;
     req.userRole = decoded.role;
+
+    const user = await User.findById(decoded.id);
+    if (user) {
+      req.user = user;
+    }
+
     next();
   } catch {
     return res

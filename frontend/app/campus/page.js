@@ -1,9 +1,8 @@
 "use client";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCampus } from "@/app/context/CampusContext";
-import { useState, useEffect, useCallback } from "react";
 import CampusNavbar from "@/app/components/CampusNavbar";
-import CafeNumberModal from "@/app/components/CafeNumberModal";
 import {
   HiOutlineUserGroup,
   HiOutlineClock,
@@ -70,7 +69,6 @@ export default function CampusDashboardPage() {
 
   // Live Cafes section logic
   const [cafesList, setCafesList] = useState([]);
-  const [loadingCafes, setLoadingCafes] = useState(false);
   // Removed cafe selection modal logic
   const [detailMode, setDetailMode] = useState("regular");
   const [showSnapshot, setShowSnapshot] = useState(false);
@@ -121,7 +119,6 @@ export default function CampusDashboardPage() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [toast, setToast] = useState(null);
   const [approvals, setApprovals] = useState([]);
-  const [loadingApprovals, setLoadingApprovals] = useState(false);
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
 
   const showToast = (message, type = "error") => {
@@ -130,7 +127,6 @@ export default function CampusDashboardPage() {
   };
 
   const fetchLiveCafes = useCallback(async () => {
-    setLoadingCafes(true);
     try {
       const res = await fetch(`${url}/campus/cafes`, {
         credentials: "include",
@@ -141,8 +137,6 @@ export default function CampusDashboardPage() {
       }
     } catch (err) {
       console.error("Failed to fetch live cafes:", err);
-    } finally {
-      setLoadingCafes(false);
     }
   }, []);
 
@@ -245,7 +239,6 @@ export default function CampusDashboardPage() {
   );
 
   const fetchApprovals = useCallback(async () => {
-    setLoadingApprovals(true);
     try {
       const res = await fetch(`${url}/approvals`, { credentials: "include" });
       const data = await res.json();
@@ -254,8 +247,6 @@ export default function CampusDashboardPage() {
       }
     } catch (err) {
       console.error("Failed to fetch approvals:", err);
-    } finally {
-      setLoadingApprovals(false);
     }
   }, []);
 
@@ -333,6 +324,7 @@ export default function CampusDashboardPage() {
     const intervalId = setInterval(() => {
       fetchDashboardStats(false);
       fetchLiveCafes();
+      fetchApprovals();
     }, 15000);
 
     const handleVisibilityChange = () => {
@@ -351,9 +343,7 @@ export default function CampusDashboardPage() {
   }, [currentCampus, fetchDashboardStats, fetchLiveCafes]);
 
   useEffect(() => {
-    if (currentCampus?.mustChangePassword) {
-      setShowSecurityWarning(true);
-    }
+    setShowSecurityWarning(!!currentCampus?.mustChangePassword);
   }, [currentCampus]);
 
   useEffect(() => {
@@ -487,7 +477,7 @@ export default function CampusDashboardPage() {
                     <span
                       key={cafe.id}
                       title={displayName}
-                      className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-250/20 shadow-sm cursor-default"
+                      className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-200 shadow-sm cursor-default"
                     >
                       {truncatedName}
                     </span>
@@ -711,7 +701,7 @@ export default function CampusDashboardPage() {
                               </p>
                             </div>
                           </div>
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-100 text-amber-850 rounded-full">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
                             Cafe Account
                           </span>
                         </div>

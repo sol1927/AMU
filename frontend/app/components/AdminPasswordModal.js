@@ -1,7 +1,6 @@
 "use client";
 
 import { React, useRef, useState, useEffect } from "react";
-import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import PropTypes from "prop-types";
 
 export default function AdminPasswordModal({
@@ -9,7 +8,6 @@ export default function AdminPasswordModal({
   onCancel,
   errorMessage,
 }) {
-  const [showPassword, setShowPassword] = useState(false);
   const [offlineError, setOfflineError] = useState("");
   const modalRef = useRef(null);
 
@@ -44,7 +42,10 @@ export default function AdminPasswordModal({
   };
 
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center" onClick={onCancel}>
+    <div
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center"
+      onClick={onCancel}
+    >
       <form
         ref={modalRef}
         onSubmit={handleSubmit}
@@ -55,25 +56,14 @@ export default function AdminPasswordModal({
           Enter Admin Password
         </h3>
 
-        <div style={{ position: "relative" }}>
+        <div>
           <input
-            type={showPassword ? "text" : "password"}
+            type="password"
             name="password"
             placeholder="Admin password"
             autoFocus
-            className="modal-input w-full rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="modal-input w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
-
-          <span
-            onClick={() => setShowPassword((p) => !p)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 transition hover:text-slate-700"
-          >
-            {showPassword ? (
-              <AiOutlineEyeInvisible size={20} />
-            ) : (
-              <AiOutlineEye size={20} />
-            )}
-          </span>
         </div>
 
         {errorMessage && (

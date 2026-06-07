@@ -136,6 +136,7 @@ export const resetPassword = async (req, res) => {
       password: newPassword,
       resetToken: null,
       resetTokenExpires: null,
+      mustChangePassword: false,
     });
 
     res.json({ message: "Password has been reset successfully" });

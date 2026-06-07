@@ -77,10 +77,7 @@ export default function CafeScanPage() {
   };
 
   useEffect(() => {
-    if (
-      !currentUser ||
-      currentUser.role !== "cafe"
-    ) {
+    if (!currentUser || currentUser.role !== "cafe") {
       router.replace("/");
       return;
     }
@@ -247,11 +244,7 @@ export default function CafeScanPage() {
     window.location.reload();
   };
 
-  if (
-    !currentUser ||
-    currentUser.role !== "cafe"
-  )
-    return null;
+  if (!currentUser || currentUser.role !== "cafe") return null;
 
   const getCardClasses = () => {
     if (!student)
@@ -408,7 +401,7 @@ export default function CafeScanPage() {
           ) : (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <div className="text-sm font-semibold text-inherit">
                   Manual Scan
                 </div>
                 <button

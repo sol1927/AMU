@@ -12,7 +12,7 @@ import {
   getMealWindowLabel,
   isCampusLiveNow,
 } from "../utils/mealSession.js";
-import { getSessionCookieOptions } from "../utils/sessionSecurity.js";
+import { getSessionCookieOptions, getCookieOptions } from "../utils/sessionSecurity.js";
 import {
   buildCafeNumbers,
   getCafeDisplayName,
@@ -22,6 +22,9 @@ import {
 import Meal from "../models/meal.model.js";
 import User from "../models/user.model.js";
 import PendingApproval from "../models/pendingApproval.model.js";
+import TempEmailChange from "../models/TempEmailChange.model.js";
+import { sendEmail } from "../utils/mailer.js";
+import crypto from "crypto";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 // --- CAFETERIA (CAFE) USER MANAGEMENT ---
 // List all cafes for the current campus
@@ -77,6 +80,25 @@ export const createCafe = async (req, res) => {
         .status(400)
         .json({ message: "A cafe with this username already exists." });
     }
+
+    if (req.userRole === "cafe manager") {
+      const pendingData = {
+        name: cafeUsername,
+        password,
+        displayName: displayName ? displayName.trim() : null,
+        campusId,
+      };
+      await PendingApproval.create({
+        requesterId: req.userId,
+        approverRole: "campus",
+        requestType: "create_cafe",
+        pendingData,
+      });
+      return res.status(202).json({
+        message: "Cafe creation request submitted successfully! Awaiting Campus approval.",
+      });
+    }
+
     const cafe = await User.create({
       name: cafeUsername,
       email: null,
@@ -127,6 +149,24 @@ export const updateCafe = async (req, res) => {
       updateData.password = password;
       updateData.mustChangePassword = false;
     }
+
+    if (req.userRole === "cafe manager") {
+      const pendingData = {
+        cafeId: id,
+        cafeName: cafe.displayName || cafe.name,
+        ...updateData,
+      };
+      await PendingApproval.create({
+        requesterId: req.userId,
+        approverRole: "campus",
+        requestType: "update_cafe",
+        pendingData,
+      });
+      return res.status(202).json({
+        message: "Cafe update request submitted successfully! Awaiting Campus approval.",
+      });
+    }
+
     const updated = await User.updateById(id, updateData);
     res.json({ cafe: updated });
   } catch (err) {
@@ -147,6 +187,23 @@ export const deleteCafe = async (req, res) => {
     if (!cafe || cafe.role !== "cafe" || cafe.campusId !== campusId) {
       return res.status(404).json({ message: "Cafe not found" });
     }
+
+    if (req.userRole === "cafe manager") {
+      const pendingData = {
+        cafeId: id,
+        cafeName: cafe.displayName || cafe.name,
+      };
+      await PendingApproval.create({
+        requesterId: req.userId,
+        approverRole: "campus",
+        requestType: "delete_cafe",
+        pendingData,
+      });
+      return res.status(202).json({
+        message: "Cafe deletion request submitted successfully! Awaiting Campus approval.",
+      });
+    }
+
     await User.deleteById(id);
     res.json({ success: true });
   } catch (err) {
@@ -214,7 +271,7 @@ const closeMealAtAppliedTime = async (meal, fallbackOpenedAt, logoutTime) => {
 };
 
 const findAdminConflict = async ({ email, name, excludeId } = {}) => {
-  const admins = await User.findAll({}, { includePassword: true });
+  const admins = await User.findAll({ role: "admin" }, { includePassword: true });
   return (
     admins.find((admin) => {
       if (excludeId && admin.id === Number(excludeId)) return false;
@@ -654,6 +711,7 @@ export const selfUpdateCampus = async (req, res) => {
       }
 
       updates.password = password;
+      updates.mustChangePassword = false;
     }
 
     const updatedCampus = await User.updateById(campus.id, updates);
@@ -809,65 +867,20 @@ export const updateCampusProfile = async (req, res) => {
 
     const updates = {};
 
-    if (email) {
-      const normalizedEmail = email.toLowerCase().trim();
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-      if (!emailRegex.test(normalizedEmail)) {
-        return res.status(400).json({ message: "Invalid email format." });
-      }
-
-      const existingCampus = await User.findOne({
-        email: normalizedEmail,
-        excludeId: campus.id,
-        role: "campus",
+    if (name && name.trim().toLowerCase() !== campus.name.toLowerCase()) {
+      return res.status(400).json({
+        message: "Campus name can only be modified by the administrator.",
       });
-      if (existingCampus) {
-        return res.status(400).json({
-          message: "This campus email is already in use.",
-        });
-      }
-
-      const adminConflict = await User.findOne({
-        email: normalizedEmail,
-        role: "admin",
-      });
-      if (adminConflict) {
-        return res.status(400).json({
-          message: "This email is already being used by an admin.",
-        });
-      }
-
-      updates.email = normalizedEmail;
     }
 
-    // Removed duplicate/incorrect Campus.findOne block above. Name check is handled below with User.findOne.
+    if (email && email.trim().toLowerCase() !== campus.email.toLowerCase()) {
+      return res.status(400).json({
+        message: "Email must be changed via the OTP verification flow.",
+      });
+    }
 
     if (location !== undefined) {
       updates.location = location ? formatFullName(location.trim()) : "";
-    }
-
-    if (name) {
-      const normalizedName = formatFullName(name.trim());
-      const existingCampusName = await User.findOne({
-        nameInsensitive: normalizedName,
-        excludeId: campus.id,
-        role: "campus",
-      });
-      if (existingCampusName) {
-        return res.status(400).json({
-          message: "A campus with this name already exists.",
-        });
-      }
-
-      const adminConflict = await findAdminConflict({ name: normalizedName });
-      if (adminConflict) {
-        return res.status(400).json({
-          message: "This name is already being used by an admin.",
-        });
-      }
-
-      updates.name = normalizedName;
     }
     if (password) {
       if (!currentPassword) {
@@ -897,34 +910,18 @@ export const updateCampusProfile = async (req, res) => {
       }
 
       updates.password = password;
+      updates.mustChangePassword = false;
     }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No updates were provided." });
     }
 
-    // Delete any existing pending approval request for this requester
-    const existing = await PendingApproval.findAll({
-      requesterId: campus.id,
-      status: "pending",
-    });
-    await Promise.all(
-      existing.map((req) => PendingApproval.deleteById(req.id)),
-    );
-
-    // Create the pending approval request destined for the admin
-    await PendingApproval.create({
-      requesterId: campus.id,
-      approverRole: "admin",
-      requestType: "profile_update",
-      pendingData: updates,
-    });
-
-    const brandedCampus = await attachAdminLogoToCampus(campus);
+    const updatedCampus = await User.updateById(campus.id, updates);
+    const brandedCampus = await attachAdminLogoToCampus(updatedCampus);
 
     res.json({
-      message:
-        "Your profile changes have been submitted to the Admin for approval.",
+      message: "Profile updated successfully!",
       campus: brandedCampus,
     });
   } catch (err) {
@@ -1168,6 +1165,7 @@ export const updateCafeManager = async (req, res) => {
 };
 
 // Delete a cafe manager
+// Delete a cafe manager
 export const deleteCafeManager = async (req, res) => {
   try {
     if (req.userRole !== "campus") {
@@ -1188,5 +1186,142 @@ export const deleteCafeManager = async (req, res) => {
   } catch (err) {
     logInternalError("delete-cafe-manager", err);
     sendServerError(res, "Could not delete cafe manager");
+  }
+};
+
+export const requestCampusEmailOTP = async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+
+    if (!newEmail) {
+      return res.status(400).json({ message: "New email is required." });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail.toLowerCase())) {
+      return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    const campus = await User.findById(req.userId);
+    if (!campus) return res.status(404).json({ message: "Campus not found." });
+
+    if (newEmail.toLowerCase() === campus.email.toLowerCase()) {
+      return res.status(400).json({
+        message: "New email cannot be the same as your current email.",
+      });
+    }
+
+    const emailUsedByAdmin = await User.findOne({
+      email: newEmail.toLowerCase(),
+      role: "admin",
+    });
+    if (emailUsedByAdmin) {
+      return res
+        .status(409)
+        .json({ message: "Email already in use by an admin." });
+    }
+
+    const emailUsedByCampus = await User.findOne({
+      email: newEmail.toLowerCase(),
+      excludeId: campus.id,
+      role: "campus",
+    });
+    if (emailUsedByCampus) {
+      return res
+        .status(409)
+        .json({ message: "Email already in use by another campus." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
+    await TempEmailChange.upsertByUserId(campus.id, {
+      userId: campus.id,
+      newEmail: newEmail.toLowerCase(),
+      otp: hashedOtp,
+      otpExpires: new Date(Date.now() + 10 * 60 * 1000),
+      verified: false,
+    });
+
+    await sendEmail({
+      toEmail: newEmail,
+      toName: formatFullName(campus.name) || "Campus",
+      subject: "Confirm Your New Email",
+      htmlContent: `
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9; text-align: center;">
+    <h1 style="color: #1a73e8; font-size: 26px; margin-bottom: 10px;">Hello,</h1>
+    <p style="font-size: 16px; color: #555; margin-bottom: 30px;">
+      Please confirm your new email by entering the OTP below:
+    </p>
+    <div style="display: inline-block; padding: 15px 25px; font-size: 24px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #1a73e8, #4285f4); border-radius: 8px; letter-spacing: 2px; margin-bottom: 20px;">
+      ${otp}
+    </div>
+    <p style="font-size: 14px; color: #999; margin-bottom: 30px;">
+      This OTP will expire in 10 minutes.
+    </p>
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+    <p style="font-size: 12px; color: #bbb;">
+      If you did not request this, please ignore this email.
+    </p>
+    <p style="font-size: 12px; color: #bbb;">
+      &copy; ${new Date().getFullYear()} GibiGebeta. All rights reserved.
+    </p>
+  </div>
+  `,
+    });
+
+    const otpToken = jwt.sign({ userId: campus.id }, process.env.JWT_SECRET, {
+      expiresIn: "10m",
+    });
+
+    res.cookie("emailOtpToken", otpToken, getCookieOptions(10 * 60 * 1000));
+
+    res.json({ message: "OTP sent to new email address." });
+  } catch (error) {
+    logInternalError("request-campus-email-change-otp", error);
+    res.status(500).json({ message: "Failed to send OTP." });
+  }
+};
+
+export const verifyCampusEmailOTP = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const token = req.cookies.emailOtpToken;
+
+    if (!token) {
+      return res.status(400).json({ message: "OTP session expired." });
+    }
+
+    const { userId } = jwt.verify(token, process.env.JWT_SECRET);
+
+    const record = await TempEmailChange.findOne({ userId });
+    if (!record) {
+      return res.status(400).json({ message: "OTP request not found." });
+    }
+
+    if (new Date(record.otpExpires) < new Date()) {
+      return res.status(400).json({ message: "OTP expired." });
+    }
+
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    if (hashedOtp !== record.otp) {
+      return res.status(400).json({ message: "Invalid OTP." });
+    }
+
+    const campus = await User.findById(req.userId);
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found." });
+    }
+
+    await User.updateById(campus.id, { email: record.newEmail });
+    await TempEmailChange.deleteById(record.id);
+    res.clearCookie("emailOtpToken");
+
+    res.json({
+      message: "Your email has been updated successfully.",
+    });
+  } catch (error) {
+    logInternalError("verify-campus-email-otp", error);
+    res.status(500).json({ message: "Email verification failed." });
   }
 };

@@ -1,7 +1,7 @@
 "use client";
-
 import { React, useState, useEffect, useRef } from "react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import { useUser } from "../context/UserContext";
 import PropTypes from "prop-types";
 import {
   getFriendlyMessage,
@@ -11,6 +11,7 @@ import {
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ChangePasswordModal({ onClose }) {
+  const { refreshUser } = useUser();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -100,6 +101,9 @@ export default function ChangePasswordModal({ onClose }) {
       setNewPassword("");
       setConfirmPassword("");
       setShowRules(false);
+      if (refreshUser) {
+        await refreshUser();
+      }
       setTimeout(() => onClose(), 2000);
     } catch (err) {
       setError(

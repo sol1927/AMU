@@ -78,18 +78,16 @@ export const seedDatabase = async () => {
     // Seed cafe (username only, not email)
     const cafeUsername = process.env.INITIAL_CAFE_USERNAME;
     const cafePassword = process.env.INITIAL_CAFE_PASSWORD;
-    let cafeUser = null;
 
     if (cafeUsername && cafePassword && campusUser) {
       const existingCafe = await User.findOne({
         name: cafeUsername,
         role: "cafe",
       });
-      cafeUser = existingCafe;
       if (!existingCafe) {
-        cafeUser = await User.create({
+        await User.create({
           name: cafeUsername,
-          email: null, // ensure email is null, not undefined
+          email: null,
           password: cafePassword,
           role: "cafe",
           mustChangePassword: false,
@@ -99,7 +97,6 @@ export const seedDatabase = async () => {
         console.log("Default cafe created");
       } else {
         await User.updateById(existingCafe.id, { mustChangePassword: false });
-        cafeUser = await User.findById(existingCafe.id);
         console.log("Cafe already exists, cleared mustChangePassword");
       }
     } else {
@@ -111,16 +108,14 @@ export const seedDatabase = async () => {
     // Seed cafe manager (must have email)
     const cafeManagerEmail = process.env.INITIAL_CAFE_MANAGER_EMAIL;
     const cafeManagerPassword = process.env.INITIAL_CAFE_MANAGER_PASSWORD;
-    let cafeManagerUser = null;
 
     if (cafeManagerEmail && cafeManagerPassword && campusUser) {
       const existingCafeManager = await User.findOne({
         email: cafeManagerEmail,
         role: "cafe manager",
       });
-      cafeManagerUser = existingCafeManager;
       if (!existingCafeManager) {
-        cafeManagerUser = await User.create({
+        await User.create({
           name: "Default Cafe Manager",
           email: cafeManagerEmail,
           password: cafeManagerPassword,
@@ -134,7 +129,6 @@ export const seedDatabase = async () => {
         await User.updateById(existingCafeManager.id, {
           mustChangePassword: true,
         });
-        cafeManagerUser = await User.findById(existingCafeManager.id);
         console.log(
           "Cafe manager already exists, reset mustChangePassword to true",
         );

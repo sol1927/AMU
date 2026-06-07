@@ -371,14 +371,22 @@ export const getAdminDashboard = async (req, res) => {
 
 export const getMeals = async (req, res) => {
   try {
-    if (req.userRole !== "admin" && req.userRole !== "campus") {
+    if (req.userRole !== "admin" && req.userRole !== "campus" && req.userRole !== "cafe manager") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const scanTime = new Date();
 
     const { year, semester, date, mealType, cafeNumber } = req.query;
-    const campusId = req.userRole === "campus" ? req.userId : req.query.campusId;
+    
+    let campusId;
+    if (req.userRole === "campus") {
+      campusId = req.userId;
+    } else if (req.userRole === "cafe manager") {
+      campusId = req.user.campusId;
+    } else {
+      campusId = req.query.campusId;
+    }
 
     if (!campusId || !date || !mealType) {
       return res.status(400).json({
@@ -386,9 +394,14 @@ export const getMeals = async (req, res) => {
       });
     }
 
-    const campus = req.userRole === "campus"
-      ? req.user
-      : await findOwnedCampus(campusId, req.userId);
+    let campus;
+    if (req.userRole === "campus") {
+      campus = req.user;
+    } else if (req.userRole === "cafe manager") {
+      campus = await User.findById(campusId);
+    } else {
+      campus = await findOwnedCampus(campusId, req.userId);
+    }
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
@@ -582,21 +595,35 @@ export const getMeals = async (req, res) => {
 
 export const getMealStudents = async (req, res) => {
   try {
-    if (req.userRole !== "admin" && req.userRole !== "campus") {
+    if (req.userRole !== "admin" && req.userRole !== "campus" && req.userRole !== "cafe manager") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const { date, mealType, cafeNumber, year, semester } = req.query;
-    const campusId = req.userRole === "campus" ? req.userId : req.query.campusId;
+    
+    let campusId;
+    if (req.userRole === "campus") {
+      campusId = req.userId;
+    } else if (req.userRole === "cafe manager") {
+      campusId = req.user.campusId;
+    } else {
+      campusId = req.query.campusId;
+    }
+
     if (!campusId || !date || !mealType) {
       return res.status(400).json({
         message: "campusId, date, and mealType are required",
       });
     }
 
-    const campus = req.userRole === "campus"
-      ? req.user
-      : await findOwnedCampus(campusId, req.userId);
+    let campus;
+    if (req.userRole === "campus") {
+      campus = req.user;
+    } else if (req.userRole === "cafe manager") {
+      campus = await User.findById(campusId);
+    } else {
+      campus = await findOwnedCampus(campusId, req.userId);
+    }
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }
@@ -676,19 +703,31 @@ export const getMealStudents = async (req, res) => {
 
 export const getMealFilters = async (req, res) => {
   try {
-    if (req.userRole !== "admin" && req.userRole !== "campus") {
+    if (req.userRole !== "admin" && req.userRole !== "campus" && req.userRole !== "cafe manager") {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const campusId = req.userRole === "campus" ? req.userId : req.query.campusId;
+    let campusId;
+    if (req.userRole === "campus") {
+      campusId = req.userId;
+    } else if (req.userRole === "cafe manager") {
+      campusId = req.user.campusId;
+    } else {
+      campusId = req.query.campusId;
+    }
 
     if (!campusId) {
       return res.status(400).json({ message: "campusId is required" });
     }
 
-    const campus = req.userRole === "campus"
-      ? req.user
-      : await findOwnedCampus(campusId, req.userId);
+    let campus;
+    if (req.userRole === "campus") {
+      campus = req.user;
+    } else if (req.userRole === "cafe manager") {
+      campus = await User.findById(campusId);
+    } else {
+      campus = await findOwnedCampus(campusId, req.userId);
+    }
     if (!campus) {
       return res.status(404).json({ message: "Campus not found" });
     }

@@ -32,11 +32,15 @@ export default function CafeStudentsPage() {
   const [cafes, setCafes] = useState([]);
 
   const getStudentCafeLabel = (student) => {
-    const explicitCafe = Number(student?.effectiveCafeNumber || student?.cafeNumber);
-    const cafeNumber = Number.isInteger(explicitCafe) && explicitCafe > 0 ? explicitCafe : null;
+    const explicitCafe = Number(
+      student?.effectiveCafeNumber || student?.cafeNumber,
+    );
+    const cafeNumber =
+      Number.isInteger(explicitCafe) && explicitCafe > 0 ? explicitCafe : null;
     if (!cafeNumber) return "Unassigned";
     const matchedCafe = cafes.find(
-      (c, index) => (c.cafeNumber || getCafeNum(c.name) || (index + 1)) === cafeNumber,
+      (c, index) =>
+        (c.cafeNumber || getCafeNum(c.name) || index + 1) === cafeNumber,
     );
     return matchedCafe
       ? matchedCafe.displayName || getCafeName(matchedCafe.name)
@@ -71,9 +75,7 @@ export default function CafeStudentsPage() {
   const activeCafeNum =
     currentUser?.activeCafeNumber || currentUser?.selectedCafeNumber || 1;
 
-  const isAuthorized =
-    currentUser &&
-    currentUser.role === "cafe";
+  const isAuthorized = currentUser && currentUser.role === "cafe";
 
   const batchOptions = useMemo(() => {
     return Array.from(
@@ -215,16 +217,16 @@ export default function CafeStudentsPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-7xl flex-col overflow-hidden px-6 pt-2 text-slate-900">
-      <div className="rounded-3xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm">
+      <div className="surface-panel rounded-3xl px-4 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold leading-none">
+            <h1 className="text-2xl font-bold leading-none text-slate-900">
               Cafe {activeCafeNum} Students
             </h1>
-            <p className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
+            <p className="rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">
               Showing {filteredAndSortedStudents.length} students
             </p>
-            <p className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
+            <p className="rounded-full bg-sky-50 dark:bg-sky-950/45 px-3 py-1 text-sm font-semibold text-sky-700 dark:text-sky-400">
               Station Cafe {activeCafeNum} Total: {totalStudents}
             </p>
           </div>
@@ -248,7 +250,7 @@ export default function CafeStudentsPage() {
               disabled={
                 exportingStudents || filteredAndSortedStudents.length === 0
               }
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {exportingStudents ? "Exporting..." : "Export Students"}
             </button>
@@ -293,7 +295,8 @@ export default function CafeStudentsPage() {
           >
             <option value="">All Departments</option>
             {departmentOptions.map((dept) => {
-              const truncatedDept = dept.length > 25 ? dept.slice(0, 22) + "..." : dept;
+              const truncatedDept =
+                dept.length > 25 ? dept.slice(0, 22) + "..." : dept;
               return (
                 <option key={dept} value={dept} title={dept}>
                   {truncatedDept}
@@ -306,7 +309,7 @@ export default function CafeStudentsPage() {
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
         {!loading && filteredAndSortedStudents.length > 0 && (
-          <div className="mb-2 hidden items-center gap-x-3 gap-y-2 rounded border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 sm:grid sm:grid-cols-[40px_44px_180px_120px_minmax(0,220px)_70px_100px_130px_100px]">
+          <div className="mb-2 hidden items-center gap-x-3 gap-y-2 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-medium text-slate-500 dark:text-slate-400 sm:grid sm:grid-cols-[40px_44px_180px_120px_minmax(0,220px)_70px_100px_130px_100px]">
             <span>#</span>
             <span></span>
             <span className="truncate">Name</span>
@@ -322,13 +325,15 @@ export default function CafeStudentsPage() {
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-2 overflow-y-auto pr-1">
             {loading && (
-              <p className="mt-12 text-center">Loading students...</p>
+              <p className="mt-12 text-center text-slate-500 dark:text-slate-400">
+                Loading students...
+              </p>
             )}
 
             {!loading &&
               filteredAndSortedStudents.length === 0 &&
               initialLoadDone && (
-                <p className="mt-12 text-center text-slate-500">
+                <p className="mt-12 text-center text-slate-500 dark:text-slate-400">
                   Student not found
                 </p>
               )}
@@ -336,22 +341,22 @@ export default function CafeStudentsPage() {
             {filteredAndSortedStudents.map((student, index) => (
               <div
                 key={student.id}
-                className="grid gap-x-3 gap-y-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:grid-cols-[40px_44px_180px_120px_minmax(0,220px)_70px_100px_130px_100px] sm:items-center"
+                className="surface-card grid gap-x-3 gap-y-2 rounded-xl px-4 py-3 sm:grid-cols-[40px_44px_180px_120px_minmax(0,220px)_70px_100px_130px_100px] sm:items-center"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     #
                   </span>
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-slate-900 dark:text-white">
                     {index + 1}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Photo
                   </span>
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-800">
                     {student.profileUrl ? (
                       <img
                         src={student.profileUrl}
@@ -359,7 +364,7 @@ export default function CafeStudentsPage() {
                         className="h-full w-full rounded-full object-cover"
                       />
                     ) : (
-                      <span className="flex h-full w-full items-center justify-center font-semibold text-gray-600">
+                      <span className="flex h-full w-full items-center justify-center font-semibold text-gray-650 dark:text-slate-450">
                         {student.name?.[0] || "S"}
                       </span>
                     )}
@@ -367,11 +372,11 @@ export default function CafeStudentsPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Name
                   </span>
                   <span
-                    className="block truncate font-medium"
+                    className="block truncate font-medium text-slate-900 dark:text-white"
                     title={student.name}
                   >
                     {student.name}
@@ -379,38 +384,47 @@ export default function CafeStudentsPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Student ID
                   </span>
-                  <span className="block truncate" title={student.studentId}>
+                  <span
+                    className="block truncate text-slate-700 dark:text-slate-300"
+                    title={student.studentId}
+                  >
                     {student.studentId}
                   </span>
                 </div>
 
                 <div className="min-w-0">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Department
                   </span>
-                  <span className="block truncate" title={student.department}>
+                  <span
+                    className="block truncate text-slate-700 dark:text-slate-300"
+                    title={student.department}
+                  >
                     {student.department}
                   </span>
                 </div>
 
                 <div className="min-w-0">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Batch
                   </span>
-                  <span className="block truncate" title={student.batch}>
+                  <span
+                    className="block truncate text-slate-700 dark:text-slate-300"
+                    title={student.batch}
+                  >
                     {student.batch}
                   </span>
                 </div>
 
                 <div className="min-w-0">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Cafe
                   </span>
                   <span
-                    className="block truncate"
+                    className="block truncate text-slate-700 dark:text-slate-300"
                     title={getStudentCafeLabel(student)}
                   >
                     {getStudentCafeLabel(student)}
@@ -418,11 +432,11 @@ export default function CafeStudentsPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Fasting
                   </span>
                   <span
-                    className="block truncate"
+                    className="block truncate text-slate-700 dark:text-slate-300"
                     title={getFastingLabel(student.fastingType)}
                   >
                     {getFastingLabel(student.fastingType)}
@@ -430,7 +444,7 @@ export default function CafeStudentsPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-450 sm:hidden">
                     Internship
                   </span>
                   <span className="block truncate">
@@ -439,7 +453,9 @@ export default function CafeStudentsPage() {
                         Internship
                       </span>
                     ) : (
-                      <span className="text-slate-400">-</span>
+                      <span className="text-slate-400 dark:text-slate-500">
+                        -
+                      </span>
                     )}
                   </span>
                 </div>
@@ -449,12 +465,12 @@ export default function CafeStudentsPage() {
         </div>
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p className="text-red-650 mt-2">{error}</p>}
 
       {toast && (
         <div
           className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${
-            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            toast.type === "success" ? "bg-emerald-600" : "bg-rose-600"
           }`}
         >
           {toast.message}

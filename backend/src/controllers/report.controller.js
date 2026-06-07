@@ -1,225 +1,153 @@
 import { getDB } from "../config/db.js";
 import User from "../models/user.model.js";
+import CafeStudent from "../models/cafeStudent.model.js";
+import { filterStudentsForCafeNumber } from "../utils/cafeScope.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 
-export const getDailyReport = async (req, res) => {
+// Helper to resolve campus ID from the request user
+const getCampusIdForUser = async (req) => {
+  if (req.userRole === "admin") {
+    if (req.query.campusId) {
+      return Number(req.query.campusId);
+    }
+    const campuses = await User.findAll({ role: "campus", createdBy: req.userId });
+    return campuses.length > 0 ? campuses[0].id : null;
+  }
+  if (req.userRole === "campus") {
+    return req.userId;
+  }
+  if (req.userRole === "cafe" || req.userRole === "cafe manager") {
+    const loggedInUser = await User.findById(req.userId);
+    return loggedInUser ? loggedInUser.campusId : null;
+  }
+  return null;
+};
+
+// Common stats calculator based on period and cafeNumber filter
+const calculateReportStats = async (req, res, startDateStr, endDateStr, periodType) => {
   try {
-    const { date, campusId } = req.query;
-    const targetDate = date || new Date().toISOString().split("T")[0];
-
-    let campusFilter = null;
-    let consolidate = false;
-
-    if (req.userRole === "admin") {
-      if (campusId) {
-        campusFilter = campusId;
-      } else {
-        consolidate = true;
-      }
-    } else if (req.userRole === "campus") {
-      campusFilter = req.userId;
-    } else if (req.userRole === "cafe") {
-      // Find campusId for cafe user
-      const cafeUser = await User.findById(req.userId);
-      if (!cafeUser) {
-        return res.status(404).json({ message: "Cafeteria account not found." });
-      }
-      campusFilter = cafeUser.campusId;
-    } else {
-      return res.status(403).json({ message: "Access denied." });
+    const campusId = await getCampusIdForUser(req);
+    if (!campusId) {
+      return res.status(400).json({ message: "Campus ID is required or not found for this user." });
     }
 
-    let query = `
-      SELECT
-        mealType,
-        cafeNumber,
-        fastingType,
-        isInternship,
-        COUNT(*) as count
+    const campus = await User.findById(campusId);
+    if (!campus) {
+      return res.status(404).json({ message: "Campus not found." });
+    }
+
+    const targetCafeNumber = req.query.cafeNumber ? Number(req.query.cafeNumber) : null;
+
+    // Fetch all active regular students on the campus (isInternship = 0)
+    const students = await CafeStudent.findAll({ campusId, isInternship: 0 });
+
+    // Apply cafe selection filter using getEffectiveStudentCafeNumber
+    const filteredStudents = targetCafeNumber
+      ? filterStudentsForCafeNumber(students, campus, targetCafeNumber)
+      : students;
+
+    // Fetch unique student IDs who scanned during this period
+    let scanQuery = `
+      SELECT DISTINCT studentId
       FROM station_scans
-      WHERE date = ?
+      WHERE campus = ?
+        AND date >= ?
+        AND date <= ?
+        AND isInternship = 0
     `;
-    const params = [targetDate];
+    const scanParams = [campusId, startDateStr, endDateStr];
 
-    if (!consolidate) {
-      query += " AND campus = ?";
-      params.push(campusFilter);
+    if (targetCafeNumber) {
+      scanQuery += " AND cafeNumber = ?";
+      scanParams.push(targetCafeNumber);
     }
 
-    query += " GROUP BY mealType, cafeNumber, fastingType, isInternship";
+    const [scanRows] = await getDB().execute(scanQuery, scanParams);
+    const servedStudentIds = new Set(scanRows.map(row => String(row.studentId)));
 
-    const [rows] = await getDB().execute(query, params);
+    // Fetch all distinct fasting types currently configured/present in the database
+    const [typeRows] = await getDB().execute("SELECT DISTINCT fastingType FROM cafestudents");
+    const allFastingTypes = typeRows.map(row => row.fastingType || "not_fasting");
+    const uniqueFastingTypes = Array.from(new Set(allFastingTypes));
 
-    const formatted = {
-      date: targetDate,
-      consolidated: consolidate,
-      meals: {
-        breakfast: { total: 0, fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0, regular: 0, internship: 0, cafeBreakdown: {} },
-        lunch: { total: 0, fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0, regular: 0, internship: 0, cafeBreakdown: {} },
-        dinner: { total: 0, fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0, regular: 0, internship: 0, cafeBreakdown: {} },
-      }
-    };
-
-    rows.forEach(row => {
-      const meal = row.mealType.toLowerCase();
-      if (!formatted.meals[meal]) return;
-
-      const count = Number(row.count);
-      formatted.meals[meal].total += count;
-
-      if (row.fastingType === "fasting") formatted.meals[meal].fasting += count;
-      else if (row.fastingType === "sunday_fasting") formatted.meals[meal].sundayFasting += count;
-      else if (row.fastingType === "muslim_fasting") formatted.meals[meal].muslimFasting += count;
-      else formatted.meals[meal].notFasting += count;
-
-      if (row.isInternship) {
-        formatted.meals[meal].internship += count;
-      } else {
-        formatted.meals[meal].regular += count;
-      }
-
-      const cafeNum = row.cafeNumber || 1;
-      if (!formatted.meals[meal].cafeBreakdown[cafeNum]) {
-        formatted.meals[meal].cafeBreakdown[cafeNum] = 0;
-      }
-      formatted.meals[meal].cafeBreakdown[cafeNum] += count;
+    // Initialize dynamic breakdown dictionary
+    const breakdown = {};
+    uniqueFastingTypes.forEach(type => {
+      breakdown[type] = {
+        total: 0,
+        served: 0,
+        unserved: 0
+      };
     });
 
-    res.json(formatted);
+    let totalRegular = filteredStudents.length;
+    let totalServed = 0;
+
+    filteredStudents.forEach(student => {
+      const isServed = servedStudentIds.has(String(student.studentId));
+      if (isServed) {
+        totalServed++;
+      }
+
+      const fType = student.fastingType || "not_fasting";
+      if (!breakdown[fType]) {
+        breakdown[fType] = { total: 0, served: 0, unserved: 0 };
+      }
+
+      breakdown[fType].total++;
+      if (isServed) {
+        breakdown[fType].served++;
+      }
+    });
+
+    // Compute unserved for all types
+    Object.keys(breakdown).forEach(key => {
+      breakdown[key].unserved = breakdown[key].total - breakdown[key].served;
+    });
+
+    res.json({
+      period: {
+        type: periodType,
+        startDate: startDateStr,
+        endDate: endDateStr,
+      },
+      cafeNumber: targetCafeNumber,
+      campusName: campus.name,
+      stats: {
+        totalRegular,
+        totalServed,
+        totalUnserved: totalRegular - totalServed,
+        breakdown
+      }
+    });
   } catch (err) {
-    logInternalError("daily-report", err);
-    sendServerError(res, "Could not generate daily report.");
+    logInternalError(`${periodType}-report-calculation`, err);
+    sendServerError(res, `Could not generate ${periodType} report.`);
   }
+};
+
+export const getDailyReport = async (req, res) => {
+  const targetDate = req.query.date || new Date().toISOString().split("T")[0];
+  await calculateReportStats(req, res, targetDate, targetDate, "daily");
 };
 
 export const getWeeklyReport = async (req, res) => {
-  try {
-    const { campusId } = req.query;
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 6);
-    const startDateStr = startDate.toISOString().split("T")[0];
-
-    let campusFilter = null;
-    let consolidate = false;
-
-    if (req.userRole === "admin") {
-      if (campusId) {
-        campusFilter = campusId;
-      } else {
-        consolidate = true;
-      }
-    } else if (req.userRole === "campus") {
-      campusFilter = req.userId;
-    } else if (req.userRole === "cafe") {
-      const cafeUser = await User.findById(req.userId);
-      if (!cafeUser) {
-        return res.status(404).json({ message: "Cafeteria account not found." });
-      }
-      campusFilter = cafeUser.campusId;
-    } else {
-      return res.status(403).json({ message: "Access denied." });
-    }
-
-    let query = `
-      SELECT
-        date,
-        COUNT(*) as totalScans,
-        SUM(CASE WHEN isInternship = 1 THEN 1 ELSE 0 END) as internshipScans,
-        SUM(CASE WHEN isInternship = 0 THEN 1 ELSE 0 END) as regularScans,
-        SUM(CASE WHEN fastingType = 'fasting' THEN 1 ELSE 0 END) as fastingScans
-      FROM station_scans
-      WHERE date >= ?
-    `;
-    const params = [startDateStr];
-
-    if (!consolidate) {
-      query += " AND campus = ?";
-      params.push(campusFilter);
-    }
-
-    query += " GROUP BY date ORDER BY date ASC";
-
-    const [rows] = await getDB().execute(query, params);
-
-    res.json({
-      startDate: startDateStr,
-      consolidated: consolidate,
-      days: rows.map(r => ({
-        date: r.date,
-        totalScans: Number(r.totalScans || 0),
-        internshipScans: Number(r.internshipScans || 0),
-        regularScans: Number(r.regularScans || 0),
-        fastingScans: Number(r.fastingScans || 0),
-      }))
-    });
-  } catch (err) {
-    logInternalError("weekly-report", err);
-    sendServerError(res, "Could not generate weekly report.");
+  let startDateStr = req.query.startDate;
+  let endDateStr = req.query.endDate;
+  if (!startDateStr || !endDateStr) {
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    startDateStr = start.toISOString().split("T")[0];
+    endDateStr = new Date().toISOString().split("T")[0];
   }
+  await calculateReportStats(req, res, startDateStr, endDateStr, "weekly");
 };
 
 export const getMonthlyReport = async (req, res) => {
-  try {
-    const { campusId } = req.query;
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 29);
-    const startDateStr = startDate.toISOString().split("T")[0];
-
-    let campusFilter = null;
-    let consolidate = false;
-
-    if (req.userRole === "admin") {
-      if (campusId) {
-        campusFilter = campusId;
-      } else {
-        consolidate = true;
-      }
-    } else if (req.userRole === "campus") {
-      campusFilter = req.userId;
-    } else if (req.userRole === "cafe") {
-      const cafeUser = await User.findById(req.userId);
-      if (!cafeUser) {
-        return res.status(404).json({ message: "Cafeteria account not found." });
-      }
-      campusFilter = cafeUser.campusId;
-    } else {
-      return res.status(403).json({ message: "Access denied." });
-    }
-
-    let query = `
-      SELECT
-        date,
-        COUNT(*) as totalScans,
-        SUM(CASE WHEN isInternship = 1 THEN 1 ELSE 0 END) as internshipScans,
-        SUM(CASE WHEN isInternship = 0 THEN 1 ELSE 0 END) as regularScans,
-        SUM(CASE WHEN fastingType = 'fasting' THEN 1 ELSE 0 END) as fastingScans
-      FROM station_scans
-      WHERE date >= ?
-    `;
-    const params = [startDateStr];
-
-    if (!consolidate) {
-      query += " AND campus = ?";
-      params.push(campusFilter);
-    }
-
-    query += " GROUP BY date ORDER BY date ASC";
-
-    const [rows] = await getDB().execute(query, params);
-
-    res.json({
-      startDate: startDateStr,
-      consolidated: consolidate,
-      days: rows.map(r => ({
-        date: r.date,
-        totalScans: Number(r.totalScans || 0),
-        internshipScans: Number(r.internshipScans || 0),
-        regularScans: Number(r.regularScans || 0),
-        fastingScans: Number(r.fastingScans || 0),
-      }))
-    });
-  } catch (err) {
-    logInternalError("monthly-report", err);
-    sendServerError(res, "Could not generate monthly report.");
-  }
+  const year = req.query.year || new Date().getFullYear();
+  const month = req.query.month || (new Date().getMonth() + 1);
+  const startDateStr = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDateStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  await calculateReportStats(req, res, startDateStr, endDateStr, "monthly");
 };

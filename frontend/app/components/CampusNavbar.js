@@ -17,6 +17,8 @@ import {
   HiOutlineLogout,
   HiOutlineUserCircle,
   HiOutlineDocumentText,
+  HiOutlineClipboardList,
+  HiOutlineBell,
 } from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -53,6 +55,28 @@ export default function CampusNavbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   // const [showCafeModal, setShowCafeModal] = useState(false);
   const menuRef = useRef(null);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!currentCampus) return;
+    const fetchCount = async () => {
+      try {
+        const res = await fetch(`${url}/approvals`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setPendingCount(data.requests?.length || 0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch approvals count:", err);
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 15000);
+    return () => clearInterval(interval);
+  }, [currentCampus]);
+
+  const brandLogo = currentCampus?.logo?.url || "/logo.png";
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -119,37 +143,66 @@ export default function CampusNavbar() {
       label: "Meal History",
       onClick: () => router.push("/campus/meals"),
     },
+    {
+      icon: HiOutlineDocumentText,
+      label: "Reports",
+      onClick: () => router.push("/campus/reports"),
+    },
+    {
+      icon: HiOutlineClipboardList,
+      label: "Requests",
+      onClick: () => router.push("/campus/requests"),
+      badge: pendingCount > 0 ? String(pendingCount) : null,
+    },
   ];
 
   return (
     <>
       <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-3">
-          <button
-            type="button"
-            onClick={() => router.push("/campus")}
-            className="flex items-center gap-3 transition hover:opacity-90"
-          >
-            <Image
-              src="/logo.png"
-              alt="GibiGebeta"
-              width={44}
-              height={44}
-              className="rounded-full object-cover"
-              priority
-            />
-            <div className="text-left">
-              <span className="block text-xl font-semibold tracking-tight text-slate-900">
-                Gibi<span className="text-blue-500">Gebeta</span>
-              </span>
-              <span className="text-xs uppercase tracking-[0.28em] text-slate-500">
-                Campus dashboard
-              </span>
-            </div>
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => router.push("/campus")}
+              className="flex items-center gap-3 transition hover:opacity-90"
+            >
+              <Image
+                src={brandLogo}
+                alt="GibiGebeta"
+                width={44}
+                height={44}
+                className="rounded-full object-cover"
+                priority
+                unoptimized
+              />
+              <div className="text-left">
+                <span className="block text-xl font-semibold tracking-tight text-slate-900">
+                  Gibi<span className="text-blue-500">Gebeta</span>
+                </span>
+                <span className="text-xs uppercase tracking-[0.28em] text-slate-500">
+                  Campus dashboard
+                </span>
+              </div>
+            </button>
+          </div>
 
           <div className="flex items-center gap-3">
             {/* Cafe number badge removed for campus */}
+
+            {/* Notification Bell Icon on the left side of day and night toggle */}
+            <button
+              type="button"
+              onClick={() => router.push("/campus/requests")}
+              className="relative p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition shadow-sm hover:scale-105 active:scale-95"
+              title="View Requests"
+            >
+              <HiOutlineBell className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
 
             <ThemeToggle />
 
@@ -199,10 +252,11 @@ export default function CampusNavbar() {
               </button>
 
               <div
-                className={`absolute right-0 mt-4 w-72 max-w-[90vw] overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${openMenu
+                className={`absolute right-0 mt-4 w-72 max-w-[90vw] overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${
+                  openMenu
                     ? "opacity-100 scale-100"
                     : "pointer-events-none opacity-0 scale-95"
-                  }`}
+                }`}
                 role="menu"
                 aria-label="Campus menu"
               >
@@ -227,7 +281,8 @@ export default function CampusNavbar() {
                         title={`Welcome, ${capitalizeWords(currentCampus?.name || "Campus")}`}
                         className="truncate text-sm font-semibold text-slate-900"
                       >
-                        Welcome, {capitalizeWords(currentCampus?.name || "Campus")}
+                        Welcome,{" "}
+                        {capitalizeWords(currentCampus?.name || "Campus")}
                       </p>
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
                         Campus account

@@ -152,17 +152,67 @@ export const approveApprovalRequest = async (req, res) => {
       return res.status(403).json({ message: "Access denied." });
     }
 
-    // Apply updates to the user table
-    const updates = { ...request.pendingData };
-    if (updates.password) {
-      updates.mustChangePassword = false;
+    // Apply updates depending on requestType
+    if (request.requestType === "create_cafe") {
+      const { name, password, displayName, campusId } = request.pendingData;
+      // Check if user already exists
+      const existingUser = await User.findOne({ name, role: "cafe" });
+      if (existingUser) {
+        return res.status(400).json({ message: "A cafe with this username already exists." });
+      }
+      await User.create({
+        name,
+        email: null,
+        password,
+        role: "cafe",
+        campusId,
+        displayName: displayName || null,
+        createdBy: request.requesterId,
+        mustChangePassword: false,
+      });
+    } else if (request.requestType === "update_cafe") {
+      const { cafeId, name, displayName, password } = request.pendingData;
+      const cafe = await User.findById(cafeId);
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe to update not found." });
+      }
+      const updateData = {};
+      if (name) {
+        const existingUser = await User.findOne({ name, role: "cafe", excludeId: cafeId });
+        if (existingUser) {
+          return res.status(400).json({ message: "A cafe with this username already exists." });
+        }
+        updateData.name = name;
+        updateData.email = null;
+      }
+      if (displayName !== undefined) {
+        updateData.displayName = displayName;
+      }
+      if (password) {
+        updateData.password = password;
+        updateData.mustChangePassword = false;
+      }
+      await User.updateById(cafeId, updateData);
+    } else if (request.requestType === "delete_cafe") {
+      const { cafeId } = request.pendingData;
+      const cafe = await User.findById(cafeId);
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe to delete not found." });
+      }
+      await User.deleteById(cafeId);
+    } else {
+      // Default: profile_update
+      const updates = { ...request.pendingData };
+      if (updates.password) {
+        updates.mustChangePassword = false;
+      }
+      await User.updateById(request.requesterId, updates);
     }
-    await User.updateById(request.requesterId, updates);
 
     // Mark request as approved
     await PendingApproval.updateById(id, { status: "approved" });
 
-    res.json({ message: "Profile update approved and applied successfully." });
+    res.json({ message: "Approval request approved and applied successfully." });
   } catch (err) {
     logInternalError("approve-request", err);
     sendServerError(res, "Could not approve request.");
@@ -206,7 +256,7 @@ export const rejectApprovalRequest = async (req, res) => {
     // Mark request as rejected
     await PendingApproval.updateById(id, { status: "rejected" });
 
-    res.json({ message: "Profile update request has been rejected." });
+    res.json({ message: "Approval request has been rejected." });
   } catch (err) {
     logInternalError("reject-request", err);
     sendServerError(res, "Could not reject request.");
@@ -218,8 +268,17 @@ export const getMyApprovalRequest = async (req, res) => {
   try {
     const requesterId = req.userId;
     const requests = await PendingApproval.findAll({ requesterId });
-    const pending = requests.find((req) => req.status === "pending") || null;
-    res.json({ pending });
+    const pendingRequests = requests.filter((req) => req.status === "pending");
+    const pending = pendingRequests[0] || null;
+    res.json({ pending, requests: requests });
+
+    // Clean up resolved requests from database immediately
+    const resolved = requests.filter((r) => r.status === "approved" || r.status === "rejected");
+    if (resolved.length > 0) {
+      for (const r of resolved) {
+        await PendingApproval.deleteById(r.id);
+      }
+    }
   } catch (err) {
     logInternalError("get-my-approval", err);
     sendServerError(res, "Could not fetch active approval request status.");

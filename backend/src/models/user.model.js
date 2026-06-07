@@ -98,6 +98,49 @@ const createTable = async () => {
   }
 };
 
+const getAdminLogoUrlForUser = async (user) => {
+  if (!user) return null;
+  if (user.role === "admin") return user.logo?.url || null;
+
+  const currentCreatedBy = user.createdBy;
+  const currentRole = user.role;
+
+  try {
+    if (currentRole === "campus" && currentCreatedBy) {
+      const [rows] = await getDB().execute(
+        "SELECT logo_url FROM users WHERE id = ?",
+        [currentCreatedBy]
+      );
+      if (rows[0]?.logo_url) return rows[0].logo_url;
+    } else if (["cafe", "cafe manager"].includes(currentRole) && currentCreatedBy) {
+      const [campusRows] = await getDB().execute(
+        "SELECT createdBy FROM users WHERE id = ?",
+        [currentCreatedBy]
+      );
+      const parentAdminId = campusRows[0]?.createdBy;
+      if (parentAdminId) {
+        const [adminRows] = await getDB().execute(
+          "SELECT logo_url FROM users WHERE id = ?",
+          [parentAdminId]
+        );
+        if (adminRows[0]?.logo_url) return adminRows[0].logo_url;
+      }
+    }
+  } catch {
+    // Ignore db query errors in logo fallback
+  }
+
+  // Fallback to the first system admin's logo
+  try {
+    const [fallbackRows] = await getDB().execute(
+      "SELECT logo_url FROM users WHERE role = 'admin' LIMIT 1"
+    );
+    return fallbackRows[0]?.logo_url || null;
+  } catch {
+    return null;
+  }
+};
+
 const findAll = async (filter = {}, options = {}) => {
   let query =
     "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, displayName, createdBy, createdAt, updatedAt FROM users WHERE 1=1";
@@ -136,6 +179,21 @@ const findAll = async (filter = {}, options = {}) => {
   }
   const [rows] = await getDB().execute(query, params);
   const mapped = mapRows(rows, mapUserRow);
+
+  // Attach admin logo to all non-admin users in the list
+  const nonAdminExists = mapped.some((u) => u.role !== "admin");
+  if (nonAdminExists) {
+    const sampleNonAdmin = mapped.find((u) => u.role !== "admin");
+    const adminLogoUrl = await getAdminLogoUrlForUser(sampleNonAdmin);
+    if (adminLogoUrl) {
+      mapped.forEach((u) => {
+        if (u.role !== "admin") {
+          u.logo = { url: adminLogoUrl };
+        }
+      });
+    }
+  }
+
   return options.includePassword ? mapped : mapped.map(omitPassword);
 };
 
@@ -144,7 +202,14 @@ const findById = async (id, options = {}) => {
     "SELECT id, name, email, password, role, logo_url, logo_public_id, loginAttempts, lockUntil, mustChangePassword, resetToken, resetTokenExpires, campusId, location, isOnline, lastActiveAt, cafeCount, activeCafeNumber, batchCafeAssignments, displayName, createdBy, createdAt, updatedAt FROM users WHERE id = ?",
     [id],
   );
-  return sanitizeUser(rows[0] || null, options.includePassword);
+  const user = sanitizeUser(rows[0] || null, options.includePassword);
+  if (user && user.role !== "admin") {
+    const adminLogoUrl = await getAdminLogoUrlForUser(user);
+    if (adminLogoUrl) {
+      user.logo = { url: adminLogoUrl };
+    }
+  }
+  return user;
 };
 
 const findOne = async (filter = {}, options = {}) =>

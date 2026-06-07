@@ -119,28 +119,15 @@ export const updateProfilePhoto = async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    if (user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only administrators can upload the logo.",
+      });
+    }
+
     const logo = {
       url: normalizedPhotoUrl,
     };
-
-    if (user.role === "cafe") {
-      const updates = { logo };
-      const existing = await PendingApproval.findAll({ requesterId: user.id, status: "pending" });
-      await Promise.all(existing.map((req) => PendingApproval.deleteById(req.id)));
-
-      await PendingApproval.create({
-        requesterId: user.id,
-        approverRole: "campus",
-        requestType: "profile_update",
-        pendingData: updates,
-      });
-
-      return res.json({
-        message: "Your profile photo changes have been submitted to your Campus for approval.",
-        photoUrl: logo.url,
-        user: user,
-      });
-    }
 
     const updatedUser = await User.updateById(req.userId, { logo });
 
@@ -216,7 +203,10 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    await User.updateById(req.userId, { password: newPassword });
+    await User.updateById(req.userId, {
+      password: newPassword,
+      mustChangePassword: false,
+    });
     res.json({ message: "Password changed successfully" });
   } catch {
     res.status(500).json({ message: "Password change failed" });
@@ -432,5 +422,57 @@ export const verifyEmailChangeOTP = async (req, res) => {
     res.json({ message: "Email updated successfully." });
   } catch {
     res.status(500).json({ message: "Email verification failed." });
+  }
+};
+
+export const verifyUserPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password || password.trim() === "") {
+      return res.status(400).json({ message: "Password is required" });
+    }
+
+    const user = await User.findById(req.userId, { includePassword: true });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const now = Date.now();
+
+    if (user.lockUntil && user.lockUntil > now) {
+      const remaining = user.lockUntil - now;
+      return res.status(429).json({
+        message: `Too many attempts. Try again after ${formatMinutes(remaining)}.`,
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      const loginAttempts = Number(user.loginAttempts || 0) + 1;
+      const lockUntil = loginAttempts >= MAX_ATTEMPTS ? now + WINDOW_MS : null;
+
+      await User.updateById(req.userId, {
+        loginAttempts,
+        lockUntil,
+      });
+
+      const attemptsLeft = Math.max(0, MAX_ATTEMPTS - loginAttempts);
+      return res.status(401).json({
+        message:
+          attemptsLeft > 0
+            ? `Wrong password. ${attemptsLeft} attempt(s) left.`
+            : `Too many attempts. Try again after ${formatMinutes(WINDOW_MS)}.`,
+      });
+    }
+
+    await User.updateById(req.userId, {
+      loginAttempts: 0,
+      lockUntil: null,
+    });
+
+    res.json({ message: "Password correct" });
+  } catch (err) {
+    logInternalError("verify-user-password", err);
+    sendServerError(res, "Could not verify password.");
   }
 };

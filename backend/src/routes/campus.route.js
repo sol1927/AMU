@@ -6,6 +6,8 @@ import {
   verifyCampusPassword,
   updateCampusProfile,
   selectCampusCafeNumber,
+  requestCampusEmailOTP,
+  verifyCampusEmailOTP,
 } from "../controllers/campus.controller.js";
 import {
   getCampusStudents,
@@ -23,6 +25,7 @@ import {
   getCampusMealSchedule,
   updateCampusMealSchedule,
 } from "../controllers/mealSchedule.controller.js";
+import { getMyApprovalRequest } from "../controllers/approval.controller.js";
 import {
   protectCampus,
   requireCampusCafeSelection,
@@ -64,6 +67,9 @@ router.get("/dashboard", protectCampus, getCampusDashboard);
 router.post("/heartbeat", protectCampus, heartbeatCampus);
 router.post("/select-cafe-number", protectCampus, selectCampusCafeNumber);
 router.patch("/profile", protectCampus, updateCampusProfile);
+router.post("/profile/email/request-otp", protectCampus, requestCampusEmailOTP);
+router.post("/profile/email/verify-otp", protectCampus, verifyCampusEmailOTP);
+router.get("/profile/approvals", protectCampus, getMyApprovalRequest);
 router.post("/students/sync", protectCampus, syncCafeStudents);
 router.get("/schedule", protectCampus, getCampusMealSchedule);
 router.put("/schedule", protectCampus, updateCampusMealSchedule);

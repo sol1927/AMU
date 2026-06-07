@@ -2,7 +2,6 @@
 
 import React from "react";
 import Image from "next/image";
-import PropTypes from "prop-types";
 import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
 import ThemeToggle from "./ThemeToggle";
@@ -17,6 +16,8 @@ export default function CafeNavbar() {
   const [openMenu, setOpenMenu] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const menuRef = React.useRef(null);
+
+  const brandLogo = currentUser?.logo?.url || "/logo.png";
 
   React.useEffect(() => {
     const handleClickOutside = (event) => {
@@ -66,12 +67,13 @@ export default function CafeNavbar() {
           className="flex items-center gap-3 transition hover:opacity-90"
         >
           <Image
-            src="/logo.png"
+            src={brandLogo}
             alt="GibiGebeta"
             width={44}
             height={44}
             className="rounded-full object-cover"
             priority
+            unoptimized
           />
           <div className="text-left">
             <span className="block text-xl font-semibold tracking-tight text-slate-900">
@@ -94,7 +96,18 @@ export default function CafeNavbar() {
               className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
             >
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
-                <HiOutlineUserCircle className="h-7 w-7" />
+                {currentUser?.logo?.url ? (
+                  <Image
+                    src={currentUser.logo.url}
+                    alt="Profile"
+                    width={36}
+                    height={36}
+                    className="h-full w-full rounded-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <HiOutlineUserCircle className="h-7 w-7" />
+                )}
               </div>
               <span
                 title={cafeDisplayName}
@@ -117,7 +130,18 @@ export default function CafeNavbar() {
               <div className="bg-slate-50 px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-700">
-                    <HiOutlineUserCircle className="h-7 w-7" />
+                    {currentUser?.logo?.url ? (
+                      <Image
+                        src={currentUser.logo.url}
+                        alt="Profile"
+                        width={40}
+                        height={40}
+                        className="h-full w-full rounded-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <HiOutlineUserCircle className="h-7 w-7" />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p
@@ -163,18 +187,7 @@ export default function CafeNavbar() {
                 >
                   <span className="text-sm font-medium">Students List</span>
                 </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-slate-700 transition hover:bg-slate-50"
-                  onClick={() => {
-                    setOpenMenu(false);
-                    router.push("/cafe/select-cafe-number");
-                  }}
-                >
-                  <span className="text-sm font-medium">
-                    Change Cafe Station
-                  </span>
-                </button>
+                {/* Change Cafe Station removed per request */}
               </div>
               <div className="border-t border-slate-200 px-2 py-3">
                 <button
@@ -201,5 +214,3 @@ export default function CafeNavbar() {
     </header>
   );
 }
-
-CafeNavbar.propTypes = {};

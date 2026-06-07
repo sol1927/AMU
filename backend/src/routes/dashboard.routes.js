@@ -18,7 +18,6 @@ import {
   selfUpdateCampus,
 } from "../controllers/campus.controller.js";
 import {
-  syncCafeStudents,
   getCampusStudents,
   getCampusBatches,
   getStudentsByBatch,
