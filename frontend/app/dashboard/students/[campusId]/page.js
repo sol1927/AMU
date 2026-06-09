@@ -60,7 +60,7 @@ export default function DashboardCampusStudentsPage() {
       return Array.from({ length: campus.cafeCount }, (_, index) => index + 1);
     }
 
-    return [1];
+    return [];
   }, [campus?.cafeNumbers, campus?.cafeCount]);
 
   const fetchDepartmentOptions = useCallback(async () => {
@@ -141,12 +141,10 @@ export default function DashboardCampusStudentsPage() {
     );
 
     if (matchedCafe) {
-      return (
-        matchedCafe.displayName || matchedCafe.name || `Cafe ${cafeNumber}`
-      );
+      return matchedCafe.displayName || matchedCafe.name || String(cafeNumber);
     }
 
-    return `Cafe ${cafeNumber}`;
+    return String(cafeNumber);
   };
 
   const getStudentCafeLabel = (student) => {

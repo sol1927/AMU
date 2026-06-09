@@ -44,7 +44,7 @@ export default function CafeStudentsPage() {
     );
     return matchedCafe
       ? matchedCafe.displayName || getCafeName(matchedCafe.name)
-      : `Cafe ${cafeNumber}`;
+      : String(cafeNumber);
   };
 
   useEffect(() => {

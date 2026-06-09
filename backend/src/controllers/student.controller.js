@@ -260,8 +260,14 @@ export const getCampusStudentsAll = async (req, res) => {
       );
     }
 
-    if (Number.isInteger(cafeNumber) && cafeNumber > 0) {
-      students = filterStudentsForCafeNumber(students, campus, cafeNumber);
+    if (Number.isInteger(cafeNumber)) {
+      if (cafeNumber > 0) {
+        students = filterStudentsForCafeNumber(students, campus, cafeNumber);
+      } else if (cafeNumber === 0) {
+        students = students.filter(
+          (student) => getEffectiveStudentCafeNumber(student, campus) === null,
+        );
+      }
     }
 
     students = students

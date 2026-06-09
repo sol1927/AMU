@@ -116,5 +116,7 @@ export const getCafeDisplayName = (campusName, cafeNumber) => {
     return campusName || "Campus";
   }
 
-  return `${campusName || "Campus"} Cafe ${normalizedCafeNumber}`;
+  return campusName
+    ? `${campusName} ${normalizedCafeNumber}`
+    : String(normalizedCafeNumber);
 };

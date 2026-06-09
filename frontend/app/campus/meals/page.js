@@ -84,13 +84,9 @@ const getCafeNumberFromName = (name) => {
 const getCafeLabel = (cafe, index) => {
   const value =
     Number(cafe?.cafeNumber) || getCafeNumberFromName(cafe?.name) || index + 1;
-  let label = cafe?.displayName?.trim();
-  if (!label && cafe?.name) {
-    const extractedNumber = getCafeNumberFromName(cafe.name);
-    label = extractedNumber ? `Cafe ${extractedNumber}` : cafe.name.trim();
-  }
+  let label = cafe?.displayName?.trim() || cafe?.name?.trim();
   if (!label) {
-    label = `Cafe ${value}`;
+    label = String(value);
   }
   return {
     value: String(value),
@@ -236,7 +232,7 @@ export default function CampusMealsPage() {
   }, [error]);
 
   const cafeNumbers = useMemo(
-    () => currentCampus?.cafeNumbers || [1],
+    () => currentCampus?.cafeNumbers || [],
     [currentCampus?.cafeNumbers],
   );
 
@@ -518,7 +514,7 @@ export default function CampusMealsPage() {
         "Cafe",
         selectedCafeOption?.label ||
           mealSummary.cafeDisplayName ||
-          `Cafe ${mealSummary.cafeNumber || ""}`,
+          (mealSummary.cafeNumber ? String(mealSummary.cafeNumber) : ""),
       ],
       ["Cafe Number", mealSummary.cafeNumber || ""],
       [

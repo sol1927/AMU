@@ -14,7 +14,7 @@ const getCampusCafes = (campus) => {
         displayName:
           cafe.displayName ||
           cafe.name ||
-          `Cafe ${Number(cafe.cafeNumber) || index + 1}`,
+          String(Number(cafe.cafeNumber) || index + 1),
       }))
       .sort((a, b) => a.cafeNumber - b.cafeNumber);
   }
@@ -22,18 +22,18 @@ const getCampusCafes = (campus) => {
   if (Array.isArray(campus?.cafeNumbers) && campus.cafeNumbers.length > 0) {
     return campus.cafeNumbers.map((cafeNumber) => ({
       cafeNumber: Number(cafeNumber),
-      displayName: `Cafe ${cafeNumber}`,
+      displayName: String(cafeNumber),
     }));
   }
 
   if (Number.isInteger(campus?.cafeCount) && campus.cafeCount > 0) {
     return Array.from({ length: campus.cafeCount }, (_, index) => ({
       cafeNumber: index + 1,
-      displayName: `Cafe ${index + 1}`,
+      displayName: String(index + 1),
     }));
   }
 
-  return [{ cafeNumber: 1, displayName: "Cafe 1" }];
+  return [{ cafeNumber: 1, displayName: "1" }];
 };
 
 const getEffectiveStudentCafeNumber = (student, campus) => {
@@ -155,7 +155,7 @@ export default function DashboardCampusCafeViewPage() {
     const matchedCafe = campusCafes.find(
       (cafe) => Number(cafe.cafeNumber) === Number(cafeNumber),
     );
-    return matchedCafe?.displayName || `Cafe ${cafeNumber}`;
+    return matchedCafe?.displayName || String(cafeNumber);
   };
 
   const handleOpenCafe = (cafeNumber) => {

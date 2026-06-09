@@ -21,7 +21,7 @@ export default function DashboardCampusStudentGroupsPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [availableCafes, setAvailableCafes] = useState([
-    { cafeNumber: 1, displayName: "Cafe 1" },
+    { cafeNumber: 1, displayName: "1" },
   ]);
 
   const showToast = (message, type = "error") => {
@@ -109,16 +109,17 @@ export default function DashboardCampusStudentGroupsPage() {
               displayName:
                 cafe.displayName ||
                 cafe.name ||
-                `Cafe ${Number(cafe.cafeNumber) || 1}`,
+                String(Number(cafe.cafeNumber) || 1),
             }))
           : [];
 
         const fallbackCafes = (
           batchesData.cafeNumbers ||
-          matchedCampus.cafeNumbers || [1]
+          matchedCampus.cafeNumbers ||
+          []
         ).map((number) => ({
           cafeNumber: number,
-          displayName: `Cafe ${number}`,
+          displayName: String(number),
         }));
 
         setAvailableCafes(campusCafes.length ? campusCafes : fallbackCafes);

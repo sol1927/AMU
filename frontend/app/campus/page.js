@@ -60,7 +60,7 @@ const getCafeDisplayName = (cafe) => {
   if (cafe.displayName) return cafe.displayName;
   const numMatch = cafe.name?.match(/\d+/);
   return numMatch
-    ? `Cafe ${numMatch[0]}`
+    ? String(numMatch[0])
     : cafe.name?.charAt(0).toUpperCase() + cafe.name?.slice(1);
 };
 
@@ -272,7 +272,7 @@ export default function CampusDashboardPage() {
       { value: "", label: "All Cafes" },
       ...cafesList.map((cafe, idx) => {
         const value = String(cafe.cafeNumber || idx + 1);
-        const label = cafe.displayName?.trim() || `Cafe ${value}`;
+        const label = cafe.displayName?.trim() || String(value);
         return { value, label };
       }),
     ],

@@ -1,6 +1,13 @@
 "use client";
 
-import { React, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  React,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useParams } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
@@ -127,12 +134,7 @@ export default function DashboardBatchStudentsPage() {
     const delay = hasFilters ? 300 : 0;
 
     const timer = setTimeout(() => {
-      fetchStudentsByBatch(
-        batch,
-        searchQuery,
-        fastingFilter,
-        departmentFilter,
-      );
+      fetchStudentsByBatch(batch, searchQuery, fastingFilter, departmentFilter);
       setSelectedStudents([]);
       setSelectAll(false);
     }, delay);
@@ -215,7 +217,7 @@ export default function DashboardBatchStudentsPage() {
   useEffect(() => {
     setSelectAll(
       sortedStudents.length > 0 &&
-      selectedStudents.length === sortedStudents.length,
+        selectedStudents.length === sortedStudents.length,
     );
   }, [selectedStudents, sortedStudents]);
 
@@ -228,7 +230,7 @@ export default function DashboardBatchStudentsPage() {
   }, [selectedStudents]);
 
   const cafeNumbers = useMemo(
-    () => campus?.cafeNumbers || [1],
+    () => campus?.cafeNumbers || [],
     [campus?.cafeNumbers],
   );
 
@@ -251,7 +253,7 @@ export default function DashboardBatchStudentsPage() {
 
   const getStudentCafeLabel = (student) => {
     const cafeNumber = getEffectiveStudentCafeNumber(student);
-    return cafeNumber ? `Cafe ${cafeNumber}` : "Unassigned";
+    return cafeNumber ? String(cafeNumber) : "Unassigned";
   };
 
   const handleSelectStudent = (id) => {
@@ -478,20 +480,22 @@ export default function DashboardBatchStudentsPage() {
               <button
                 onClick={handleRefreshStudents}
                 disabled={refreshingStudents}
-                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
+                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
+                  refreshingStudents
                     ? "cursor-not-allowed bg-slate-400"
                     : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                }`}
               >
                 {refreshingStudents ? "Refreshing..." : "Refresh"}
               </button>
               <button
                 onClick={handleExportStudents}
                 disabled={exportingStudents || sortedStudents.length === 0}
-                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${exportingStudents || sortedStudents.length === 0
+                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
+                  exportingStudents || sortedStudents.length === 0
                     ? "cursor-not-allowed bg-slate-400"
                     : "bg-sky-600 hover:bg-sky-700"
-                  }`}
+                }`}
               >
                 {exportingStudents ? "Exporting..." : "Export CSV"}
               </button>
@@ -523,9 +527,16 @@ export default function DashboardBatchStudentsPage() {
             >
               <option value="">All Departments</option>
               {departmentOptions.map((department) => {
-                const truncatedDept = department.length > 25 ? department.slice(0, 22) + "..." : department;
+                const truncatedDept =
+                  department.length > 25
+                    ? department.slice(0, 22) + "..."
+                    : department;
                 return (
-                  <option key={department} value={department} title={department}>
+                  <option
+                    key={department}
+                    value={department}
+                    title={department}
+                  >
                     {truncatedDept}
                   </option>
                 );
@@ -653,7 +664,9 @@ export default function DashboardBatchStudentsPage() {
                   <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                     #
                   </span>
-                  <span className="font-medium text-slate-900">{index + 1}</span>
+                  <span className="font-medium text-slate-900">
+                    {index + 1}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -769,8 +782,9 @@ export default function DashboardBatchStudentsPage() {
 
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
-            }`}
+          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
         >
           {toast.message}
         </div>

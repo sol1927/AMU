@@ -9,11 +9,6 @@ import { downloadCsv } from "../../utils/exportCsv";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-const getStudentCafeLabel = (student) => {
-  const cafeNumber = student?.cafeNumber;
-  return cafeNumber ? `Cafe ${cafeNumber}` : "Unassigned";
-};
-
 export default function CafeStudentsPage() {
   const router = useRouter();
   const { currentUser } = useUser();
@@ -25,7 +20,9 @@ export default function CafeStudentsPage() {
   const [batchFilter, setBatchFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [selectedCafe, setSelectedCafe] = useState("");
-  const [cafeNumbers, setCafeNumbers] = useState([1]);
+  const [cafeNumbers, setCafeNumbers] = useState([]);
+  const [cafes, setCafes] = useState([]);
+  const UNASSIGNED_CAFE_VALUE = "unassigned";
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkFastingType, setBulkFastingType] = useState("");
@@ -36,8 +33,7 @@ export default function CafeStudentsPage() {
   const [toast, setToast] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  const isAuthorized =
-    currentUser && currentUser.role === "cafe manager";
+  const isAuthorized = currentUser && currentUser.role === "cafe manager";
 
   const batchOptions = useMemo(() => {
     return Array.from(
@@ -59,6 +55,78 @@ export default function CafeStudentsPage() {
     ).sort((a, b) => a.localeCompare(b));
   }, [students]);
 
+  const availableCafeNumbers = useMemo(() => {
+    if (Array.isArray(cafeNumbers) && cafeNumbers.length > 0) {
+      return cafeNumbers;
+    }
+
+    return Array.from(
+      new Set(
+        students
+          .map((student) => Number(student.cafeNumber))
+          .filter((num) => Number.isInteger(num) && num > 0),
+      ),
+    ).sort((a, b) => a - b);
+  }, [cafeNumbers, students]);
+
+  const cafeOptions = useMemo(() => {
+    const seen = new Set();
+
+    const options = cafes
+      .map((cafe, index) => {
+        const cafeNumber = Number(cafe?.cafeNumber) || index + 1;
+        const label =
+          cafe?.displayName?.trim() || cafe?.name?.trim() || String(cafeNumber);
+
+        return {
+          value: String(cafeNumber),
+          label,
+        };
+      })
+      .filter((option) => {
+        if (!option.value || seen.has(option.value)) return false;
+        seen.add(option.value);
+        return true;
+      });
+
+    if (options.length > 0) {
+      return options;
+    }
+
+    return availableCafeNumbers.map((num) => ({
+      value: String(num),
+      label: String(num),
+    }));
+  }, [cafes, availableCafeNumbers]);
+
+  const selectedCafeLabel = useMemo(() => {
+    if (!selectedCafe) return null;
+    if (selectedCafe === UNASSIGNED_CAFE_VALUE) return "Unassigned";
+    const matchedOption = cafeOptions.find(
+      (option) => option.value === selectedCafe,
+    );
+    return matchedOption?.label || selectedCafe;
+  }, [selectedCafe, cafeOptions]);
+
+  const getStudentCafeLabel = (student) => {
+    const cafeNumber = student?.cafeNumber;
+    if (!cafeNumber) return "Unassigned";
+
+    const matchedCafe = cafes.find(
+      (cafe) => Number(cafe.cafeNumber) === Number(cafeNumber),
+    );
+
+    if (matchedCafe) {
+      return (
+        matchedCafe.displayName?.trim() ||
+        matchedCafe.name?.trim() ||
+        String(cafeNumber)
+      );
+    }
+
+    return String(cafeNumber);
+  };
+
   const showToast = (message, type = "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
@@ -73,9 +141,24 @@ export default function CafeStudentsPage() {
         throw new Error("Failed to load cafe numbers");
       }
       const data = await res.json();
-      setCafeNumbers(Array.isArray(data.cafeNumbers) ? data.cafeNumbers : [1]);
+      setCafeNumbers(Array.isArray(data.cafeNumbers) ? data.cafeNumbers : []);
     } catch {
-      setCafeNumbers([1]);
+      setCafeNumbers([]);
+    }
+  };
+
+  const fetchCampusCafes = async () => {
+    try {
+      const res = await fetch(`${url}/campus/cafes`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to load campus cafes");
+      }
+      const data = await res.json();
+      setCafes(Array.isArray(data.cafes) ? data.cafes : []);
+    } catch {
+      setCafes([]);
     }
   };
 
@@ -112,6 +195,7 @@ export default function CafeStudentsPage() {
     }
 
     fetchCafeNumbers();
+    fetchCampusCafes();
     fetchStudents();
   }, [currentUser, isAuthorized, router]);
 
@@ -138,8 +222,12 @@ export default function CafeStudentsPage() {
           String(student.department || "")
             .trim()
             .toLowerCase() === departmentFilter.trim().toLowerCase();
-        const matchesCafe =
-          !selectedCafe || String(student.cafeNumber) === selectedCafe;
+        const matchesCafe = !selectedCafe
+          ? true
+          : selectedCafe === UNASSIGNED_CAFE_VALUE
+            ? !Number.isInteger(Number(student.cafeNumber)) ||
+              Number(student.cafeNumber) <= 0
+            : String(student.cafeNumber) === selectedCafe;
 
         return (
           matchesQuery &&
@@ -286,7 +374,7 @@ export default function CafeStudentsPage() {
             </p>
             <p className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
               {selectedCafe
-                ? `Cafe ${selectedCafe} total: ${filteredAndSortedStudents.length}`
+                ? `${selectedCafeLabel || selectedCafe} total: ${filteredAndSortedStudents.length}`
                 : `Total: ${totalStudents}`}
             </p>
             <div className="flex items-center gap-2">
@@ -303,8 +391,11 @@ export default function CafeStudentsPage() {
                 className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white w-44 truncate"
               >
                 <option value="">All Cafes</option>
-                {cafeNumbers.map((num) => (
-                  <option key={num} value={num}>{`Cafe ${num}`}</option>
+                <option value={UNASSIGNED_CAFE_VALUE}>Unassigned</option>
+                {cafeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -374,7 +465,8 @@ export default function CafeStudentsPage() {
           >
             <option value="">All Departments</option>
             {departmentOptions.map((dept) => {
-              const truncatedDept = dept.length > 25 ? dept.slice(0, 22) + "..." : dept;
+              const truncatedDept =
+                dept.length > 25 ? dept.slice(0, 22) + "..." : dept;
               return (
                 <option key={dept} value={dept} title={dept}>
                   {truncatedDept}
@@ -435,7 +527,9 @@ export default function CafeStudentsPage() {
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-2 overflow-y-auto pr-1">
-            {loading && <p className="mt-12 text-center">Loading students...</p>}
+            {loading && (
+              <p className="mt-12 text-center">Loading students...</p>
+            )}
 
             {!loading &&
               filteredAndSortedStudents.length === 0 &&
@@ -482,7 +576,10 @@ export default function CafeStudentsPage() {
                   <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 sm:hidden">
                     Name
                   </span>
-                  <span className="block truncate font-medium" title={student.name}>
+                  <span
+                    className="block truncate font-medium"
+                    title={student.name}
+                  >
                     {student.name}
                   </span>
                 </div>
@@ -580,4 +677,3 @@ export default function CafeStudentsPage() {
     </div>
   );
 }
-

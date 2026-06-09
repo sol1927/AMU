@@ -126,7 +126,7 @@ export default function MealsPage() {
       .map((cafe, index) => {
         const value = String(cafe.cafeNumber ?? cafe.id ?? index + 1);
         const label =
-          cafe.displayName || cafe.name || `Cafe ${cafe.cafeNumber ?? value}`;
+          cafe.displayName || cafe.name || String(cafe.cafeNumber ?? value);
         return { value, label };
       })
       .filter((item) => item.value);
@@ -142,7 +142,7 @@ export default function MealsPage() {
       const match = cafeOptions.find(
         (item) => item.value === String(cafeNumber),
       );
-      return match?.label || `Cafe ${cafeNumber}`;
+      return match?.label || String(cafeNumber);
     }
 
     return "All Cafes";

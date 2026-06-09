@@ -65,7 +65,8 @@ export default function BatchStudentsPage() {
       return explicitCafe;
     }
 
-    const batchCafe = currentCampus?.batchCafeAssignments?.[String(student?.batch ?? "")];
+    const batchCafe =
+      currentCampus?.batchCafeAssignments?.[String(student?.batch ?? "")];
     const batchCafeNumber = Number(batchCafe);
     return Number.isInteger(batchCafeNumber) && batchCafeNumber > 0
       ? batchCafeNumber
@@ -76,11 +77,12 @@ export default function BatchStudentsPage() {
     const cafeNumber = getEffectiveStudentCafeNumber(student);
     if (!cafeNumber) return "Unassigned";
     const matchedCafe = cafes.find(
-      (c, index) => (c.cafeNumber || getCafeNum(c.name) || (index + 1)) === cafeNumber,
+      (c, index) =>
+        (c.cafeNumber || getCafeNum(c.name) || index + 1) === cafeNumber,
     );
     return matchedCafe
       ? matchedCafe.displayName || getCafeName(matchedCafe.name)
-      : `Cafe ${cafeNumber}`;
+      : String(cafeNumber);
   };
 
   useEffect(() => {
@@ -189,7 +191,8 @@ export default function BatchStudentsPage() {
 
   useEffect(() => {
     setSelectAll(
-      sortedStudents.length > 0 && selectedStudents.length === sortedStudents.length,
+      sortedStudents.length > 0 &&
+        selectedStudents.length === sortedStudents.length,
     );
   }, [selectedStudents, sortedStudents]);
 
@@ -382,7 +385,8 @@ export default function BatchStudentsPage() {
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold leading-none">Batch {batch}</h1>
               <p className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-                {sortedStudents.length} {sortedStudents.length === 1 ? "student" : "students"}
+                {sortedStudents.length}{" "}
+                {sortedStudents.length === 1 ? "student" : "students"}
               </p>
             </div>
 
@@ -390,10 +394,11 @@ export default function BatchStudentsPage() {
               <button
                 onClick={handleRefreshStudents}
                 disabled={refreshingStudents}
-                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
+                className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
+                  refreshingStudents
                     ? "cursor-not-allowed bg-slate-400"
                     : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                }`}
               >
                 {refreshingStudents ? "Refreshing..." : "Refresh"}
               </button>
@@ -437,7 +442,10 @@ export default function BatchStudentsPage() {
                 All Departments
               </option>
               {departmentOptions.map((department) => {
-                const truncatedDept = department.length > 25 ? department.slice(0, 22) + "..." : department;
+                const truncatedDept =
+                  department.length > 25
+                    ? department.slice(0, 22) + "..."
+                    : department;
                 return (
                   <option
                     key={department}
@@ -493,10 +501,16 @@ export default function BatchStudentsPage() {
                 <option className="bg-gray-900 text-white" value="not_fasting">
                   Not Fasting
                 </option>
-                <option className="bg-gray-900 text-white" value="sunday_fasting">
+                <option
+                  className="bg-gray-900 text-white"
+                  value="sunday_fasting"
+                >
                   Sunday Fasting
                 </option>
-                <option className="bg-gray-900 text-white" value="muslim_fasting">
+                <option
+                  className="bg-gray-900 text-white"
+                  value="muslim_fasting"
+                >
                   Muslim Fasting
                 </option>
               </select>
@@ -515,18 +529,30 @@ export default function BatchStudentsPage() {
                 onChange={(e) => setBulkCafeNumber(e.target.value)}
                 className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
               >
-                <option className="bg-gray-900 text-white" value="">Send to Cafe</option>
+                <option className="bg-gray-900 text-white" value="">
+                  Send to Cafe
+                </option>
                 {cafes.map((c, index) => {
-                  const num = c.cafeNumber || getCafeNum(c.name) || (index + 1);
+                  const num = c.cafeNumber || getCafeNum(c.name) || index + 1;
                   const displayName = c.displayName || getCafeName(c.name);
-                  const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                  const truncatedName =
+                    displayName.length > 20
+                      ? displayName.slice(0, 17) + "..."
+                      : displayName;
                   return (
-                    <option key={c.id || c._id} className="bg-gray-900 text-white" value={num} title={displayName}>
+                    <option
+                      key={c.id || c._id}
+                      className="bg-gray-900 text-white"
+                      value={num}
+                      title={displayName}
+                    >
                       {truncatedName}
                     </option>
                   );
                 })}
-                <option className="bg-gray-900 text-white" value="clear">Clear Cafe Assignment</option>
+                <option className="bg-gray-900 text-white" value="clear">
+                  Clear Cafe Assignment
+                </option>
               </select>
               {bulkCafeNumber && (
                 <button
@@ -544,7 +570,9 @@ export default function BatchStudentsPage() {
         <div className="mb-4 flex-1 space-y-2 overflow-y-auto pr-1">
           {loading && <p className="mt-12 text-center">Loading students...</p>}
           {!loading && sortedStudents.length === 0 && initialLoadDone && (
-            <p className="mt-12 text-center text-slate-500">No students in this batch</p>
+            <p className="mt-12 text-center text-slate-500">
+              No students in this batch
+            </p>
           )}
 
           {!loading && sortedStudents.length > 0 && (
@@ -569,7 +597,9 @@ export default function BatchStudentsPage() {
                       return;
                     }
 
-                    setSelectedStudents(sortedStudents.map((student) => student._id));
+                    setSelectedStudents(
+                      sortedStudents.map((student) => student._id),
+                    );
                     setSelectAll(true);
                   }}
                 />
@@ -596,15 +626,26 @@ export default function BatchStudentsPage() {
                   </span>
                 )}
               </div>
-              <span className="w-[180px] truncate font-medium">{student.name}</span>
+              <span className="w-[180px] truncate font-medium">
+                {student.name}
+              </span>
               <span className="w-[120px] truncate">{student.studentId}</span>
               <span className="w-[120px] truncate">{student.department}</span>
               <span className="w-[80px] truncate">{batch}</span>
-              <span className="w-[120px] truncate" title={getStudentCafeLabel(student)}>{getStudentCafeLabel(student)}</span>
-              <span className="w-[140px] truncate">{getFastingLabel(student.fastingType)}</span>
+              <span
+                className="w-[120px] truncate"
+                title={getStudentCafeLabel(student)}
+              >
+                {getStudentCafeLabel(student)}
+              </span>
+              <span className="w-[140px] truncate">
+                {getFastingLabel(student.fastingType)}
+              </span>
               <span className="w-[120px]">
                 {student.isInternship ? (
-                  <span className="font-semibold text-yellow-400">Internship</span>
+                  <span className="font-semibold text-yellow-400">
+                    Internship
+                  </span>
                 ) : (
                   <span className="text-slate-400">-</span>
                 )}
@@ -624,8 +665,9 @@ export default function BatchStudentsPage() {
       </div>
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
-            }`}
+          className={`fixed bottom-6 right-6 rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all duration-300 ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
         >
           {toast.message}
         </div>

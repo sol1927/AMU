@@ -50,9 +50,9 @@ export default function CampusStudentsPage() {
   };
 
   const getCafeName = (name) => {
-    if (!name) return "Cafe";
+    if (!name) return "";
     if (/^cafe/i.test(name)) {
-      return name.replace(/^cafe/i, "Cafe ").trim();
+      return name.replace(/^cafe/i, "").trim();
     }
     const formatted = name.charAt(0).toUpperCase() + name.slice(1);
     return formatted.replace(/([^-\s])(\d+)/g, "$1 $2").trim();
@@ -95,11 +95,22 @@ export default function CampusStudentsPage() {
     const cafeNumber = getEffectiveStudentCafeNumber(student);
     if (!cafeNumber) return "Unassigned";
     const matchedCafe = cafes.find(
-      (c, index) => (c.cafeNumber || getCafeNum(c.name) || (index + 1)) === cafeNumber,
+      (c, index) =>
+        (c.cafeNumber || getCafeNum(c.name) || index + 1) === cafeNumber,
     );
     return matchedCafe
       ? matchedCafe.displayName || getCafeName(matchedCafe.name)
-      : `Cafe ${cafeNumber}`;
+      : String(cafeNumber);
+  };
+
+  const getSelectedCafeLabel = (value) => {
+    if (value === "unassigned") return "Unassigned";
+    const cafe = cafes.find(
+      (c, index) =>
+        String(c.cafeNumber || getCafeNum(c.name) || index + 1) ===
+        String(value),
+    );
+    return cafe ? cafe.displayName || getCafeName(cafe.name) : `Cafe ${value}`;
   };
 
   const batchOptions = useMemo(() => {
@@ -131,7 +142,12 @@ export default function CampusStudentsPage() {
       const params = new URLSearchParams();
       if (query) params.append("search", query);
       if (fasting) params.append("fastingType", fasting);
-      if (selectedCafe) params.append("cafeNumber", selectedCafe);
+      if (selectedCafe) {
+        params.append(
+          "cafeNumber",
+          selectedCafe === "unassigned" ? "0" : selectedCafe,
+        );
+      }
       params.append("allCafes", "1");
       const endpoint = "/campus/students/all";
       const res = await fetch(`${url}${endpoint}?${params.toString()}`, {
@@ -211,7 +227,7 @@ export default function CampusStudentsPage() {
   useEffect(() => {
     setSelectAll(
       filteredAndSortedStudents.length > 0 &&
-      selectedStudents.length === filteredAndSortedStudents.length,
+        selectedStudents.length === filteredAndSortedStudents.length,
     );
   }, [filteredAndSortedStudents, selectedStudents]);
 
@@ -461,9 +477,16 @@ export default function CampusStudentsPage() {
                   Showing {filteredAndSortedStudents.length} students
                 </p>
                 <p className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
-                  {selectedCafe
-                    ? `Cafe ${selectedCafe} total: ${cafeTotals[selectedCafe] || 0}`
-                    : `Campus total: ${totalStudents}`}
+                  {selectedCafe ? (
+                    <>
+                      {getSelectedCafeLabel(selectedCafe)} total:{" "}
+                      {selectedCafe === "unassigned"
+                        ? totalStudents
+                        : cafeTotals[selectedCafe] || 0}
+                    </>
+                  ) : (
+                    `Campus total: ${totalStudents}`
+                  )}
                 </p>
                 <div className="flex gap-2 items-center">
                   <label
@@ -479,12 +502,21 @@ export default function CampusStudentsPage() {
                     className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white w-44 truncate"
                   >
                     <option value="">All Cafes</option>
+                    <option value="unassigned">Unassigned</option>
                     {cafes.map((c, index) => {
-                      const num = c.cafeNumber || getCafeNum(c.name) || (index + 1);
+                      const num =
+                        c.cafeNumber || getCafeNum(c.name) || index + 1;
                       const displayName = c.displayName || getCafeName(c.name);
-                      const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                      const truncatedName =
+                        displayName.length > 20
+                          ? displayName.slice(0, 17) + "..."
+                          : displayName;
                       return (
-                        <option key={c.id || c._id} value={num} title={displayName}>
+                        <option
+                          key={c.id || c._id}
+                          value={num}
+                          title={displayName}
+                        >
                           {truncatedName}
                         </option>
                       );
@@ -497,10 +529,11 @@ export default function CampusStudentsPage() {
                 <button
                   onClick={handleRefreshStudents}
                   disabled={refreshingStudents}
-                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
+                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
+                    refreshingStudents
                       ? "cursor-not-allowed bg-slate-400"
                       : "bg-emerald-600 hover:bg-emerald-700"
-                    }`}
+                  }`}
                 >
                   {refreshingStudents ? "Refreshing..." : "Refresh"}
                 </button>
@@ -559,7 +592,8 @@ export default function CampusStudentsPage() {
               >
                 <option value="">All Departments</option>
                 {departmentOptions.map((dept) => {
-                  const truncatedDept = dept.length > 25 ? dept.slice(0, 22) + "..." : dept;
+                  const truncatedDept =
+                    dept.length > 25 ? dept.slice(0, 22) + "..." : dept;
                   return (
                     <option key={dept} value={dept} title={dept}>
                       {truncatedDept}
@@ -618,11 +652,18 @@ export default function CampusStudentsPage() {
                 >
                   <option value="">Send to Cafe</option>
                   {cafes.map((c, index) => {
-                    const num = c.cafeNumber || getCafeNum(c.name) || (index + 1);
+                    const num = c.cafeNumber || getCafeNum(c.name) || index + 1;
                     const displayName = c.displayName || getCafeName(c.name);
-                    const truncatedName = displayName.length > 20 ? displayName.slice(0, 17) + "..." : displayName;
+                    const truncatedName =
+                      displayName.length > 20
+                        ? displayName.slice(0, 17) + "..."
+                        : displayName;
                     return (
-                      <option key={c.id || c._id} value={num} title={displayName}>
+                      <option
+                        key={c.id || c._id}
+                        value={num}
+                        title={displayName}
+                      >
                         {truncatedName}
                       </option>
                     );
@@ -802,8 +843,9 @@ export default function CampusStudentsPage() {
       </div>
       {toast && (
         <div
-          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
-            }`}
+          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
         >
           {toast.message}
         </div>

@@ -27,7 +27,9 @@ export default function SelectCafeNumberPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          setCafeNumbers(data.campus?.cafeNumbers?.length ? data.campus.cafeNumbers : [1]);
+          setCafeNumbers(
+            data.campus?.cafeNumbers?.length ? data.campus.cafeNumbers : [],
+          );
         }
       } catch (err) {
         console.error("Failed to load campus info:", err);

@@ -145,7 +145,7 @@ export default function CafeCafesPage() {
         if (res.status === 202) {
           showToast(
             data.message ||
-            "Request submitted successfully! Awaiting Campus approval.",
+              "Request submitted successfully! Awaiting Campus approval.",
             "success",
           );
         } else {
@@ -166,7 +166,7 @@ export default function CafeCafesPage() {
           if (res.status === 202) {
             showToast(
               data.message ||
-              "Deletion request submitted! Awaiting Campus approval.",
+                "Deletion request submitted! Awaiting Campus approval.",
               "success",
             );
           } else {
@@ -189,10 +189,10 @@ export default function CafeCafesPage() {
   };
 
   const getCafeName = (name) => {
-    if (!name) return "Cafe";
+    if (!name) return "";
     const numMatch = name.match(/\d+/);
     if (numMatch) {
-      return `Cafe ${numMatch[0]}`;
+      return String(numMatch[0]);
     }
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
@@ -364,7 +364,7 @@ export default function CafeCafesPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-3 justify-items-start md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-0 justify-items-start md:grid-cols-2 xl:grid-cols-3">
               {filteredCafes.map((cafe) => {
                 const cafeTitle =
                   (cafe.displayName || "").trim() || getCafeName(cafe.name);
@@ -400,6 +400,9 @@ export default function CafeCafesPage() {
                           >
                             <HiOutlineUser className="h-4 w-4 shrink-0" />
                             Username: {cafe.name}
+                          </p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                            Assigned students: {cafe.studentCount ?? 0}
                           </p>
                         </div>
                       </div>
@@ -531,10 +534,11 @@ export default function CafeCafesPage() {
               {formError && (
                 <div className="mb-4">
                   <p
-                    className={`rounded-lg p-2 text-center text-sm ${formError.toLowerCase().includes("success")
+                    className={`rounded-lg p-2 text-center text-sm ${
+                      formError.toLowerCase().includes("success")
                         ? "border border-green-500/30 bg-green-500/20 text-green-400"
                         : "border border-red-500/30 bg-red-500/20 text-red-400"
-                      }`}
+                    }`}
                   >
                     {formError}
                   </p>
@@ -618,10 +622,11 @@ export default function CafeCafesPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className={`rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 font-semibold text-white shadow-lg transition hover:scale-105 hover:shadow-purple-800/50 ${submitting
+                    className={`rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 font-semibold text-white shadow-lg transition hover:scale-105 hover:shadow-purple-800/50 ${
+                      submitting
                         ? "cursor-not-allowed opacity-50 hover:scale-100"
                         : ""
-                      }`}
+                    }`}
                   >
                     {submitting ? "Saving..." : "Save Account"}
                   </button>
@@ -654,10 +659,11 @@ export default function CafeCafesPage() {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold shadow-2xl transition-all duration-300 animate-fade-in ${t.type === "success"
+            className={`pointer-events-auto flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold shadow-2xl transition-all duration-300 animate-fade-in ${
+              t.type === "success"
                 ? "bg-emerald-600 text-white shadow-emerald-500/25"
                 : "bg-rose-600 text-white shadow-rose-500/25"
-              }`}
+            }`}
           >
             {t.message}
           </div>

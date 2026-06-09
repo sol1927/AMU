@@ -1,7 +1,10 @@
 import { getDB } from "../config/db.js";
 import User from "../models/user.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
-import { filterStudentsForCafeNumber } from "../utils/cafeScope.js";
+import {
+  filterStudentsForCafeNumber,
+  getEffectiveStudentCafeNumber,
+} from "../utils/cafeScope.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 
 // Helper to resolve campus ID from the request user
@@ -52,6 +55,9 @@ const calculateReportStats = async (
     const targetCafeNumber = req.query.cafeNumber
       ? Number(req.query.cafeNumber)
       : null;
+    const targetMealType = req.query.mealType
+      ? String(req.query.mealType).toLowerCase()
+      : null;
 
     // Fetch all active regular students on the campus (isInternship = 0)
     const students = await CafeStudent.findAll({ campusId, isInternship: 0 });
@@ -78,6 +84,14 @@ const calculateReportStats = async (
       scanParams.push(targetCafeNumber);
     }
 
+    if (
+      targetMealType &&
+      ["breakfast", "lunch", "dinner"].includes(targetMealType)
+    ) {
+      scanQuery += " AND mealType = ?";
+      scanParams.push(targetMealType);
+    }
+
     const [scanRows] = await getDB().execute(scanQuery, scanParams);
     const servedStudentIds = new Set(
       scanRows.map((row) => String(row.studentId)),
@@ -102,10 +116,22 @@ const calculateReportStats = async (
       };
     });
 
-    let totalRegular = filteredStudents.length;
+    const assignedStudents = students.filter(
+      (student) => getEffectiveStudentCafeNumber(student, campus) != null,
+    );
+    const totalAssignedStudents = assignedStudents.length;
+    const totalRegular = filteredStudents.length;
+    const totalAssigned = targetCafeNumber
+      ? totalRegular
+      : totalAssignedStudents;
+    const totalUnassigned = targetCafeNumber ? 0 : totalRegular - totalAssigned;
+
+    const breakdownStudents = targetCafeNumber
+      ? filteredStudents
+      : assignedStudents;
     let totalServed = 0;
 
-    filteredStudents.forEach((student) => {
+    breakdownStudents.forEach((student) => {
       const isServed = servedStudentIds.has(String(student.studentId));
       if (isServed) {
         totalServed++;
@@ -134,11 +160,14 @@ const calculateReportStats = async (
         endDate: endDateStr,
       },
       cafeNumber: targetCafeNumber,
+      mealType: targetMealType || "total",
       campusName: campus.name,
       stats: {
         totalRegular,
+        totalAssigned,
+        totalUnassigned,
         totalServed,
-        totalUnserved: totalRegular - totalServed,
+        totalUnserved: totalAssigned - totalServed,
         breakdown,
       },
     });

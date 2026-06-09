@@ -124,7 +124,7 @@ CafeNumberModal.propTypes = {
 
 CafeNumberModal.defaultProps = {
   campusName: "",
-  cafeNumbers: [1],
+  cafeNumbers: [],
   selectedCafeNumber: "",
   onClose: undefined,
   locked: false,

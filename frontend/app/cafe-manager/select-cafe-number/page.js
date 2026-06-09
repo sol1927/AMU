@@ -28,7 +28,7 @@ export default function SelectCafeNumberPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          setCafeNumbers(data.campus?.cafeNumbers || [1]);
+          setCafeNumbers(data.campus?.cafeNumbers || []);
         }
       } catch (err) {
         console.error("Failed to load campus info:", err);
@@ -85,7 +85,8 @@ export default function SelectCafeNumberPage() {
           Select Cafe Station
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-          Choose the active station cafe number you will be managing and validating tickets for.
+          Choose the active station cafe number you will be managing and
+          validating tickets for.
         </p>
 
         {loading ? (
