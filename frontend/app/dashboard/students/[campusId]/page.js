@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getFastingLabel } from "@/app/utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "@/app/utils/userMessage";
 import { downloadCsv } from "@/app/utils/exportCsv";
@@ -28,6 +28,7 @@ export default function DashboardCampusStudentsPage() {
   const [fastingFilter, setFastingFilter] = useState("");
   const [batchFilter, setBatchFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
+  const [cafeFilter, setCafeFilter] = useState("");
   const [batchOptions, setBatchOptions] = useState([]);
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState([]);
@@ -40,6 +41,7 @@ export default function DashboardCampusStudentsPage() {
   const [savingBulkCafeNumber, setSavingBulkCafeNumber] = useState(false);
   const [exportingStudents, setExportingStudents] = useState(false);
   const [toast, setToast] = useState(null);
+  const searchParams = useSearchParams();
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
   const isFirstLoad = useRef(true);
@@ -49,10 +51,17 @@ export default function DashboardCampusStudentsPage() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  const cafeNumbers = useMemo(
-    () => campus?.cafeNumbers || [1],
-    [campus?.cafeNumbers],
-  );
+  const cafeNumbers = useMemo(() => {
+    if (Array.isArray(campus?.cafeNumbers) && campus.cafeNumbers.length > 0) {
+      return campus.cafeNumbers;
+    }
+
+    if (Number.isInteger(campus?.cafeCount) && campus.cafeCount > 0) {
+      return Array.from({ length: campus.cafeCount }, (_, index) => index + 1);
+    }
+
+    return [1];
+  }, [campus?.cafeNumbers, campus?.cafeCount]);
 
   const fetchDepartmentOptions = useCallback(async () => {
     if (!campusId) return;
@@ -122,12 +131,33 @@ export default function DashboardCampusStudentsPage() {
       : null;
   };
 
+  const getCafeDisplayName = (cafeNumber) => {
+    if (!Number.isInteger(Number(cafeNumber)) || Number(cafeNumber) < 1) {
+      return null;
+    }
+
+    const matchedCafe = campus?.cafes?.find(
+      (cafe) => Number(cafe.cafeNumber) === Number(cafeNumber),
+    );
+
+    if (matchedCafe) {
+      return (
+        matchedCafe.displayName || matchedCafe.name || `Cafe ${cafeNumber}`
+      );
+    }
+
+    return `Cafe ${cafeNumber}`;
+  };
+
   const getStudentCafeLabel = (student) => {
     const cafeNumber = getEffectiveStudentCafeNumber(student);
-    return cafeNumber ? `Cafe ${cafeNumber}` : "Unassigned";
+    return cafeNumber ? getCafeDisplayName(cafeNumber) : "Unassigned";
   };
 
   useEffect(() => {
+    const cafeNumberFromParams = searchParams?.get("cafeNumber") || "";
+    setCafeFilter(cafeNumberFromParams);
+
     const fetchCampus = async () => {
       if (!campusId) return;
 
@@ -174,6 +204,7 @@ export default function DashboardCampusStudentsPage() {
         const params = new URLSearchParams();
         if (query) params.append("search", query);
         if (fasting) params.append("fastingType", fasting);
+        if (cafeFilter) params.append("cafeNumber", cafeFilter);
         if (batchFilter) params.append("batch", batchFilter);
         if (departmentFilter) params.append("department", departmentFilter);
 
@@ -199,7 +230,7 @@ export default function DashboardCampusStudentsPage() {
         setInitialLoadDone(true);
       }
     },
-    [campusId, batchFilter, departmentFilter],
+    [campusId, batchFilter, departmentFilter, cafeFilter],
   );
 
   useEffect(() => {
@@ -225,7 +256,11 @@ export default function DashboardCampusStudentsPage() {
 
   useEffect(() => {
     const hasFilters =
-      searchQuery || fastingFilter || batchFilter || departmentFilter;
+      searchQuery ||
+      fastingFilter ||
+      batchFilter ||
+      departmentFilter ||
+      cafeFilter;
     const delay = hasFilters ? 300 : 0;
 
     const timer = setTimeout(() => {
@@ -241,6 +276,7 @@ export default function DashboardCampusStudentsPage() {
     fastingFilter,
     batchFilter,
     departmentFilter,
+    cafeFilter,
     fetchStudents,
   ]);
 
@@ -261,7 +297,7 @@ export default function DashboardCampusStudentsPage() {
   useEffect(() => {
     setSelectAll(
       filteredAndSortedStudents.length > 0 &&
-      selectedStudents.length === filteredAndSortedStudents.length,
+        selectedStudents.length === filteredAndSortedStudents.length,
     );
   }, [filteredAndSortedStudents, selectedStudents]);
 
@@ -527,10 +563,11 @@ export default function DashboardCampusStudentsPage() {
                 <button
                   onClick={handleRefreshStudents}
                   disabled={refreshingStudents}
-                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${refreshingStudents
+                  className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
+                    refreshingStudents
                       ? "cursor-not-allowed bg-slate-400"
                       : "bg-emerald-600 hover:bg-emerald-700"
-                    }`}
+                  }`}
                 >
                   {refreshingStudents ? "Refreshing..." : "Refresh"}
                 </button>
@@ -564,7 +601,7 @@ export default function DashboardCampusStudentsPage() {
               <select
                 value={fastingFilter}
                 onChange={(e) => setFastingFilter(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[200px] truncate"
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-50 truncate"
               >
                 <option value="">All Fasting Types</option>
                 <option value="fasting">Fasting</option>
@@ -573,9 +610,21 @@ export default function DashboardCampusStudentsPage() {
                 <option value="muslim_fasting">Muslim Fasting</option>
               </select>
               <select
+                value={cafeFilter}
+                onChange={(e) => setCafeFilter(e.target.value)}
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-50 truncate"
+              >
+                <option value="">All Cafes</option>
+                {cafeNumbers.map((cafeNumber) => (
+                  <option key={cafeNumber} value={cafeNumber}>
+                    {getCafeDisplayName(cafeNumber)}
+                  </option>
+                ))}
+              </select>
+              <select
                 value={batchFilter}
                 onChange={(e) => setBatchFilter(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[180px] truncate"
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-45 truncate"
               >
                 <option value="">All Batches</option>
                 {batchOptions.map((batch) => (
@@ -587,13 +636,20 @@ export default function DashboardCampusStudentsPage() {
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[200px] truncate"
+                className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-50 truncate"
               >
                 <option value="">All Departments</option>
                 {departmentOptions.map((department) => {
-                  const truncatedDept = department.length > 25 ? department.slice(0, 22) + "..." : department;
+                  const truncatedDept =
+                    department.length > 25
+                      ? department.slice(0, 22) + "..."
+                      : department;
                   return (
-                    <option key={department} value={department} title={department}>
+                    <option
+                      key={department}
+                      value={department}
+                      title={department}
+                    >
                       {truncatedDept}
                     </option>
                   );
@@ -606,7 +662,7 @@ export default function DashboardCampusStudentsPage() {
                 <select
                   value={bulkInternshipAction}
                   onChange={(e) => setBulkInternshipAction(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-45 truncate"
                 >
                   <option value="">Internship Status</option>
                   <option value="start">Send to Internship</option>
@@ -625,7 +681,7 @@ export default function DashboardCampusStudentsPage() {
                 <select
                   value={bulkFastingType}
                   onChange={(e) => setBulkFastingType(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-45 truncate"
                 >
                   <option value="">Select Fasting</option>
                   <option value="fasting">Fasting</option>
@@ -646,12 +702,12 @@ export default function DashboardCampusStudentsPage() {
                 <select
                   value={bulkCafeNumber}
                   onChange={(e) => setBulkCafeNumber(e.target.value)}
-                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
+                  className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-45 truncate"
                 >
                   <option value="">Send to Cafe</option>
                   {cafeNumbers.map((cafeNumber) => (
                     <option key={cafeNumber} value={cafeNumber}>
-                      Cafe {cafeNumber}
+                      {getCafeDisplayName(cafeNumber)}
                     </option>
                   ))}
                   <option value="clear">Clear Cafe Assignment</option>
@@ -833,8 +889,9 @@ export default function DashboardCampusStudentsPage() {
 
       {toast && (
         <div
-          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
-            }`}
+          className={`app-toast fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm transition-all duration-300 sm:bottom-6 sm:right-6 ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
         >
           {toast.message}
         </div>

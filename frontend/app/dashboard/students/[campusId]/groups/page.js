@@ -20,7 +20,9 @@ export default function DashboardCampusStudentGroupsPage() {
   const isFirstLoad = useRef(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
-  const [availableCafeNumbers, setAvailableCafeNumbers] = useState([1]);
+  const [availableCafes, setAvailableCafes] = useState([
+    { cafeNumber: 1, displayName: "Cafe 1" },
+  ]);
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -56,7 +58,10 @@ export default function DashboardCampusStudentGroupsPage() {
 
         if (!campusesRes.ok) {
           throw new Error(
-            getApiMessage(campusesData, "We could not load campuses right now."),
+            getApiMessage(
+              campusesData,
+              "We could not load campuses right now.",
+            ),
           );
         }
 
@@ -97,9 +102,26 @@ export default function DashboardCampusStudentGroupsPage() {
         setCampus(matchedCampus);
         setBatches(nextBatches);
         setBatchCounts(counts);
-        setAvailableCafeNumbers(
-          batchesData.cafeNumbers || matchedCampus.cafeNumbers || [1],
-        );
+
+        const campusCafes = Array.isArray(matchedCampus.cafes)
+          ? matchedCampus.cafes.map((cafe) => ({
+              cafeNumber: Number(cafe.cafeNumber) || 0,
+              displayName:
+                cafe.displayName ||
+                cafe.name ||
+                `Cafe ${Number(cafe.cafeNumber) || 1}`,
+            }))
+          : [];
+
+        const fallbackCafes = (
+          batchesData.cafeNumbers ||
+          matchedCampus.cafeNumbers || [1]
+        ).map((number) => ({
+          cafeNumber: number,
+          displayName: `Cafe ${number}`,
+        }));
+
+        setAvailableCafes(campusCafes.length ? campusCafes : fallbackCafes);
         setError("");
       } catch (err) {
         const message = getErrorMessage(
@@ -154,12 +176,12 @@ export default function DashboardCampusStudentGroupsPage() {
                     Manage batches and student groups from the admin dashboard
                   </p>
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-2 xl:justify-start">
-                    {availableCafeNumbers.map((number) => (
+                    {availableCafes.map((cafe) => (
                       <span
-                        key={number}
+                        key={cafe.cafeNumber}
                         className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700"
                       >
-                        Cafe {number}
+                        {cafe.displayName}
                       </span>
                     ))}
                   </div>

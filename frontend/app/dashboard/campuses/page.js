@@ -147,8 +147,6 @@ export default function CampusesPage() {
     showToast("Campus deleted");
   };
 
-
-
   return (
     <>
       <div className="page-shell px-4 pb-10 pt-24 md:px-8">
@@ -235,7 +233,16 @@ export default function CampusesPage() {
                         <p className="mt-1 text-sm text-slate-600">
                           {campus.location || "Location not set"}
                         </p>
-                        {/* Cafe count removed from admin view */}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="rounded-2xl bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                            {campus.cafeManagerCount ?? 0} Cafe Manager
+                            {campus.cafeManagerCount === 1 ? "" : "s"}
+                          </span>
+                          <span className="rounded-2xl bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                            {campus.cafeCount ?? 0} Cafe
+                            {campus.cafeCount === 1 ? "" : "s"}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -255,7 +262,7 @@ export default function CampusesPage() {
                         !showAdminPasswordPrompt && (
                           <div className="menu-button absolute right-0 top-full z-50 mt-2 w-28 rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl">
                             <button
-                              className="block w-full rounded-xl bg-transparent px-3 py-2 text-lcd baceft text-sm text-slate-700 transition hover:bg-slate-50 dark:bg-transparent"
+                              className="block w-full rounded-xl bg-transparent px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 dark:bg-transparent"
                               onClick={() => {
                                 setCampusToEdit(campus._id);
                                 setPendingAction("edit");

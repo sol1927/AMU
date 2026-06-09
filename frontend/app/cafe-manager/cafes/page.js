@@ -224,7 +224,7 @@ export default function CafeCafesPage() {
 
     const interval = setInterval(() => {
       fetchPendingRequests(true);
-    }, 15000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [currentUser, router]);

@@ -10,11 +10,16 @@ const getCampusIdForUser = async (req) => {
     if (req.query.campusId) {
       return Number(req.query.campusId);
     }
-    const campuses = await User.findAll({ role: "campus", createdBy: req.userId });
-    return campuses.length > 0 ? campuses[0].id : null;
+    const campuses = await User.findAll({
+      role: "campus",
+      createdBy: req.userId,
+    });
+    return campuses.length > 0
+      ? Number(campuses[0].campusId ?? campuses[0].id)
+      : null;
   }
   if (req.userRole === "campus") {
-    return req.userId;
+    return req.user?.campusId ?? req.userId;
   }
   if (req.userRole === "cafe" || req.userRole === "cafe manager") {
     const loggedInUser = await User.findById(req.userId);
@@ -24,11 +29,19 @@ const getCampusIdForUser = async (req) => {
 };
 
 // Common stats calculator based on period and cafeNumber filter
-const calculateReportStats = async (req, res, startDateStr, endDateStr, periodType) => {
+const calculateReportStats = async (
+  req,
+  res,
+  startDateStr,
+  endDateStr,
+  periodType,
+) => {
   try {
     const campusId = await getCampusIdForUser(req);
     if (!campusId) {
-      return res.status(400).json({ message: "Campus ID is required or not found for this user." });
+      return res
+        .status(400)
+        .json({ message: "Campus ID is required or not found for this user." });
     }
 
     const campus = await User.findById(campusId);
@@ -36,7 +49,9 @@ const calculateReportStats = async (req, res, startDateStr, endDateStr, periodTy
       return res.status(404).json({ message: "Campus not found." });
     }
 
-    const targetCafeNumber = req.query.cafeNumber ? Number(req.query.cafeNumber) : null;
+    const targetCafeNumber = req.query.cafeNumber
+      ? Number(req.query.cafeNumber)
+      : null;
 
     // Fetch all active regular students on the campus (isInternship = 0)
     const students = await CafeStudent.findAll({ campusId, isInternship: 0 });
@@ -46,16 +61,17 @@ const calculateReportStats = async (req, res, startDateStr, endDateStr, periodTy
       ? filterStudentsForCafeNumber(students, campus, targetCafeNumber)
       : students;
 
-    // Fetch unique student IDs who scanned during this period
+    // Fetch unique student IDs who scanned during this period.
+    // Use canonical campusId where available, but also support older rows keyed by campus user id.
     let scanQuery = `
       SELECT DISTINCT studentId
       FROM station_scans
-      WHERE campus = ?
+      WHERE (campus = ? OR campusId = ?)
         AND date >= ?
         AND date <= ?
         AND isInternship = 0
     `;
-    const scanParams = [campusId, startDateStr, endDateStr];
+    const scanParams = [campusId, campusId, startDateStr, endDateStr];
 
     if (targetCafeNumber) {
       scanQuery += " AND cafeNumber = ?";
@@ -63,27 +79,33 @@ const calculateReportStats = async (req, res, startDateStr, endDateStr, periodTy
     }
 
     const [scanRows] = await getDB().execute(scanQuery, scanParams);
-    const servedStudentIds = new Set(scanRows.map(row => String(row.studentId)));
+    const servedStudentIds = new Set(
+      scanRows.map((row) => String(row.studentId)),
+    );
 
     // Fetch all distinct fasting types currently configured/present in the database
-    const [typeRows] = await getDB().execute("SELECT DISTINCT fastingType FROM cafestudents");
-    const allFastingTypes = typeRows.map(row => row.fastingType || "not_fasting");
+    const [typeRows] = await getDB().execute(
+      "SELECT DISTINCT fastingType FROM cafestudents",
+    );
+    const allFastingTypes = typeRows.map(
+      (row) => row.fastingType || "not_fasting",
+    );
     const uniqueFastingTypes = Array.from(new Set(allFastingTypes));
 
     // Initialize dynamic breakdown dictionary
     const breakdown = {};
-    uniqueFastingTypes.forEach(type => {
+    uniqueFastingTypes.forEach((type) => {
       breakdown[type] = {
         total: 0,
         served: 0,
-        unserved: 0
+        unserved: 0,
       };
     });
 
     let totalRegular = filteredStudents.length;
     let totalServed = 0;
 
-    filteredStudents.forEach(student => {
+    filteredStudents.forEach((student) => {
       const isServed = servedStudentIds.has(String(student.studentId));
       if (isServed) {
         totalServed++;
@@ -101,7 +123,7 @@ const calculateReportStats = async (req, res, startDateStr, endDateStr, periodTy
     });
 
     // Compute unserved for all types
-    Object.keys(breakdown).forEach(key => {
+    Object.keys(breakdown).forEach((key) => {
       breakdown[key].unserved = breakdown[key].total - breakdown[key].served;
     });
 
@@ -117,8 +139,8 @@ const calculateReportStats = async (req, res, startDateStr, endDateStr, periodTy
         totalRegular,
         totalServed,
         totalUnserved: totalRegular - totalServed,
-        breakdown
-      }
+        breakdown,
+      },
     });
   } catch (err) {
     logInternalError(`${periodType}-report-calculation`, err);
@@ -145,7 +167,7 @@ export const getWeeklyReport = async (req, res) => {
 
 export const getMonthlyReport = async (req, res) => {
   const year = req.query.year || new Date().getFullYear();
-  const month = req.query.month || (new Date().getMonth() + 1);
+  const month = req.query.month || new Date().getMonth() + 1;
   const startDateStr = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month, 0).getDate();
   const endDateStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;

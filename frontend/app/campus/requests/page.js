@@ -60,7 +60,7 @@ export default function CampusRequestsPage() {
             if (data) setRequests(data.requests || []);
           })
           .catch((err) => console.error("Request poll error:", err));
-      }, 15000);
+      }, 3000);
       return () => clearInterval(interval);
     }
   }, [campusLoading, currentCampus, router, fetchRequests]);
@@ -153,7 +153,7 @@ export default function CampusRequestsPage() {
   }
 
   return (
-    <div className="page-shell flex min-h-screen flex-col overflow-y-auto pb-10">
+    <div className="page-shell flex min-h-screen flex-col overflow-y-auto pt-20 pb-10">
       <CampusNavbar />
 
       <main className="flex-1 flex flex-col p-4 pt-24 sm:p-8 max-w-6xl mx-auto w-full">

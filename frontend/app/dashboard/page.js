@@ -14,7 +14,6 @@ const capitalizeWords = (str) => {
     .join(" ");
 };
 
-
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { currentUser } = useUser();
@@ -124,7 +123,7 @@ export default function AdminDashboardPage() {
 
     const intervalId = setInterval(() => {
       fetchCampuses(true);
-    }, 15000);
+    }, 3000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -158,12 +157,11 @@ export default function AdminDashboardPage() {
     [],
   );
 
-
   return (
     <div className="page-shell px-4 pb-10 pt-24 md:px-8">
       <div className="mx-auto max-w-6xl">
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="surface-panel rounded-[30px] p-7 md:p-9">
+        <section className="grid gap-6">
+          <div className="surface-panel rounded-[30px] p-6 md:p-7">
             <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
               Main Admin
             </p>
@@ -176,16 +174,16 @@ export default function AdminDashboardPage() {
               lighter and easier to read.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 href="/dashboard/campuses"
-                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01]"
+                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:scale-[1.01]"
               >
                 Open Campuses
               </Link>
               <Link
                 href="/dashboard/meals"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
                 Open Meal History
               </Link>
@@ -384,8 +382,11 @@ export default function AdminDashboardPage() {
                         {campus.location || "Location not set"}
                       </p>
                       <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">
-                        {campus.cafeCount || 1} cafe
-                        {(campus.cafeCount || 1) === 1 ? "" : "s"}
+                        {campus.cafeManagerCount ?? 0} cafe manager
+                        {(campus.cafeManagerCount ?? 0) === 1 ? "" : "s"}
+                        {" · "}
+                        {campus.cafeCount ?? 0} cafe
+                        {(campus.cafeCount ?? 0) === 1 ? "" : "s"}
                       </p>
                     </div>
                   </div>

@@ -12,9 +12,13 @@ import {
   getMealWindowLabel,
   isCampusLiveNow,
 } from "../utils/mealSession.js";
-import { getSessionCookieOptions, getCookieOptions } from "../utils/sessionSecurity.js";
+import {
+  getSessionCookieOptions,
+  getCookieOptions,
+} from "../utils/sessionSecurity.js";
 import {
   buildCafeNumbers,
+  filterStudentsForCafeNumber,
   getCafeDisplayName,
   normalizeBatchCafeAssignments,
   normalizeCafeCount,
@@ -37,11 +41,22 @@ export const listCafes = async (req, res) => {
     const allUsers = await User.findAll({
       campusId,
     });
-    const sortedCafes = allUsers.filter((u) => u.role === "cafe").sort((a, b) => a.id - b.id);
-    const cafes = sortedCafes.map((cafe, index) => ({
-      ...cafe,
-      cafeNumber: index + 1,
-    }));
+    const sortedCafes = allUsers
+      .filter((u) => u.role === "cafe")
+      .sort((a, b) => a.id - b.id);
+    const campusStudents = await CafeStudent.findAll({ campusId });
+    const cafes = sortedCafes.map((cafe, index) => {
+      const cafeNumber = index + 1;
+      return {
+        ...cafe,
+        cafeNumber,
+        studentCount: filterStudentsForCafeNumber(
+          campusStudents,
+          req.campus,
+          cafeNumber,
+        ).length,
+      };
+    });
     res.json({ cafes, tickers: [] });
   } catch (err) {
     logInternalError("list-cafes", err);
@@ -55,7 +70,22 @@ export const createCafe = async (req, res) => {
     if (!["campus", "cafe manager"].includes(req.userRole)) {
       return res.status(403).json({ message: "Access denied" });
     }
-    const { name, email, username, password, displayName } = req.body;
+    const { name, email, username, password, displayName, campusPassword } =
+      req.body;
+    if (req.userRole === "campus") {
+      if (!campusPassword) {
+        return res
+          .status(400)
+          .json({ message: "Campus password is required." });
+      }
+      const isCampusPasswordValid = await User.comparePassword(
+        req.userId,
+        campusPassword,
+      );
+      if (!isCampusPasswordValid) {
+        return res.status(401).json({ message: "Invalid campus password." });
+      }
+    }
     const cafeUsername = String(username || email || "")
       .toLowerCase()
       .trim();
@@ -95,7 +125,8 @@ export const createCafe = async (req, res) => {
         pendingData,
       });
       return res.status(202).json({
-        message: "Cafe creation request submitted successfully! Awaiting Campus approval.",
+        message:
+          "Cafe creation request submitted successfully! Awaiting Campus approval.",
       });
     }
 
@@ -128,7 +159,22 @@ export const updateCafe = async (req, res) => {
     if (!cafe || cafe.role !== "cafe" || cafe.campusId !== campusId) {
       return res.status(404).json({ message: "Cafe not found" });
     }
-    const { name, email, username, password, displayName } = req.body;
+    const { name, email, username, password, displayName, campusPassword } =
+      req.body;
+    if (req.userRole === "campus") {
+      if (!campusPassword) {
+        return res
+          .status(400)
+          .json({ message: "Campus password is required." });
+      }
+      const isCampusPasswordValid = await User.comparePassword(
+        req.userId,
+        campusPassword,
+      );
+      if (!isCampusPasswordValid) {
+        return res.status(401).json({ message: "Invalid campus password." });
+      }
+    }
     const cafeUsername = String(username || email || name || "")
       .toLowerCase()
       .trim();
@@ -163,7 +209,8 @@ export const updateCafe = async (req, res) => {
         pendingData,
       });
       return res.status(202).json({
-        message: "Cafe update request submitted successfully! Awaiting Campus approval.",
+        message:
+          "Cafe update request submitted successfully! Awaiting Campus approval.",
       });
     }
 
@@ -187,6 +234,21 @@ export const deleteCafe = async (req, res) => {
     if (!cafe || cafe.role !== "cafe" || cafe.campusId !== campusId) {
       return res.status(404).json({ message: "Cafe not found" });
     }
+    const { campusPassword } = req.body;
+    if (req.userRole === "campus") {
+      if (!campusPassword) {
+        return res
+          .status(400)
+          .json({ message: "Campus password is required." });
+      }
+      const isCampusPasswordValid = await User.comparePassword(
+        req.userId,
+        campusPassword,
+      );
+      if (!isCampusPasswordValid) {
+        return res.status(401).json({ message: "Invalid campus password." });
+      }
+    }
 
     if (req.userRole === "cafe manager") {
       const pendingData = {
@@ -200,7 +262,8 @@ export const deleteCafe = async (req, res) => {
         pendingData,
       });
       return res.status(202).json({
-        message: "Cafe deletion request submitted successfully! Awaiting Campus approval.",
+        message:
+          "Cafe deletion request submitted successfully! Awaiting Campus approval.",
       });
     }
 
@@ -271,7 +334,10 @@ const closeMealAtAppliedTime = async (meal, fallbackOpenedAt, logoutTime) => {
 };
 
 const findAdminConflict = async ({ email, name, excludeId } = {}) => {
-  const admins = await User.findAll({ role: "admin" }, { includePassword: true });
+  const admins = await User.findAll(
+    { role: "admin" },
+    { includePassword: true },
+  );
   return (
     admins.find((admin) => {
       if (excludeId && admin.id === Number(excludeId)) return false;
@@ -463,6 +529,23 @@ export const getCampuses = async (req, res) => {
         const hasActiveCafe =
           Number.isInteger(activeCafeNumber) && activeCafeNumber > 0;
 
+        const campusUsers = await User.findAll({
+          campusId: campus.campusId || campus.id,
+        });
+        const sortedCafes = campusUsers
+          .filter((u) => u.role === "cafe")
+          .sort((a, b) => a.id - b.id);
+        const cafeCount = sortedCafes.length;
+        const cafeManagerCount = campusUsers.filter(
+          (u) => u.role === "cafe manager",
+        ).length;
+        const cafes = sortedCafes.map((cafe, index) => ({
+          id: cafe.id,
+          cafeNumber: index + 1,
+          name: cafe.name,
+          displayName: cafe.displayName || cafe.name,
+        }));
+
         let liveCafeSessions = [];
         if (isLive && hasActiveCafe) {
           const activeMeal = await Meal.findOne({
@@ -490,6 +573,10 @@ export const getCampuses = async (req, res) => {
 
         return {
           ...brandedCampus,
+          cafes,
+          cafeCount,
+          cafeNumbers: buildCafeNumbers(cafeCount),
+          cafeManagerCount,
           name: brandedCampus.name ? formatFullName(brandedCampus.name) : "",
           location: brandedCampus.location
             ? formatFullName(brandedCampus.location)
@@ -1056,10 +1143,16 @@ export const listCafeManagers = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
     const campusId = req.campus?.campusId || req.user?.campusId;
+    const campusCafeCount = req.campus?.cafeCount || 1;
     const allUsers = await User.findAll({
       campusId,
     });
-    const cafeManagers = allUsers.filter((u) => u.role === "cafe manager");
+    const cafeManagers = allUsers
+      .filter((u) => u.role === "cafe manager")
+      .map((manager) => ({
+        ...manager,
+        cafeCount: campusCafeCount,
+      }));
     res.json({ cafeManagers });
   } catch (err) {
     logInternalError("list-cafe-managers", err);
@@ -1073,14 +1166,22 @@ export const createCafeManager = async (req, res) => {
     if (req.userRole !== "campus") {
       return res.status(403).json({ message: "Access denied" });
     }
-    const { name, email, password } = req.body;
+    const { name, email, password, campusPassword } = req.body;
     const normalizedEmail = email?.toLowerCase().trim();
     const campusId = req.campus?.campusId || req.user?.campusId;
 
-    if (!name || !normalizedEmail || !password) {
-      return res
-        .status(400)
-        .json({ message: "Name, email, and password are required." });
+    if (!name || !normalizedEmail || !password || !campusPassword) {
+      return res.status(400).json({
+        message: "Name, email, password, and campus password are required.",
+      });
+    }
+
+    const isCampusPasswordValid = await User.comparePassword(
+      req.userId,
+      campusPassword,
+    );
+    if (!isCampusPasswordValid) {
+      return res.status(401).json({ message: "Invalid campus password." });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1098,19 +1199,27 @@ export const createCafeManager = async (req, res) => {
         .json({ message: "A user with this email already exists." });
     }
 
-    const cafeManager = await User.create({
+    const pendingData = {
       name: name.trim(),
       email: normalizedEmail,
       password,
-      role: "cafe manager",
       campusId,
-      createdBy: req.userId,
-      mustChangePassword: true,
+    };
+
+    await PendingApproval.create({
+      requesterId: req.userId,
+      approverRole: "admin",
+      requestType: "create_cafe_manager",
+      pendingData,
     });
-    res.status(201).json({ cafeManager });
+
+    res.status(202).json({
+      message:
+        "Cafe manager creation request submitted successfully! Awaiting Admin approval.",
+    });
   } catch (err) {
     logInternalError("create-cafe-manager", err);
-    sendServerError(res, "Could not create cafe manager");
+    sendServerError(res, "Could not create cafe manager request");
   }
 };
 
@@ -1130,7 +1239,18 @@ export const updateCafeManager = async (req, res) => {
     ) {
       return res.status(404).json({ message: "Cafe manager not found" });
     }
-    const { name, email, password } = req.body;
+    const { name, email, password, campusPassword } = req.body;
+    if (!campusPassword) {
+      return res.status(400).json({ message: "Campus password is required." });
+    }
+
+    const isCampusPasswordValid = await User.comparePassword(
+      req.userId,
+      campusPassword,
+    );
+    if (!isCampusPasswordValid) {
+      return res.status(401).json({ message: "Invalid campus password." });
+    }
     const updateData = {};
     if (name) {
       updateData.name = name.trim();
@@ -1156,15 +1276,30 @@ export const updateCafeManager = async (req, res) => {
       updateData.password = password;
       updateData.mustChangePassword = true;
     }
-    const updated = await User.updateById(id, updateData);
-    res.json({ cafeManager: updated });
+
+    const pendingData = {
+      managerId: id,
+      managerName: cafeManager.name,
+      ...updateData,
+    };
+
+    await PendingApproval.create({
+      requesterId: req.userId,
+      approverRole: "admin",
+      requestType: "update_cafe_manager",
+      pendingData,
+    });
+
+    res.status(202).json({
+      message:
+        "Cafe manager update request submitted successfully! Awaiting Admin approval.",
+    });
   } catch (err) {
     logInternalError("update-cafe-manager", err);
-    sendServerError(res, "Could not update cafe manager");
+    sendServerError(res, "Could not update cafe manager request");
   }
 };
 
-// Delete a cafe manager
 // Delete a cafe manager
 export const deleteCafeManager = async (req, res) => {
   try {
@@ -1181,11 +1316,39 @@ export const deleteCafeManager = async (req, res) => {
     ) {
       return res.status(404).json({ message: "Cafe manager not found" });
     }
-    await User.deleteById(id);
-    res.json({ success: true });
+    const { campusPassword } = req.body;
+    if (!campusPassword) {
+      return res.status(400).json({ message: "Campus password is required." });
+    }
+
+    const isCampusPasswordValid = await User.comparePassword(
+      req.userId,
+      campusPassword,
+    );
+    if (!isCampusPasswordValid) {
+      return res.status(401).json({ message: "Invalid campus password." });
+    }
+
+    const pendingData = {
+      managerId: id,
+      managerName: cafeManager.name,
+    };
+
+    await PendingApproval.create({
+      requesterId: req.userId,
+      approverRole: "admin",
+      requestType: "delete_cafe_manager",
+      pendingData,
+    });
+
+    res.status(202).json({
+      success: true,
+      message:
+        "Cafe manager deletion request submitted successfully! Awaiting Admin approval.",
+    });
   } catch (err) {
     logInternalError("delete-cafe-manager", err);
-    sendServerError(res, "Could not delete cafe manager");
+    sendServerError(res, "Could not delete cafe manager request");
   }
 };
 

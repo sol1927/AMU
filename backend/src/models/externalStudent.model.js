@@ -17,18 +17,20 @@ const requiredConfigKeys = [
 const hasExternalStudentConfig = () =>
   requiredConfigKeys.every((key) => process.env[key]);
 
-const externalStudentFieldMapping = {
+const getExternalStudentFieldMapping = () => ({
   studentId: "stId",
   name: "fullName",
   batch: "batchYear",
   department: "deptName",
   campusId: "campId",
-  profileUrl: "",
-};
+  profileUrl: process.env.EXTERNAL_DB_PROFILE_URL || "",
+});
 
 const assertIdentifier = (value, label) => {
   if (!value || !/^[A-Za-z0-9_]+$/.test(value)) {
-    throw new Error(`${label} must contain only letters, numbers, and underscores`);
+    throw new Error(
+      `${label} must contain only letters, numbers, and underscores`,
+    );
   }
   return `\`${value}\``;
 };
@@ -36,7 +38,9 @@ const assertIdentifier = (value, label) => {
 const requiredFieldMappings = ["studentId", "name", "batch", "department"];
 
 const validateRequiredFieldMappings = (fieldMapping) => {
-  const missingFields = requiredFieldMappings.filter((key) => !fieldMapping[key]);
+  const missingFields = requiredFieldMappings.filter(
+    (key) => !fieldMapping[key],
+  );
   if (missingFields.length > 0) {
     throw new Error(
       `External student field mapping is missing: ${missingFields.join(", ")}`,
@@ -71,15 +75,20 @@ const findAll = async ({ campusId } = {}) => {
     );
   }
 
-  const fieldMapping = externalStudentFieldMapping;
+  const fieldMapping = getExternalStudentFieldMapping();
   validateRequiredFieldMappings(fieldMapping);
   const selectedColumns = buildSelectColumns(fieldMapping);
-  const table = assertIdentifier(process.env.EXTERNAL_DB_TABLE, "External table");
+  const table = assertIdentifier(
+    process.env.EXTERNAL_DB_TABLE,
+    "External table",
+  );
   const where = [];
   const params = [];
 
   if (fieldMapping.campusId && campusId !== undefined && campusId !== null) {
-    where.push(`${assertIdentifier(fieldMapping.campusId, "External campus field")} = ?`);
+    where.push(
+      `${assertIdentifier(fieldMapping.campusId, "External campus field")} = ?`,
+    );
     params.push(campusId);
   }
 

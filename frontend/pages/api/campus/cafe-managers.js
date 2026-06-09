@@ -26,10 +26,7 @@ export default async function handler(req, res) {
     method: req.method,
     headers,
     credentials: "include",
-    // Don't set body for GET/DELETE
-    ...(req.method === "POST" || req.method === "PATCH"
-      ? { body: JSON.stringify(req.body) }
-      : {}),
+    ...(req.method !== "GET" ? { body: JSON.stringify(req.body) } : {}),
   };
 
   try {

@@ -81,7 +81,11 @@ export default function ProfilePage() {
 
         image.onload = () => {
           const maxSide = 320;
-          const scale = Math.min(maxSide / image.width, maxSide / image.height, 1);
+          const scale = Math.min(
+            maxSide / image.width,
+            maxSide / image.height,
+            1,
+          );
           const width = Math.max(1, Math.round(image.width * scale));
           const height = Math.max(1, Math.round(image.height * scale));
 
@@ -91,7 +95,9 @@ export default function ProfilePage() {
 
           const context = canvas.getContext("2d");
           if (!context) {
-            reject(new Error("Image processing is not supported in this browser."));
+            reject(
+              new Error("Image processing is not supported in this browser."),
+            );
             return;
           }
 
@@ -199,9 +205,7 @@ export default function ProfilePage() {
 
       setTimeout(() => setMessage(""), 2000);
     } catch (err) {
-      setError(
-        getErrorMessage(err, "We could not save your profile changes."),
-      );
+      setError(getErrorMessage(err, "We could not save your profile changes."));
       setTimeout(() => setError(""), 2000);
     } finally {
       setSavingChanges(false);
@@ -236,7 +240,11 @@ export default function ProfilePage() {
   };
 
   if (loading) {
-    return <p className="page-shell p-6 pt-28 text-slate-500">Checking authentication...</p>;
+    return (
+      <p className="page-shell p-6 pt-28 text-slate-500">
+        Checking authentication...
+      </p>
+    );
   }
 
   return (
@@ -266,7 +274,6 @@ export default function ProfilePage() {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="user"
               className="hidden"
               onChange={handleLogoSelection}
             />
@@ -285,11 +292,15 @@ export default function ProfilePage() {
 
           <div className="mt-4 max-w-full px-4 text-center">
             <p className="break-words text-lg font-semibold text-slate-900">
-              {capitalizeWords(name) || capitalizeWords(currentUser?.name) || "User"}
+              {capitalizeWords(name) ||
+                capitalizeWords(currentUser?.name) ||
+                "User"}
             </p>
             <p className="mt-1 text-sm text-slate-500">Admin profile</p>
             <p className="mt-2 text-xs text-slate-400">
-              {uploadingLogo ? "Updating logo..." : "Tap the camera to change your logo"}
+              {uploadingLogo
+                ? "Updating logo..."
+                : "Tap the camera to change your logo"}
             </p>
           </div>
         </div>

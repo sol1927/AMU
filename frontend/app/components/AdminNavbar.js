@@ -16,19 +16,28 @@ import {
   HiOutlineClipboardList,
   HiOutlineLogout,
   HiOutlineUserCircle,
+  HiOutlineBell,
 } from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-const NavbarItem = ({ icon: Icon, label, onClick, danger }) => (
+const NavbarItem = ({ icon: Icon, label, onClick, danger, badge }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50 ${danger ? "text-red-500 hover:bg-red-50" : "text-slate-700"
-      }`}
+    className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50 ${
+      danger ? "text-red-500 hover:bg-red-50" : "text-slate-700"
+    }`}
   >
-    <Icon className={`h-5 w-5 ${danger ? "text-red-500" : "text-slate-400"}`} />
-    <span className="text-sm font-medium">{label}</span>
+    <span className="flex items-center gap-3">
+      <Icon className={`h-5 w-5 ${danger ? "text-red-500" : "text-slate-400"}`} />
+      <span className="text-sm font-medium">{label}</span>
+    </span>
+    {badge ? (
+      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
+        {badge}
+      </span>
+    ) : null}
   </button>
 );
 
@@ -37,6 +46,7 @@ NavbarItem.propTypes = {
   label: PropTypes.string.isRequired,
   onClick: PropTypes.func.isRequired,
   danger: PropTypes.bool,
+  badge: PropTypes.string,
 };
 
 export default function AdminNavbar() {
@@ -45,8 +55,28 @@ export default function AdminNavbar() {
   const [openMenu, setOpenMenu] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const menuRef = useRef(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const brandLogo = currentUser?.logo?.url || "/logo.png";
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchCount = async () => {
+      try {
+        const res = await fetch(`${url}/approvals`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setPendingCount(data.requests?.length || 0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch approvals count:", err);
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 3000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -104,13 +134,9 @@ export default function AdminNavbar() {
     },
     {
       icon: HiOutlineClipboardList,
-      label: "Reports",
-      onClick: () => router.push("/dashboard/reports"),
-    },
-    {
-      icon: HiOutlineClipboardList,
       label: "Requests",
       onClick: () => router.push("/dashboard/requests"),
+      badge: pendingCount > 0 ? String(pendingCount) : null,
     },
   ];
 
@@ -142,6 +168,21 @@ export default function AdminNavbar() {
         </button>
 
         <div className="flex items-center gap-3">
+          {/* Notification Bell Icon on the left side of day and night toggle */}
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/requests")}
+            className="relative p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition shadow-sm hover:scale-105 active:scale-95 animate-fadeIn"
+            title="View Requests"
+          >
+            <HiOutlineBell className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+            {pendingCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+
           <ThemeToggle />
 
           <div className="relative" ref={menuRef}>
@@ -182,10 +223,11 @@ export default function AdminNavbar() {
             </button>
 
             <div
-              className={`absolute right-0 mt-4 w-80 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${openMenu
+              className={`absolute right-0 mt-4 w-80 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-2xl transition-all duration-200 ${
+                openMenu
                   ? "opacity-100 scale-100"
                   : "pointer-events-none opacity-0 scale-95"
-                }`}
+              }`}
               role="menu"
               aria-label="Admin menu"
             >
@@ -235,6 +277,7 @@ export default function AdminNavbar() {
                     key={item.label}
                     icon={item.icon}
                     label={item.label}
+                    badge={item.badge}
                     onClick={() => {
                       setOpenMenu(false);
                       item.onClick();

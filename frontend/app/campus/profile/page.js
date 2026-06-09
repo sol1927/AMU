@@ -27,6 +27,9 @@ export default function CampusProfilePage() {
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [syncError, setSyncError] = useState("");
 
   const [newEmail, setNewEmail] = useState("");
   const [showOtpField, setShowOtpField] = useState(false);
@@ -120,7 +123,8 @@ export default function CampusProfilePage() {
 
     if (
       !newEmail ||
-      newEmail.toLowerCase() === String(currentCampus?.email || "").toLowerCase()
+      newEmail.toLowerCase() ===
+        String(currentCampus?.email || "").toLowerCase()
     ) {
       setEmailError("Please enter a new email address.");
       return;
@@ -141,6 +145,32 @@ export default function CampusProfilePage() {
       setShowOtpField(true);
     } catch (err) {
       setEmailError(getErrorMessage(err, "OTP request failed."));
+    }
+  };
+
+  const handleSyncStudents = async () => {
+    setSyncing(true);
+    setSyncMessage("");
+    setSyncError("");
+
+    try {
+      const res = await fetch(`${url}/campus/students/sync`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(getApiMessage(data, "Could not sync students."));
+      }
+
+      setSyncMessage(getApiMessage(data, "Students synced successfully!"));
+      setTimeout(() => setSyncMessage(""), 3000);
+    } catch (err) {
+      setSyncError(getErrorMessage(err, "Could not sync students."));
+      setTimeout(() => setSyncError(""), 3000);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -419,6 +449,34 @@ export default function CampusProfilePage() {
                     {emailMessage}
                   </p>
                 )}
+
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+                  <h3 className="mb-2 text-base font-bold text-inherit">
+                    Synchronize Student Roster
+                  </h3>
+                  <p className="text-xs leading-relaxed text-slate-500">
+                    Fetch the latest student records and cafe assignments from
+                    the university registry.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSyncStudents}
+                    disabled={syncing}
+                    className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {syncing ? "Syncing..." : "Fetch Students"}
+                  </button>
+                  {syncError && (
+                    <p className="mt-3 text-xs font-semibold text-red-500">
+                      {syncError}
+                    </p>
+                  )}
+                  {syncMessage && (
+                    <p className="mt-3 text-xs font-semibold text-green-500">
+                      {syncMessage}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

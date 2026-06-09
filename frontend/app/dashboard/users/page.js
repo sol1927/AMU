@@ -60,11 +60,23 @@ export default function DashboardUsersPage() {
 
   const stats = useMemo(() => {
     const totalCampusUsers = campusUsers.length;
-    const onlineCampusUsers = campusUsers.filter((campus) => campus.isLive).length;
+    const totalCafeManagers = campusUsers.reduce(
+      (sum, campus) => sum + Number(campus.cafeManagerCount || 0),
+      0,
+    );
+    const totalCafes = campusUsers.reduce(
+      (sum, campus) => sum + Number(campus.cafeCount || 0),
+      0,
+    );
+    const onlineCampusUsers = campusUsers.filter(
+      (campus) => campus.isLive,
+    ).length;
 
     return {
-      totalUsers: 1 + totalCampusUsers,
+      totalUsers: 1 + totalCampusUsers + totalCafeManagers + totalCafes,
       totalCampusUsers,
+      totalCafeManagers,
+      totalCafes,
       onlineCampusUsers,
     };
   }, [campusUsers]);
@@ -76,18 +88,18 @@ export default function DashboardUsersPage() {
           <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
             User Management
           </p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-blue-700 md:text-5xl">
             Account Overview
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-slate-600 md:text-base">
-            This first step gives the admin one place to review the main admin
-            account and every campus account that can access the system.
+            This page shows every admin, campus, cafe manager, and cafe account
+            that belongs to user management.
           </p>
         </section>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <section className="mt-8 grid gap-4 md:grid-cols-4 xl:grid-cols-5">
           <div className="surface-card rounded-[28px] p-6">
-            <p className="text-sm text-slate-500">Total Accounts</p>
+            <p className="text-sm text-slate-500">Total User Accounts</p>
             <p className="mt-3 text-4xl font-black text-slate-900">
               {stats.totalUsers}
             </p>
@@ -96,6 +108,18 @@ export default function DashboardUsersPage() {
             <p className="text-sm text-slate-500">Campus Accounts</p>
             <p className="mt-3 text-4xl font-black text-slate-900">
               {stats.totalCampusUsers}
+            </p>
+          </div>
+          <div className="surface-card rounded-[28px] p-6">
+            <p className="text-sm text-slate-500">Cafe Managers</p>
+            <p className="mt-3 text-4xl font-black text-slate-900">
+              {stats.totalCafeManagers}
+            </p>
+          </div>
+          <div className="surface-card rounded-[28px] p-6">
+            <p className="text-sm text-slate-500">Cafe Accounts</p>
+            <p className="mt-3 text-4xl font-black text-slate-900">
+              {stats.totalCafes}
             </p>
           </div>
           <div className="surface-card rounded-[28px] p-6">
@@ -180,9 +204,13 @@ export default function DashboardUsersPage() {
                           <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700">
                             Role: campus
                           </span>
+                          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                            {campus.cafeManagerCount ?? 0} manager
+                            {(campus.cafeManagerCount ?? 0) === 1 ? "" : "s"}
+                          </span>
                           <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                            {campus.cafeCount || 1} cafe
-                            {(campus.cafeCount || 1) === 1 ? "" : "s"}
+                            {campus.cafeCount ?? 0} cafe
+                            {(campus.cafeCount ?? 0) === 1 ? "" : "s"}
                           </span>
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-bold ${
@@ -199,7 +227,8 @@ export default function DashboardUsersPage() {
                       <div className="text-sm text-slate-500 lg:text-right">
                         <p>Campus ID {campus.campusId ?? "Not set"}</p>
                         <p className="mt-1">
-                          Last active {formatDateTime(campus.lastActiveAt, "Never")}
+                          Last active{" "}
+                          {formatDateTime(campus.lastActiveAt, "Never")}
                         </p>
                         <p className="mt-1">
                           Created {formatDateTime(campus.createdAt)}

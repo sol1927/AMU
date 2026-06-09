@@ -143,7 +143,7 @@ export default function DashboardStudentsPage() {
                     </p>
                   </div>
 
-                  <div className="mt-5 flex gap-3">
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
                       onClick={() =>
@@ -152,6 +152,15 @@ export default function DashboardStudentsPage() {
                       className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
                     >
                       Open Students
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(`/dashboard/students/${campus._id}/cafes`)
+                      }
+                      className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Show Students by Cafe
                     </button>
                     <button
                       type="button"

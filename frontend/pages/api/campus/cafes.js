@@ -12,8 +12,12 @@ export default async function handler(req, res) {
   const headers = { ...req.headers };
   // Remove host header to avoid issues
   delete headers.host;
-  // Always set content-type for POST/PATCH
-  if (req.method === "POST" || req.method === "PATCH") {
+  // Always set content-type for POST/PATCH/DELETE with body
+  if (
+    req.method === "POST" ||
+    req.method === "PATCH" ||
+    req.method === "DELETE"
+  ) {
     headers["content-type"] = "application/json";
   }
 
@@ -26,8 +30,9 @@ export default async function handler(req, res) {
     method: req.method,
     headers,
     credentials: "include",
-    // Don't set body for GET/DELETE
-    ...(req.method === "POST" || req.method === "PATCH"
+    ...(req.method === "POST" ||
+    req.method === "PATCH" ||
+    req.method === "DELETE"
       ? { body: JSON.stringify(req.body) }
       : {}),
   };

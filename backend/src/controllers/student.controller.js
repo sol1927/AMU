@@ -123,10 +123,7 @@ const resolveScopedCampusBase = async (req) => {
     return campus;
   }
 
-  if (
-    req.userRole === "cafe" ||
-    req.userRole === "cafe manager"
-  ) {
+  if (req.userRole === "cafe" || req.userRole === "cafe manager") {
     const loggedInUser = await User.findById(req.userId);
     if (
       !loggedInUser ||
@@ -156,7 +153,7 @@ const resolveScopedCampus = async (req) => {
     campus.cafeCount = Math.max(
       campus.cafeCount || 0,
       registeredCafes.length,
-      ...matchNums
+      ...matchNums,
     );
   }
   return campus;
@@ -176,16 +173,25 @@ export const getCampusStudents = async (req, res) => {
 
     let students = await CafeStudent.findAll(getStudentCampusQuery(campus));
 
-    // Only filter by cafe number if the user is a cafe (not campus or cafe manager)
+    const requestedCafeNumber = req.query.cafeNumber
+      ? Number(req.query.cafeNumber)
+      : null;
+
     if (req.userRole === "cafe") {
-      const cafeNumber =
-        req.cafeNumber ||
-        (req.query.cafeNumber ? Number(req.query.cafeNumber) : null);
+      const cafeNumber = req.cafeNumber || requestedCafeNumber;
       students = cafeNumber
         ? filterStudentsForCafeNumber(students, campus, cafeNumber)
         : [];
+    } else if (
+      Number.isInteger(requestedCafeNumber) &&
+      requestedCafeNumber > 0
+    ) {
+      students = filterStudentsForCafeNumber(
+        students,
+        campus,
+        requestedCafeNumber,
+      );
     }
-    // Cafe manager and campus see all students (no filter)
 
     if (
       fastingType &&

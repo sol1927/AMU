@@ -200,6 +200,50 @@ export const approveApprovalRequest = async (req, res) => {
         return res.status(404).json({ message: "Cafe to delete not found." });
       }
       await User.deleteById(cafeId);
+    } else if (request.requestType === "create_cafe_manager") {
+      const { name, email, password, campusId } = request.pendingData;
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: "A user with this email already exists." });
+      }
+      await User.create({
+        name,
+        email,
+        password,
+        role: "cafe manager",
+        campusId,
+        createdBy: request.requesterId,
+        mustChangePassword: true,
+      });
+    } else if (request.requestType === "update_cafe_manager") {
+      const { managerId, name, email, password } = request.pendingData;
+      const cafeManager = await User.findById(managerId);
+      if (!cafeManager) {
+        return res.status(404).json({ message: "Cafe manager to update not found." });
+      }
+      const updateData = {};
+      if (name) {
+        updateData.name = name;
+      }
+      if (email) {
+        const existingUser = await User.findOne({ email, excludeId: managerId });
+        if (existingUser) {
+          return res.status(400).json({ message: "A user with this email already exists." });
+        }
+        updateData.email = email;
+      }
+      if (password) {
+        updateData.password = password;
+        updateData.mustChangePassword = true;
+      }
+      await User.updateById(managerId, updateData);
+    } else if (request.requestType === "delete_cafe_manager") {
+      const { managerId } = request.pendingData;
+      const cafeManager = await User.findById(managerId);
+      if (!cafeManager) {
+        return res.status(404).json({ message: "Cafe manager to delete not found." });
+      }
+      await User.deleteById(managerId);
     } else {
       // Default: profile_update
       const updates = { ...request.pendingData };

@@ -72,7 +72,7 @@ export default function CampusNavbar() {
     };
 
     fetchCount();
-    const interval = setInterval(fetchCount, 15000);
+    const interval = setInterval(fetchCount, 3000);
     return () => clearInterval(interval);
   }, [currentCampus]);
 
@@ -142,11 +142,6 @@ export default function CampusNavbar() {
       icon: HiOutlineDocumentText,
       label: "Meal History",
       onClick: () => router.push("/campus/meals"),
-    },
-    {
-      icon: HiOutlineDocumentText,
-      label: "Reports",
-      onClick: () => router.push("/campus/reports"),
     },
     {
       icon: HiOutlineClipboardList,

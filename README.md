@@ -79,6 +79,7 @@ cp frontend/.env.example frontend/.env.local
 - `EXTERNAL_DB_PASSWORD`: external university MySQL password
 - `EXTERNAL_DB_NAME`: external university database name
 - `EXTERNAL_DB_TABLE`: external source table or view name for student sync
+- `EXTERNAL_DB_PROFILE_URL`: optional external column name for student photo URL
 - `FRONTEND_URL`: frontend origin allowed by CORS, for example `http://localhost:3000` or `https://frontend.example.com`
 - `COOKIE_SECURE`: set to `false` for plain HTTP and `true` for HTTPS so auth cookies work correctly
 - `JWT_SECRET`: long random secret for JWT signing
@@ -201,6 +202,9 @@ External student table or view must provide these source columns:
 ### Optional external columns
 
 - `campId`: mapped to local `campusId`
+- `profileUrl`: optional student photo URL. To use it, add
+  `EXTERNAL_DB_PROFILE_URL=photoUrl` to `backend/.env` and ensure that column
+  exists in the external table.
 
 If `campId` exists, campus sync filters students by the campus ID assigned to
 the campus account. This is the recommended setup.
@@ -208,9 +212,8 @@ the campus account. This is the recommended setup.
 ### Currently not mapped from the external source
 
 These local student fields are supported by the system, but are not currently
-read from the external table by default:
+read from the external table by default unless explicitly configured:
 
-- `profileUrl`
 - `fastingType`
 - `isInternship`
 

@@ -40,6 +40,7 @@ const formatDate = (date) =>
     day: "numeric",
   });
 
+/* eslint-disable-next-line no-unused-vars */
 const formatWindowTime = (value, fallback = "Not available") =>
   value || fallback;
 
@@ -68,6 +69,7 @@ const HISTORY_RANGE_OPTIONS = [
   { value: "monthly", label: "Monthly" },
 ];
 
+/* eslint-disable-next-line no-unused-vars */
 const SESSION_MEAL_TYPES = ["breakfast", "lunch", "dinner"];
 
 const REPORT_TYPES = [
@@ -76,6 +78,7 @@ const REPORT_TYPES = [
   { value: "monthly", label: "Monthly" },
 ];
 
+/* eslint-disable-next-line no-unused-vars */
 const REPORT_MONTHS = [
   { value: "1", label: "January" },
   { value: "2", label: "February" },
@@ -91,6 +94,7 @@ const REPORT_MONTHS = [
   { value: "12", label: "December" },
 ];
 
+/* eslint-disable-next-line no-unused-vars */
 const REPORT_YEARS = ["2025", "2026", "2027", "2028", "2029", "2030"];
 
 const toSafeFilePart = (value, fallback = "data") =>
@@ -109,13 +113,14 @@ export default function CafeMealsPage() {
   const { currentUser } = useUser();
   const [activeTab, setActiveTab] = useState("sessionHistory"); // 'sessionHistory' or 'attendanceReports'
   const [selectedDate, setSelectedDate] = useState("");
-  const [selectedCafe, setSelectedCafe] = useState("");
+  const [selectedCafe, setSelectedCafe] = useState(undefined);
   const [selectedMealType, setSelectedMealType] = useState("breakfast");
   const [mealSummary, setMealSummary] = useState(null);
   const [detailMode, setDetailMode] = useState("total");
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
   const [mealSchedule, setMealSchedule] = useState(null);
+  /* eslint-disable-next-line no-unused-vars */
   const [historyRange, setHistoryRange] = useState("daily");
   const [cafes, setCafes] = useState([]);
 
@@ -182,7 +187,7 @@ export default function CafeMealsPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedCafe || cafeOptions.length === 0) return;
+    if (selectedCafe !== undefined || cafeOptions.length === 0) return;
 
     const defaultCafe =
       currentUser?.activeCafeNumber ||
@@ -367,8 +372,11 @@ export default function CafeMealsPage() {
     pending: mealSummary?.notServedStudents ?? 0,
   };
 
+  const isAllCafesSelected = selectedCafe === "" || selectedCafe === undefined;
+
   const formatSnapshotTitle = (ms) => {
     if (!ms) return "";
+    if (isAllCafesSelected) return "All Cafes";
     if (selectedCafeOption?.label) return selectedCafeOption.label;
 
     let name = ms.cafeDisplayName ? String(ms.cafeDisplayName).trim() : "";
@@ -407,9 +415,11 @@ export default function CafeMealsPage() {
       ["Campus", mealSummary.campusName || ""],
       [
         "Cafe",
-        selectedCafeOption?.label ||
-          mealSummary.cafeDisplayName ||
-          `Cafe ${mealSummary.cafeNumber || ""}`,
+        isAllCafesSelected
+          ? "All Cafes"
+          : selectedCafeOption?.label ||
+            mealSummary.cafeDisplayName ||
+            `Cafe ${mealSummary.cafeNumber || ""}`,
       ],
       ["Cafe Number", mealSummary.cafeNumber || ""],
       [
@@ -489,7 +499,9 @@ export default function CafeMealsPage() {
     ];
 
     const safeCafe = toSafeFilePart(
-      selectedCafeOption?.label || mealSummary.cafeDisplayName || "cafe",
+      isAllCafesSelected
+        ? "All Cafes"
+        : selectedCafeOption?.label || mealSummary.cafeDisplayName || "cafe",
     );
     const safeMeal = toSafeFilePart(mealSummary.mealType || "meal");
     const safeDate = mealSummary.date
@@ -661,7 +673,7 @@ export default function CafeMealsPage() {
                       Cafeteria
                     </span>
                     <select
-                      value={selectedCafe}
+                      value={selectedCafe ?? ""}
                       onChange={(e) => setSelectedCafe(e.target.value)}
                       className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
                     >

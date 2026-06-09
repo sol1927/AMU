@@ -314,7 +314,10 @@ export const getAdminDashboard = async (req, res) => {
     const year = getCurrentYear(today);
     const semester = getCurrentSemester(today);
 
-    const campuses = await User.findAll({ role: "campus", createdBy: req.userId });
+    const campuses = await User.findAll({
+      role: "campus",
+      createdBy: req.userId,
+    });
 
     let totalStudents = 0;
     let totalServed = 0;
@@ -371,14 +374,18 @@ export const getAdminDashboard = async (req, res) => {
 
 export const getMeals = async (req, res) => {
   try {
-    if (req.userRole !== "admin" && req.userRole !== "campus" && req.userRole !== "cafe manager") {
+    if (
+      req.userRole !== "admin" &&
+      req.userRole !== "campus" &&
+      req.userRole !== "cafe manager"
+    ) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const scanTime = new Date();
 
     const { year, semester, date, mealType, cafeNumber } = req.query;
-    
+
     let campusId;
     if (req.userRole === "campus") {
       campusId = req.userId;
@@ -595,12 +602,16 @@ export const getMeals = async (req, res) => {
 
 export const getMealStudents = async (req, res) => {
   try {
-    if (req.userRole !== "admin" && req.userRole !== "campus" && req.userRole !== "cafe manager") {
+    if (
+      req.userRole !== "admin" &&
+      req.userRole !== "campus" &&
+      req.userRole !== "cafe manager"
+    ) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const { date, mealType, cafeNumber, year, semester } = req.query;
-    
+
     let campusId;
     if (req.userRole === "campus") {
       campusId = req.userId;
@@ -703,7 +714,11 @@ export const getMealStudents = async (req, res) => {
 
 export const getMealFilters = async (req, res) => {
   try {
-    if (req.userRole !== "admin" && req.userRole !== "campus" && req.userRole !== "cafe manager") {
+    if (
+      req.userRole !== "admin" &&
+      req.userRole !== "campus" &&
+      req.userRole !== "cafe manager"
+    ) {
       return res.status(403).json({ message: "Access denied" });
     }
 

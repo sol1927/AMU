@@ -284,7 +284,7 @@ export default function TimeControllerPage() {
                   </label>
                 </div>
 
-                <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
+                <div className="mt-5 rounded-2xl bg-white dark:bg-slate-950 px-4 py-3 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 font-medium">
                   Current window: {schedule[meal.key]?.label || "--:-- - --:--"}
                 </div>
               </div>

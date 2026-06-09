@@ -12,11 +12,16 @@ export default function CafesPage() {
   const [error, setError] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showCampusPassword, setShowCampusPassword] = useState(false);
+  const [showDeleteCampusPassword, setShowDeleteCampusPassword] =
+    useState(false);
+  const [deleteCampusPassword, setDeleteCampusPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     username: "",
     displayName: "",
     password: "",
+    campusPassword: "",
   });
 
   // Edit and Delete state
@@ -25,6 +30,7 @@ export default function CafesPage() {
     username: "",
     displayName: "",
     password: "",
+    campusPassword: "",
   });
   const [cafeToDelete, setCafeToDelete] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -70,14 +76,22 @@ export default function CafesPage() {
   }, []);
 
   useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [error]);
+
+  useEffect(() => {
     if (cafeToEdit) {
       setEditForm({
         username: cafeToEdit.name || "",
         displayName: cafeToEdit.displayName || "",
         password: "",
+        campusPassword: "",
       });
       setError("");
       setShowPassword(false);
+      setShowCampusPassword(false);
     }
   }, [cafeToEdit]);
 
@@ -95,6 +109,9 @@ export default function CafesPage() {
     }
 
     try {
+      if (!form.campusPassword) {
+        throw new Error("Campus password is required to add a cafe.");
+      }
       const res = await fetch("/api/campus/cafes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,11 +120,17 @@ export default function CafesPage() {
           username: username,
           displayName: form.displayName,
           password: form.password,
+          campusPassword: form.campusPassword,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add cafe");
-      setForm({ username: "", displayName: "", password: "" });
+      setForm({
+        username: "",
+        displayName: "",
+        password: "",
+        campusPassword: "",
+      });
       setShowAddModal(false);
       showToast("Cafe operator registered successfully", "success");
       fetchCafes({ silent: true });
@@ -131,10 +154,14 @@ export default function CafesPage() {
     }
 
     try {
+      if (!editForm.campusPassword) {
+        throw new Error("Campus password is required to update a cafe.");
+      }
       const payload = {
         name: username,
         username: username,
         displayName: editForm.displayName,
+        campusPassword: editForm.campusPassword,
       };
       if (editForm.password) {
         payload.password = editForm.password;
@@ -163,15 +190,22 @@ export default function CafesPage() {
     setSaving(true);
     setError("");
     try {
+      if (!deleteCampusPassword) {
+        throw new Error("Campus password is required to delete a cafe.");
+      }
       const res = await fetch(
         `/api/campus/cafes?id=${cafeToDelete.id || cafeToDelete._id}`,
         {
           method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campusPassword: deleteCampusPassword }),
         },
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to delete cafe");
       setCafeToDelete(null);
+      setDeleteCampusPassword("");
+      setShowDeleteCampusPassword(false);
       showToast("Cafe operator deleted successfully", "success");
       fetchCafes({ silent: true });
     } catch (err) {
@@ -228,6 +262,8 @@ export default function CafesPage() {
                   onClick={() => {
                     setError("");
                     setShowPassword(false);
+                    setShowCampusPassword(false);
+                    setForm({ ...form, campusPassword: "" });
                     setShowAddModal(true);
                   }}
                   className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01]"
@@ -264,20 +300,32 @@ export default function CafesPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-cyan-100 dark:bg-cyan-950 text-lg font-black text-cyan-700 dark:text-cyan-400">
-                        {(cafe.displayName || cafe.name)?.[0]?.toUpperCase() ||
-                          "C"}
+                        {cafe.logo?.url ? (
+                          <img
+                            src={cafe.logo.url}
+                            alt={cafe.displayName || cafe.name || "Cafe logo"}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          (cafe.displayName || cafe.name || "?").charAt(0)
+                        )}
                       </div>
 
                       <div>
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                           Name
                         </h2>
-                        <p 
-                          title={cafe.displayName || getCafeName(cafe.name)}
-                          className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-300 max-w-[150px] truncate"
-                        >
-                          {cafe.displayName || getCafeName(cafe.name)}
-                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <p
+                            title={cafe.displayName || getCafeName(cafe.name)}
+                            className="text-sm font-semibold text-slate-700 dark:text-slate-300 max-w-[150px] truncate"
+                          >
+                            {cafe.displayName || getCafeName(cafe.name)}
+                          </p>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            {cafe.studentCount ?? 0} students
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -310,6 +358,9 @@ export default function CafesPage() {
                             className="block w-full rounded-xl px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 transition hover:bg-red-500/10"
                             onClick={() => {
                               setCafeToDelete(cafe);
+                              setError("");
+                              setDeleteCampusPassword("");
+                              setShowDeleteCampusPassword(false);
                               setOpenMenuId(null);
                             }}
                           >
@@ -354,7 +405,7 @@ export default function CafesPage() {
                     <p className="text-xs uppercase tracking-[0.28em] text-slate-400 font-semibold">
                       Username
                     </p>
-                    <p 
+                    <p
                       title={cafe.name}
                       className="mt-2 text-sm text-slate-600 dark:text-slate-300 max-w-[150px] truncate"
                     >
@@ -436,7 +487,7 @@ export default function CafesPage() {
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
                       placeholder="Min 6 characters"
                       value={form.password}
                       onChange={(e) =>
@@ -450,6 +501,35 @@ export default function CafesPage() {
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
                     >
                       {showPassword ? (
+                        <AiOutlineEyeInvisible size={20} />
+                      ) : (
+                        <AiOutlineEye size={20} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Campus Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCampusPassword ? "text" : "password"}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                      placeholder="Confirm with campus password"
+                      value={form.campusPassword}
+                      onChange={(e) =>
+                        setForm({ ...form, campusPassword: e.target.value })
+                      }
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCampusPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    >
+                      {showCampusPassword ? (
                         <AiOutlineEyeInvisible size={20} />
                       ) : (
                         <AiOutlineEye size={20} />
@@ -540,7 +620,7 @@ export default function CafesPage() {
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
                       placeholder="Leave blank to keep current password"
                       value={editForm.password}
                       onChange={(e) =>
@@ -553,6 +633,38 @@ export default function CafesPage() {
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
                     >
                       {showPassword ? (
+                        <AiOutlineEyeInvisible size={20} />
+                      ) : (
+                        <AiOutlineEye size={20} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Campus Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCampusPassword ? "text" : "password"}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                      placeholder="Confirm with campus password"
+                      value={editForm.campusPassword}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          campusPassword: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCampusPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    >
+                      {showCampusPassword ? (
                         <AiOutlineEyeInvisible size={20} />
                       ) : (
                         <AiOutlineEye size={20} />
@@ -603,9 +715,44 @@ export default function CafesPage() {
                 </strong>
                 ? This action cannot be undone.
               </p>
+              {error && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700/40 dark:bg-red-950/40 dark:text-red-300">
+                  {error}
+                </div>
+              )}
+              <div className="mb-4">
+                <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Campus Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showDeleteCampusPassword ? "text" : "password"}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                    placeholder="Your campus password"
+                    value={deleteCampusPassword}
+                    onChange={(e) => setDeleteCampusPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteCampusPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {showDeleteCampusPassword ? (
+                      <AiOutlineEyeInvisible size={20} />
+                    ) : (
+                      <AiOutlineEye size={20} />
+                    )}
+                  </button>
+                </div>
+              </div>
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => setCafeToDelete(null)}
+                  onClick={() => {
+                    setCafeToDelete(null);
+                    setDeleteCampusPassword("");
+                    setShowDeleteCampusPassword(false);
+                  }}
                   className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   Cancel

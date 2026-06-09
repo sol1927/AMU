@@ -50,8 +50,8 @@ const formatDate = (date) =>
     day: "numeric",
   });
 
-const formatDateTime = (value) => {
-  if (!value) return "Not opened yet";
+const formatDateTime = (value, fallback = "Not opened yet") => {
+  if (!value) return fallback;
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -67,6 +67,36 @@ const formatDateTime = (value) => {
 
 const formatWindowTime = (value, fallback = "Not available") =>
   value || fallback;
+
+const safeFilePart = (value, fallback = "data") =>
+  String(value || fallback)
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .toLowerCase();
+
+const getCafeNumberFromName = (name) => {
+  const match = String(name || "").match(/\d+/);
+  return match ? Number(match[0]) : null;
+};
+
+const getCafeLabel = (cafe, index) => {
+  const value =
+    Number(cafe?.cafeNumber) || getCafeNumberFromName(cafe?.name) || index + 1;
+  let label = cafe?.displayName?.trim();
+  if (!label && cafe?.name) {
+    const extractedNumber = getCafeNumberFromName(cafe.name);
+    label = extractedNumber ? `Cafe ${extractedNumber}` : cafe.name.trim();
+  }
+  if (!label) {
+    label = `Cafe ${value}`;
+  }
+  return {
+    value: String(value),
+    label,
+  };
+};
 
 const getAppliedEndDate = (date, endTime) => {
   if (!date || typeof endTime !== "string") {
@@ -175,11 +205,23 @@ export default function CampusMealsPage() {
   const [selectedMealType, setSelectedMealType] = useState("breakfast");
   const [mealSummary, setMealSummary] = useState(null);
   const [detailMode, setDetailMode] = useState("total");
+  const [activeTab, setActiveTab] = useState("history");
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [exportingStudents, setExportingStudents] = useState(false);
   const [error, setError] = useState("");
   const [mealSchedule, setMealSchedule] = useState(null);
-  const [historyRange, setHistoryRange] = useState("daily"); // daily, weekly, monthly
+  const [cafes, setCafes] = useState([]);
+  const [reportType, setReportType] = useState("daily");
+  const [reportCafe, setReportCafe] = useState("");
+  const [reportDate, setReportDate] = useState(getAppDayString());
+  const [reportStartDate, setReportStartDate] = useState("");
+  const [reportEndDate, setReportEndDate] = useState("");
+  const [reportMonth, setReportMonth] = useState("");
+  const [reportYear, setReportYear] = useState("");
+  const [reportData, setReportData] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const historyRange = "daily";
 
   useEffect(() => {
     if (!error) {
@@ -197,6 +239,121 @@ export default function CampusMealsPage() {
     () => currentCampus?.cafeNumbers || [1],
     [currentCampus?.cafeNumbers],
   );
+
+  const cafeOptions = useMemo(() => {
+    const seen = new Set();
+    return [
+      { value: "", label: "All Cafes" },
+      ...cafes
+        .map((cafe, index) => getCafeLabel(cafe, index))
+        .filter((item) => {
+          if (seen.has(item.value)) return false;
+          seen.add(item.value);
+          return true;
+        }),
+    ];
+  }, [cafes]);
+
+  const selectedCafeOption = useMemo(
+    () => cafeOptions.find((option) => option.value === selectedCafe),
+    [cafeOptions, selectedCafe],
+  );
+
+  const reportCafeOption = useMemo(
+    () => cafeOptions.find((option) => option.value === reportCafe),
+    [cafeOptions, reportCafe],
+  );
+
+  const activeReportTypeLabel =
+    reportType === "weekly"
+      ? "Weekly"
+      : reportType === "monthly"
+        ? "Monthly"
+        : "Daily";
+
+  useEffect(() => {
+    const today = getAppDayString();
+    setReportDate(today);
+
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    setReportStartDate(start.toISOString().split("T")[0]);
+    setReportEndDate(today);
+    setReportMonth(String(new Date().getMonth() + 1));
+    setReportYear(String(new Date().getFullYear()));
+  }, []);
+
+  const fetchReport = async () => {
+    setReportError("");
+    setReportData(null);
+    setLoadingReport(true);
+
+    try {
+      const params = new URLSearchParams();
+      if (reportCafe) params.append("cafeNumber", reportCafe);
+      if (reportType === "daily") {
+        params.append("date", reportDate);
+      } else if (reportType === "weekly") {
+        params.append("startDate", reportStartDate);
+        params.append("endDate", reportEndDate);
+      } else if (reportType === "monthly") {
+        params.append("year", reportYear);
+        params.append("month", reportMonth);
+      }
+
+      const res = await fetch(
+        `${url}/reports/${reportType}?${params.toString()}`,
+        {
+          credentials: "include",
+        },
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || "Failed to generate report");
+      }
+
+      const data = await res.json();
+      setReportData(data);
+    } catch (err) {
+      setReportError(err?.message || "Unable to generate report.");
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const handleExportReportSummary = () => {
+    if (!reportData) return;
+
+    const cafeLabel = reportCafeOption?.label || "All Cafes";
+    const rows = [
+      ["Cafe", cafeLabel],
+      ["Period Type", activeReportTypeLabel],
+      ["Period Start", reportData.period?.startDate || ""],
+      ["Period End", reportData.period?.endDate || ""],
+      ["Total Regular", reportData.stats?.totalRegular ?? ""],
+      ["Total Served", reportData.stats?.totalServed ?? ""],
+      ["Total Unserved", reportData.stats?.totalUnserved ?? ""],
+    ];
+
+    Object.entries(reportData.stats?.breakdown || {}).forEach(
+      ([key, values]) => {
+        rows.push([`${key} Total`, values.total ?? ""]);
+        rows.push([`${key} Served`, values.served ?? ""]);
+        rows.push([`${key} Unserved`, values.unserved ?? ""]);
+      },
+    );
+
+    const safeCafe = safeFilePart(cafeLabel, "cafes");
+    const safePeriod = safeFilePart(
+      reportData.period?.startDate || reportData.period?.endDate || "period",
+    );
+
+    downloadCsv(
+      `${safeCafe}-${safePeriod}-${activeReportTypeLabel.toLowerCase()}-report.csv`,
+      rows,
+    );
+  };
 
   const hasSnapshotData = Boolean(mealSummary?.hasSnapshotData);
   const isBeforeSystemStart =
@@ -257,6 +414,27 @@ export default function CampusMealsPage() {
   }, []);
 
   useEffect(() => {
+    const fetchCafes = async () => {
+      try {
+        const res = await fetch("/api/campus/cafes", {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.cafes)) {
+          setCafes(data.cafes);
+        }
+      } catch (err) {
+        console.error("Failed to load cafes for campus meals dropdown:", err);
+      }
+    };
+
+    if (currentCampus) {
+      fetchCafes();
+    }
+  }, [currentCampus]);
+
+  useEffect(() => {
     const fetchMealSchedule = async () => {
       if (!currentCampus || !selectedDate) {
         setMealSchedule(null);
@@ -265,12 +443,9 @@ export default function CampusMealsPage() {
 
       try {
         const params = new URLSearchParams({ date: selectedDate });
-        const res = await fetch(
-          `${url}/campus/schedule?${params.toString()}`,
-          {
-            credentials: "include",
-          },
-        );
+        const res = await fetch(`${url}/campus/schedule?${params.toString()}`, {
+          credentials: "include",
+        });
 
         const data = await res.json();
 
@@ -341,7 +516,9 @@ export default function CampusMealsPage() {
       ["Campus", mealSummary.campusName || ""],
       [
         "Cafe",
-        mealSummary.cafeDisplayName || `Cafe ${mealSummary.cafeNumber || ""}`,
+        selectedCafeOption?.label ||
+          mealSummary.cafeDisplayName ||
+          `Cafe ${mealSummary.cafeNumber || ""}`,
       ],
       ["Cafe Number", mealSummary.cafeNumber || ""],
       [
@@ -379,7 +556,10 @@ export default function CampusMealsPage() {
         "Regular Muslim Fasting",
         mealSummary.regularFastingBreakdown?.muslimFasting ?? "",
       ],
-      ["Regular Not Fasting", mealSummary.regularFastingBreakdown?.notFasting ?? ""],
+      [
+        "Regular Not Fasting",
+        mealSummary.regularFastingBreakdown?.notFasting ?? "",
+      ],
       [
         "Internship Fasting",
         mealSummary.internshipFastingBreakdown?.fasting ?? "",
@@ -392,7 +572,10 @@ export default function CampusMealsPage() {
         "Internship Muslim Fasting",
         mealSummary.internshipFastingBreakdown?.muslimFasting ?? "",
       ],
-      ["Internship Not Fasting", mealSummary.internshipFastingBreakdown?.notFasting ?? ""],
+      [
+        "Internship Not Fasting",
+        mealSummary.internshipFastingBreakdown?.notFasting ?? "",
+      ],
       ["Served Fasting", mealSummary.servedFastingBreakdown?.fasting ?? ""],
       [
         "Served Sunday Fasting",
@@ -402,7 +585,10 @@ export default function CampusMealsPage() {
         "Served Muslim Fasting",
         mealSummary.servedFastingBreakdown?.muslimFasting ?? "",
       ],
-      ["Served Not Fasting", mealSummary.servedFastingBreakdown?.notFasting ?? ""],
+      [
+        "Served Not Fasting",
+        mealSummary.servedFastingBreakdown?.notFasting ?? "",
+      ],
       ["Pending Fasting", mealSummary.notServedFastingBreakdown?.fasting ?? ""],
       [
         "Pending Sunday Fasting",
@@ -412,7 +598,10 @@ export default function CampusMealsPage() {
         "Pending Muslim Fasting",
         mealSummary.notServedFastingBreakdown?.muslimFasting ?? "",
       ],
-      ["Pending Not Fasting", mealSummary.notServedFastingBreakdown?.notFasting ?? ""],
+      [
+        "Pending Not Fasting",
+        mealSummary.notServedFastingBreakdown?.notFasting ?? "",
+      ],
     ];
 
     const csvContent = rows
@@ -424,20 +613,19 @@ export default function CampusMealsPage() {
     });
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const safeCampusName = String(mealSummary.campusName || "campus").replace(
-      /[^a-z0-9]+/gi,
-      "-",
-    );
-    const safeMealType = String(mealSummary.mealType || "meal").replace(
-      /[^a-z0-9]+/gi,
-      "-",
-    );
+    const cafeLabel =
+      selectedCafeOption?.label ||
+      mealSummary.cafeDisplayName ||
+      String(mealSummary.cafeNumber || "all");
+    const safeCampusName = safeFilePart(mealSummary.campusName || "campus");
+    const safeCafeName = safeFilePart(cafeLabel, "all");
+    const safeMealType = safeFilePart(mealSummary.mealType || "meal");
     const safeDate = mealSummary.date
       ? new Date(mealSummary.date).toISOString().split("T")[0]
       : "date";
 
     link.href = objectUrl;
-    link.download = `${safeCampusName}-cafe-${mealSummary.cafeNumber || "all"}-${safeDate}-${safeMealType}-summary.csv`;
+    link.download = `${safeCampusName}-${safeCafeName}-${safeDate}-${safeMealType}-summary.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -492,20 +680,19 @@ export default function CampusMealsPage() {
         ]),
       ];
 
-      const safeCampusName = String(mealSummary.campusName || "campus").replace(
-        /[^a-z0-9]+/gi,
-        "-",
-      );
-      const safeMealType = String(mealSummary.mealType || "meal").replace(
-        /[^a-z0-9]+/gi,
-        "-",
-      );
+      const cafeLabel =
+        selectedCafeOption?.label ||
+        mealSummary.cafeDisplayName ||
+        String(mealSummary.cafeNumber || "all");
+      const safeCampusName = safeFilePart(mealSummary.campusName || "campus");
+      const safeCafeName = safeFilePart(cafeLabel, "all");
+      const safeMealType = safeFilePart(mealSummary.mealType || "meal");
       const safeDate = mealSummary.date
         ? new Date(mealSummary.date).toISOString().split("T")[0]
         : "date";
 
       downloadCsv(
-        `${safeCampusName}-cafe-${mealSummary.cafeNumber || "all"}-${safeDate}-${safeMealType}-students.csv`,
+        `${safeCampusName}-${safeCafeName}-${safeDate}-${safeMealType}-students.csv`,
         rows,
       );
     } catch (err) {
@@ -561,7 +748,13 @@ export default function CampusMealsPage() {
     } finally {
       setLoadingSummary(false);
     }
-  }, [currentCampus, selectedDate, selectedMealType, historyRange, selectedCafe]);
+  }, [
+    currentCampus,
+    selectedDate,
+    selectedMealType,
+    historyRange,
+    selectedCafe,
+  ]);
 
   const handleShowHistory = async () => {
     await fetchMealSummary();
@@ -594,34 +787,13 @@ export default function CampusMealsPage() {
               Review history for any date and meal session, filtered by total
               campus history or specific cafes.
             </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${historyRange === "daily" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-slate-800"}`}
-                onClick={() => setHistoryRange("daily")}
-              >
-                Daily
-              </button>
-              <button
-                type="button"
-                className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${historyRange === "weekly" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-slate-800"}`}
-                onClick={() => setHistoryRange("weekly")}
-              >
-                Weekly
-              </button>
-              <button
-                type="button"
-                className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${historyRange === "monthly" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-slate-800"}`}
-                onClick={() => setHistoryRange("monthly")}
-              >
-                Monthly
-              </button>
-            </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="surface-card rounded-[28px] p-6">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Filters</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Filters
+              </h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 Select the cafe, date, and meal session you want to review.
               </p>
@@ -636,10 +808,9 @@ export default function CampusMealsPage() {
                     onChange={(e) => setSelectedCafe(e.target.value)}
                     className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
                   >
-                    <option value="">Total History (All Cafes)</option>
-                    {cafeNumbers.map((num) => (
-                      <option key={num} value={num}>
-                        Cafe {num}
+                    {cafeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
@@ -712,9 +883,22 @@ export default function CampusMealsPage() {
               {mealSummary ? (
                 <>
                   <h2 className="mt-3 text-2xl font-black leading-tight md:text-3xl text-slate-900 dark:text-white">
-                    {mealSummary.cafeDisplayName || mealSummary.campusName}
+                    Snapshot for{" "}
+                    {selectedCafeOption?.label ||
+                      mealSummary.cafeDisplayName ||
+                      mealSummary.campusName}
                   </h2>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <h3 className="mt-3 text-lg font-semibold text-slate-700 dark:text-slate-300">
+                    Student Snapshot{" "}
+                    {selectedCafeOption?.label ||
+                      mealSummary.cafeDisplayName ||
+                      mealSummary.campusName}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                    A quick view of regular, internship, served, and pending
+                    students for {getSnapshotMealLabel(mealSummary.mealType)}.
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       {formatDate(mealSummary.date)} •{" "}
                       {getMealLabel(mealSummary.mealType)}
@@ -763,7 +947,9 @@ export default function CampusMealsPage() {
                             Session Start
                           </p>
                           <p className="mt-1 font-bold text-slate-800 dark:text-slate-200">
-                            {formatDateTime(mealSummary.actualMealWindow?.openedAt)}
+                            {formatDateTime(
+                              mealSummary.actualMealWindow?.openedAt,
+                            )}
                           </p>
                         </div>
                       )}
@@ -773,7 +959,12 @@ export default function CampusMealsPage() {
                             Session End
                           </p>
                           <p className="mt-1 font-bold text-slate-800 dark:text-slate-200">
-                            {formatDateTime(validActualClosedAt)}
+                            {formatDateTime(
+                              validActualClosedAt,
+                              mealSummary?.sessionStatus === "completed"
+                                ? "Completed"
+                                : "Not opened yet",
+                            )}
                           </p>
                         </div>
                       )}
@@ -782,7 +973,9 @@ export default function CampusMealsPage() {
                           Scheduled Window
                         </p>
                         <p className="mt-1 font-bold text-slate-800 dark:text-slate-200">
-                          {formatWindowTime(mealSummary.appliedMealWindow?.label)}
+                          {formatWindowTime(
+                            mealSummary.appliedMealWindow?.label,
+                          )}
                         </p>
                       </div>
                     </div>
@@ -793,7 +986,9 @@ export default function CampusMealsPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <button
                           type="button"
-                          onClick={() => !shouldHideCounts && setDetailMode("total")}
+                          onClick={() =>
+                            !shouldHideCounts && setDetailMode("total")
+                          }
                           disabled={shouldHideCounts}
                           className={`rounded-3xl p-5 text-left border transition ${
                             detailMode === "total"
@@ -801,18 +996,22 @@ export default function CampusMealsPage() {
                               : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900"
                           }`}
                         >
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Total Students</p>
-                            <p className="mt-2 text-3xl font-black text-blue-700 dark:text-blue-400">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            Total Students
+                          </p>
+                          <p className="mt-2 text-3xl font-black text-blue-700 dark:text-blue-400">
                             {shouldHideCounts ? "-" : snapshotCounts.total}
                           </p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-500">
+                          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-500">
                             Fasting breakdown
                           </p>
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => !shouldHideCounts && setDetailMode("regular")}
+                          onClick={() =>
+                            !shouldHideCounts && setDetailMode("regular")
+                          }
                           disabled={shouldHideCounts}
                           className={`rounded-3xl p-5 text-left border transition ${
                             detailMode === "regular"
@@ -820,7 +1019,9 @@ export default function CampusMealsPage() {
                               : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900"
                           }`}
                         >
-                          <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Regular Students</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                            Regular Students
+                          </p>
                           <p className="mt-2 text-3xl font-black text-sky-700 dark:text-sky-400">
                             {shouldHideCounts ? "-" : snapshotCounts.regular}
                           </p>
@@ -831,7 +1032,9 @@ export default function CampusMealsPage() {
 
                         <button
                           type="button"
-                          onClick={() => !shouldHideCounts && setDetailMode("internship")}
+                          onClick={() =>
+                            !shouldHideCounts && setDetailMode("internship")
+                          }
                           disabled={shouldHideCounts}
                           className={`rounded-3xl p-5 text-left border transition ${
                             detailMode === "internship"
@@ -839,7 +1042,9 @@ export default function CampusMealsPage() {
                               : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900"
                           }`}
                         >
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Internship Students</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            Internship Students
+                          </p>
                           <p className="mt-2 text-3xl font-black text-fuchsia-700 dark:text-fuchsia-400">
                             {shouldHideCounts ? "-" : snapshotCounts.internship}
                           </p>
@@ -850,7 +1055,9 @@ export default function CampusMealsPage() {
 
                         <button
                           type="button"
-                          onClick={() => !shouldHideCounts && setDetailMode("served")}
+                          onClick={() =>
+                            !shouldHideCounts && setDetailMode("served")
+                          }
                           disabled={shouldHideCounts}
                           className={`rounded-3xl p-5 text-left border transition ${
                             detailMode === "served"
@@ -858,7 +1065,9 @@ export default function CampusMealsPage() {
                               : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900"
                           }`}
                         >
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Served Today</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            Served Today
+                          </p>
                           <p className="mt-2 text-3xl font-black text-emerald-700 dark:text-emerald-400">
                             {shouldHideCounts ? "-" : snapshotCounts.served}
                           </p>
@@ -869,7 +1078,9 @@ export default function CampusMealsPage() {
 
                         <button
                           type="button"
-                          onClick={() => !shouldHideCounts && setDetailMode("notServed")}
+                          onClick={() =>
+                            !shouldHideCounts && setDetailMode("notServed")
+                          }
                           disabled={shouldHideCounts}
                           className={`rounded-3xl p-5 text-left border transition md:col-span-2 ${
                             detailMode === "notServed"
@@ -877,7 +1088,9 @@ export default function CampusMealsPage() {
                               : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900"
                           }`}
                         >
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Pending</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            Pending
+                          </p>
                           <p className="mt-2 text-3xl font-black text-amber-700 dark:text-amber-400">
                             {shouldHideCounts ? "-" : snapshotCounts.pending}
                           </p>
@@ -889,28 +1102,38 @@ export default function CampusMealsPage() {
 
                       {activeBreakdown && (
                         <div className="surface-card rounded-[24px] border border-slate-200 dark:border-slate-800 p-6">
-                          <h3 className="font-bold text-slate-900 dark:text-white">{getBreakdownTitle()}</h3>
+                          <h3 className="font-bold text-slate-900 dark:text-white">
+                            {getBreakdownTitle()}
+                          </h3>
                           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                             <div className="rounded-2xl border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/10 p-4">
-                              <p className="text-xs uppercase text-slate-500 font-semibold">Fasting</p>
+                              <p className="text-xs uppercase text-slate-500 font-semibold">
+                                Fasting
+                              </p>
                               <p className="mt-1 text-xl font-bold text-slate-800 dark:text-white">
                                 {activeBreakdown.fasting ?? 0}
                               </p>
                             </div>
                             <div className="rounded-2xl border border-sky-200 dark:border-sky-900 bg-sky-50/50 dark:bg-sky-950/10 p-4">
-                              <p className="text-xs uppercase text-slate-500 font-semibold">Sunday Fasting</p>
+                              <p className="text-xs uppercase text-slate-500 font-semibold">
+                                Sunday Fasting
+                              </p>
                               <p className="mt-1 text-xl font-bold text-slate-800 dark:text-white">
                                 {activeBreakdown.sundayFasting ?? 0}
                               </p>
                             </div>
                             <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/10 p-4">
-                              <p className="text-xs uppercase text-slate-500 font-semibold">Muslim Fasting</p>
+                              <p className="text-xs uppercase text-slate-500 font-semibold">
+                                Muslim Fasting
+                              </p>
                               <p className="mt-1 text-xl font-bold text-slate-800 dark:text-white">
                                 {activeBreakdown.muslimFasting ?? 0}
                               </p>
                             </div>
                             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 p-4">
-                              <p className="text-xs uppercase text-slate-500 font-semibold">Not Fasting</p>
+                              <p className="text-xs uppercase text-slate-500 font-semibold">
+                                Not Fasting
+                              </p>
                               <p className="mt-1 text-xl font-bold text-slate-800 dark:text-white">
                                 {activeBreakdown.notFasting ?? 0}
                               </p>
@@ -929,11 +1152,273 @@ export default function CampusMealsPage() {
                 </>
               ) : (
                 <div className="mt-8 rounded-[24px] border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-6 text-center text-slate-500 dark:text-slate-400">
-                  Select a cafeteria, date, and meal session to view the historical snapshot record.
+                  Select a cafeteria, date, and meal session to view the
+                  historical snapshot record.
                 </div>
               )}
             </div>
           </div>
+
+          <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="surface-card rounded-[28px] p-6">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Attendance Reports
+              </h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                Generate daily, weekly, or monthly attendance reports for the
+                selected cafeteria.
+              </p>
+
+              <div className="mt-6 grid gap-4">
+                <div>
+                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Report Type
+                  </span>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { value: "daily", label: "Daily" },
+                      { value: "weekly", label: "Weekly" },
+                      { value: "monthly", label: "Monthly" },
+                    ].map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setReportType(type.value)}
+                        className={`flex-1 rounded-2xl border py-2.5 text-sm font-semibold capitalize transition ${
+                          reportType === type.value
+                            ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Cafeteria
+                  </span>
+                  <select
+                    value={reportCafe}
+                    onChange={(e) => setReportCafe(e.target.value)}
+                    className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                  >
+                    {cafeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {reportType === "daily" && (
+                  <label className="block animate-fadeIn">
+                    <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Date
+                    </span>
+                    <input
+                      type="date"
+                      value={reportDate}
+                      onChange={(e) => setReportDate(e.target.value)}
+                      className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                    />
+                  </label>
+                )}
+
+                {reportType === "weekly" && (
+                  <div className="grid gap-3 sm:grid-cols-2 animate-fadeIn">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Start Date
+                      </span>
+                      <input
+                        type="date"
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        End Date
+                      </span>
+                      <input
+                        type="date"
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {reportType === "monthly" && (
+                  <div className="grid gap-3 sm:grid-cols-2 animate-fadeIn">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Month
+                      </span>
+                      <select
+                        value={reportMonth}
+                        onChange={(e) => setReportMonth(e.target.value)}
+                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                      >
+                        {Array.from({ length: 12 }, (_, index) => ({
+                          value: String(index + 1),
+                          label: new Date(0, index).toLocaleString("en-US", {
+                            month: "long",
+                          }),
+                        })).map((month) => (
+                          <option key={month.value} value={month.value}>
+                            {month.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Year
+                      </span>
+                      <select
+                        value={reportYear}
+                        onChange={(e) => setReportYear(e.target.value)}
+                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                      >
+                        {Array.from({ length: 6 }, (_, index) => {
+                          const year = new Date().getFullYear() + index;
+                          return (
+                            <option key={year} value={String(year)}>
+                              {year}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={fetchReport}
+                disabled={loadingReport}
+                className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-blue-500/20"
+              >
+                {loadingReport ? "Generating Report..." : "Generate Report"}
+              </button>
+
+              {reportError && (
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-400 animate-fadeIn">
+                  {reportError}
+                </div>
+              )}
+            </div>
+
+            <div className="surface-panel flex min-h-0 flex-col rounded-[30px] border border-slate-200 bg-white/95 p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.3em] text-blue-500/80">
+                Report Summary
+              </p>
+              {reportData && (
+                <button
+                  type="button"
+                  onClick={handleExportReportSummary}
+                  className="mt-3 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Export Summary
+                </button>
+              )}
+
+              {reportData ? (
+                <div className="mt-4 flex flex-col h-full">
+                  <h2 className="text-2xl font-black leading-tight text-slate-900">
+                    {reportCafeOption?.label || "All Cafes"}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {reportType === "daily"
+                      ? `Daily report for ${reportData.period?.startDate || ""}`
+                      : reportType === "weekly"
+                        ? `Weekly report from ${reportData.period?.startDate || ""} to ${reportData.period?.endDate || ""}`
+                        : `Monthly report for ${reportData.period?.startDate?.split("-").slice(0, 2).join("-") || ""}`}
+                  </p>
+
+                  <div className="grid gap-3 grid-cols-3 mt-5">
+                    <div className="rounded-3xl bg-white border border-blue-100 p-4 text-left">
+                      <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">
+                        Total Regular
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-blue-900">
+                        {reportData.stats?.totalRegular?.toLocaleString() ?? 0}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl bg-white border border-emerald-100 p-4 text-left">
+                      <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+                        Total Served
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-emerald-900">
+                        {reportData.stats?.totalServed?.toLocaleString() ?? 0}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl bg-white border border-amber-100 p-4 text-left">
+                      <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+                        Total Unserved
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-amber-900">
+                        {reportData.stats?.totalUnserved?.toLocaleString() ?? 0}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {Object.entries(reportData.stats?.breakdown || {}).map(
+                      ([key, value]) => (
+                        <div
+                          key={key}
+                          className="rounded-3xl border border-slate-200 bg-slate-50 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-bold text-slate-800 capitalize">
+                              {key.replace(/_/g, " ")}
+                            </p>
+                            <p className="text-sm font-semibold text-slate-600">
+                              {value.total ?? 0} total
+                            </p>
+                          </div>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            <div className="rounded-2xl bg-white p-3 text-xs text-slate-600 ring-1 ring-slate-200">
+                              Served
+                              <div className="mt-2 text-lg font-black text-emerald-700">
+                                {value.served ?? 0}
+                              </div>
+                            </div>
+                            <div className="rounded-2xl bg-white p-3 text-xs text-slate-600 ring-1 ring-slate-200">
+                              Unserved
+                              <div className="mt-2 text-lg font-black text-amber-700">
+                                {value.unserved ?? 0}
+                              </div>
+                            </div>
+                            <div className="rounded-2xl bg-white p-3 text-xs text-slate-600 ring-1 ring-slate-200">
+                              Rate
+                              <div className="mt-2 text-lg font-black text-blue-700">
+                                {value.total
+                                  ? `${Math.round(((value.served || 0) / value.total) * 100)}%`
+                                  : "0%"}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-slate-500">
+                  Generate an attendance report to preview totals and fasting
+                  breakdown.
+                </p>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </>
