@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCampus } from "../../context/CampusContext";
 import CampusNavbar from "../../components/CampusNavbar";
-import { 
+import {
   HiOutlineClipboardList,
   HiCheck,
   HiX,
@@ -12,7 +12,7 @@ import {
   HiOutlinePlusCircle,
   HiOutlinePencilAlt,
   HiOutlineTrash,
-  HiOutlineShieldCheck
+  HiOutlineShieldCheck,
 } from "react-icons/hi";
 import { getApiMessage, getErrorMessage } from "../../utils/userMessage";
 
@@ -51,6 +51,7 @@ export default function CampusRequestsPage() {
       router.replace("/");
       return;
     }
+
     if (currentCampus) {
       fetchRequests();
       const interval = setInterval(() => {
@@ -148,7 +149,9 @@ export default function CampusRequestsPage() {
 
   if (campusLoading || !currentCampus) {
     return (
-      <div className="page-shell p-10 pt-28 text-slate-500">Loading Campus...</div>
+      <div className="page-shell p-10 pt-28 text-slate-500">
+        Loading Campus...
+      </div>
     );
   }
 
@@ -165,7 +168,8 @@ export default function CampusRequestsPage() {
               Approvals Board
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Review and act on cafe modifications or manager-submitted account requests.
+              Review and act on cafe modifications or manager-submitted account
+              requests.
             </p>
           </div>
         </div>
@@ -186,7 +190,9 @@ export default function CampusRequestsPage() {
         {loadingRequests ? (
           <div className="flex flex-col items-center justify-center py-20 flex-1">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600 dark:border-slate-800"></div>
-            <p className="text-slate-500 dark:text-slate-400 mt-4 text-sm font-medium">Fetching verification queue...</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-4 text-sm font-medium">
+              Fetching verification queue...
+            </p>
           </div>
         ) : requests.length === 0 ? (
           /* Empty State */
@@ -194,9 +200,12 @@ export default function CampusRequestsPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-950 shadow-inner mb-4">
               <HiOutlineClipboardList className="h-8 w-8 text-slate-400" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">All caught up!</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              All caught up!
+            </h3>
             <p className="max-w-xs text-xs text-slate-500 dark:text-slate-400 mt-1 leading-normal">
-              There are no pending requests or updates waiting for your approval right now.
+              There are no pending requests or updates waiting for your approval
+              right now.
             </p>
           </div>
         ) : (
@@ -231,16 +240,28 @@ export default function CampusRequestsPage() {
                     {req.requestType === "create_cafe" && (
                       <>
                         <div className="flex justify-between">
-                          <span className="font-semibold text-slate-400">Proposed User:</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{req.pendingData?.name}</span>
+                          <span className="font-semibold text-slate-400">
+                            Proposed User:
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {req.pendingData?.name}
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-semibold text-slate-400">Display Name:</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{req.pendingData?.displayName || "N/A"}</span>
+                          <span className="font-semibold text-slate-400">
+                            Display Name:
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {req.pendingData?.displayName || "N/A"}
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-semibold text-slate-400">Password:</span>
-                          <span className="font-bold text-slate-500 italic">•••••• (Set by Manager)</span>
+                          <span className="font-semibold text-slate-400">
+                            Password:
+                          </span>
+                          <span className="font-bold text-slate-500 italic">
+                            •••••• (Set by Manager)
+                          </span>
                         </div>
                       </>
                     )}
@@ -248,25 +269,41 @@ export default function CampusRequestsPage() {
                     {req.requestType === "update_cafe" && (
                       <>
                         <div className="flex justify-between">
-                          <span className="font-semibold text-slate-400">Cafe Reference:</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{req.pendingData?.cafeName || "Cafe Account"}</span>
+                          <span className="font-semibold text-slate-400">
+                            Cafe Reference:
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {req.pendingData?.cafeName || "Cafe Account"}
+                          </span>
                         </div>
                         {req.pendingData?.name && (
                           <div className="flex justify-between">
-                            <span className="font-semibold text-slate-400">New Username:</span>
-                            <span className="font-bold text-blue-600 dark:text-blue-400">{req.pendingData.name}</span>
+                            <span className="font-semibold text-slate-400">
+                              New Username:
+                            </span>
+                            <span className="font-bold text-blue-600 dark:text-blue-400">
+                              {req.pendingData.name}
+                            </span>
                           </div>
                         )}
                         {req.pendingData?.displayName !== undefined && (
                           <div className="flex justify-between">
-                            <span className="font-semibold text-slate-400">New Display Name:</span>
-                            <span className="font-bold text-slate-900 dark:text-white">{req.pendingData.displayName || "N/A"}</span>
+                            <span className="font-semibold text-slate-400">
+                              New Display Name:
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {req.pendingData.displayName || "N/A"}
+                            </span>
                           </div>
                         )}
                         {req.pendingData?.password && (
                           <div className="flex justify-between">
-                            <span className="font-semibold text-slate-400">Password Change:</span>
-                            <span className="font-bold text-amber-500 italic">•••••• (Requested Reset)</span>
+                            <span className="font-semibold text-slate-400">
+                              Password Change:
+                            </span>
+                            <span className="font-bold text-amber-500 italic">
+                              •••••• (Requested Reset)
+                            </span>
                           </div>
                         )}
                       </>
@@ -275,7 +312,9 @@ export default function CampusRequestsPage() {
                     {req.requestType === "delete_cafe" && (
                       <div className="flex justify-between items-center text-rose-600 dark:text-rose-400 font-semibold py-1">
                         <span>Remove Cafe Account:</span>
-                        <span className="font-bold text-slate-900 dark:text-white bg-rose-50 dark:bg-rose-950/20 px-2 py-0.5 rounded border border-rose-200/30">{req.pendingData?.cafeName}</span>
+                        <span className="font-bold text-slate-900 dark:text-white bg-rose-50 dark:bg-rose-950/20 px-2 py-0.5 rounded border border-rose-200/30">
+                          {req.pendingData?.cafeName}
+                        </span>
                       </div>
                     )}
 
@@ -283,20 +322,32 @@ export default function CampusRequestsPage() {
                       <>
                         {req.pendingData?.name && (
                           <div className="flex justify-between">
-                            <span className="font-semibold text-slate-400">New Name:</span>
-                            <span className="font-bold text-slate-900 dark:text-white">{req.pendingData.name}</span>
+                            <span className="font-semibold text-slate-400">
+                              New Name:
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {req.pendingData.name}
+                            </span>
                           </div>
                         )}
                         {req.pendingData?.email && (
                           <div className="flex justify-between">
-                            <span className="font-semibold text-slate-400">New Email:</span>
-                            <span className="font-bold text-slate-900 dark:text-white">{req.pendingData.email}</span>
+                            <span className="font-semibold text-slate-400">
+                              New Email:
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {req.pendingData.email}
+                            </span>
                           </div>
                         )}
                         {req.pendingData?.password && (
                           <div className="flex justify-between">
-                            <span className="font-semibold text-slate-400">New Password:</span>
-                            <span className="font-bold text-amber-500 italic">•••••• (Reset requested)</span>
+                            <span className="font-semibold text-slate-400">
+                              New Password:
+                            </span>
+                            <span className="font-bold text-amber-500 italic">
+                              •••••• (Reset requested)
+                            </span>
                           </div>
                         )}
                       </>

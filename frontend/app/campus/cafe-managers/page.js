@@ -109,10 +109,19 @@ export default function CafeManagersPage() {
       if (res.ok) {
         const data = await res.json();
         const allRequests = data.requests || [];
-        const pendingOnly = allRequests.filter((r) => r.status === "pending");
+        const managerRequests = allRequests.filter((r) =>
+          [
+            "create_cafe_manager",
+            "update_cafe_manager",
+            "delete_cafe_manager",
+          ].includes(r.requestType),
+        );
+        const pendingOnly = managerRequests.filter(
+          (r) => r.status === "pending",
+        );
 
         // Handle resolved requests in the response (approved/rejected)
-        allRequests.forEach((req) => {
+        managerRequests.forEach((req) => {
           if (req.status === "approved") {
             const desc = getRequestDescription(req);
             showToast(`Your request to ${desc} has been approved!`, "success");
@@ -123,8 +132,6 @@ export default function CafeManagersPage() {
           }
         });
 
-
-
         // Handle expired requests (if they were pending but are no longer in the list)
         if (isPoll && pendingRequestsRef.current.length > 0) {
           pendingRequestsRef.current.forEach((prevReq) => {
@@ -133,7 +140,7 @@ export default function CafeManagersPage() {
               const desc = getRequestDescription(prevReq);
               showToast(
                 `Your request to ${desc} has expired and was automatically rejected.`,
-                "error"
+                "error",
               );
             }
           });
@@ -212,7 +219,11 @@ export default function CafeManagersPage() {
       setForm({ name: "", email: "", password: "", campusPassword: "" });
       setShowAddModal(false);
       if (res.status === 202) {
-        showToast(data.message || "Request submitted successfully! Awaiting Admin approval.", "success");
+        showToast(
+          data.message ||
+            "Request submitted successfully! Awaiting Admin approval.",
+          "success",
+        );
       } else {
         showToast("Cafe manager registered successfully", "success");
       }
@@ -263,7 +274,11 @@ export default function CafeManagersPage() {
         throw new Error(data.message || "Failed to update cafe manager");
       setManagerToEdit(null);
       if (res.status === 202) {
-        showToast(data.message || "Request submitted successfully! Awaiting Admin approval.", "success");
+        showToast(
+          data.message ||
+            "Request submitted successfully! Awaiting Admin approval.",
+          "success",
+        );
       } else {
         showToast("Cafe manager updated successfully", "success");
       }
@@ -297,7 +312,11 @@ export default function CafeManagersPage() {
       setManagerToDelete(null);
       setDeleteCampusPassword("");
       if (res.status === 202) {
-        showToast(data.message || "Request submitted successfully! Awaiting Admin approval.", "success");
+        showToast(
+          data.message ||
+            "Request submitted successfully! Awaiting Admin approval.",
+          "success",
+        );
       } else {
         showToast("Cafe manager deleted successfully", "success");
       }
@@ -378,10 +397,16 @@ export default function CafeManagersPage() {
             ) : managers.length > 0 ? (
               managers.map((manager) => {
                 const pendingUpdate = pendingRequests.find(
-                  (r) => r.requestType === "update_cafe_manager" && String(r.pendingData?.managerId) === String(manager.id || manager._id)
+                  (r) =>
+                    r.requestType === "update_cafe_manager" &&
+                    String(r.pendingData?.managerId) ===
+                      String(manager.id || manager._id),
                 );
                 const pendingDelete = pendingRequests.find(
-                  (r) => r.requestType === "delete_cafe_manager" && String(r.pendingData?.managerId) === String(manager.id || manager._id)
+                  (r) =>
+                    r.requestType === "delete_cafe_manager" &&
+                    String(r.pendingData?.managerId) ===
+                      String(manager.id || manager._id),
                 );
 
                 return (
@@ -482,48 +507,48 @@ export default function CafeManagersPage() {
                       </div>
                     </div>
 
-                  {/* Small Box showing status */}
-                  <div className="mt-6 rounded-3xl bg-slate-50 dark:bg-slate-950 p-5 ring-1 ring-slate-200 dark:ring-slate-800">
-                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                      Account Status
-                    </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span
-                        className={`inline-block h-3.5 w-3.5 rounded-full ${
-                          manager.isOnline
-                            ? "bg-emerald-500 animate-pulse"
-                            : "bg-slate-300 dark:bg-slate-700"
-                        }`}
-                      />
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">
-                        {manager.isOnline ? "Online" : "Offline"}
+                    {/* Small Box showing status */}
+                    <div className="mt-6 rounded-3xl bg-slate-50 dark:bg-slate-950 p-5 ring-1 ring-slate-200 dark:ring-slate-800">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                        Account Status
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span
+                          className={`inline-block h-3.5 w-3.5 rounded-full ${
+                            manager.isOnline
+                              ? "bg-emerald-500 animate-pulse"
+                              : "bg-slate-300 dark:bg-slate-700"
+                          }`}
+                        />
+                        <p className="text-2xl font-black text-slate-900 dark:text-white">
+                          {manager.isOnline ? "Online" : "Offline"}
+                        </p>
+                      </div>
+                      {manager.lastActiveAt && (
+                        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                          Active:{" "}
+                          {new Date(manager.lastActiveAt).toLocaleString([], {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-5">
+                      <p className="text-xs uppercase tracking-[0.28em] text-slate-400 font-semibold">
+                        Login Email
+                      </p>
+                      <p className="mt-2 break-all text-sm text-slate-600 dark:text-slate-300">
+                        {manager.email}
                       </p>
                     </div>
-                    {manager.lastActiveAt && (
-                      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-                        Active:{" "}
-                        {new Date(manager.lastActiveAt).toLocaleString([], {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    )}
                   </div>
-
-                  <div className="mt-5">
-                    <p className="text-xs uppercase tracking-[0.28em] text-slate-400 font-semibold">
-                      Login Email
-                    </p>
-                    <p className="mt-2 break-all text-sm text-slate-600 dark:text-slate-300">
-                      {manager.email}
-                    </p>
-                  </div>
-                </div>
-              )
-            })
-          ) : (
+                );
+              })
+            ) : (
               <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-950/50 p-8 text-center text-slate-600 dark:text-slate-400 md:col-span-2 xl:col-span-3">
                 <div className="text-xl font-semibold text-slate-900 dark:text-white">
                   No cafe managers registered
@@ -570,7 +595,10 @@ export default function CafeManagersPage() {
 
                       {req.requestType === "create_cafe_manager" && (
                         <>
-                          <h4 className="font-bold text-slate-900 dark:text-white truncate" style={{ color: "var(--app-text)" }}>
+                          <h4
+                            className="font-bold text-slate-900 dark:text-white truncate"
+                            style={{ color: "var(--app-text)" }}
+                          >
                             {req.pendingData?.name}
                           </h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -581,7 +609,10 @@ export default function CafeManagersPage() {
 
                       {req.requestType === "update_cafe_manager" && (
                         <>
-                          <h4 className="font-bold text-slate-900 dark:text-white truncate" style={{ color: "var(--app-text)" }}>
+                          <h4
+                            className="font-bold text-slate-900 dark:text-white truncate"
+                            style={{ color: "var(--app-text)" }}
+                          >
                             {req.pendingData?.managerName} (Edit)
                           </h4>
                           {req.pendingData?.name && (
@@ -599,7 +630,10 @@ export default function CafeManagersPage() {
 
                       {req.requestType === "delete_cafe_manager" && (
                         <>
-                          <h4 className="font-bold text-slate-900 dark:text-white truncate" style={{ color: "var(--app-text)" }}>
+                          <h4
+                            className="font-bold text-slate-900 dark:text-white truncate"
+                            style={{ color: "var(--app-text)" }}
+                          >
                             {req.pendingData?.managerName}
                           </h4>
                           <p className="text-xs text-rose-600 font-semibold mt-1">
@@ -620,7 +654,6 @@ export default function CafeManagersPage() {
               </div>
             </div>
           )}
-
         </div>
 
         {/* Add Cafe Manager Modal */}

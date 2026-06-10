@@ -22,10 +22,10 @@ const REPORT_TYPES = [
 ];
 
 const REPORT_MEAL_SESSIONS = [
-  { value: "total", label: "Total" },
-  { value: "breakfast", label: "Breakfast" },
-  { value: "lunch", label: "Lunch" },
-  { value: "dinner", label: "Dinner" },
+  { value: "total", label: "Total", detail: "All Sessions" },
+  { value: "breakfast", label: "Breakfast", detail: "06:00 - 09:00" },
+  { value: "lunch", label: "Lunch", detail: "11:00 - 14:00" },
+  { value: "dinner", label: "Dinner", detail: "17:00 - 20:00" },
 ];
 
 /* eslint-disable-next-line no-unused-vars */
@@ -362,13 +362,16 @@ export default function CafeMealsPage() {
                           setReportMealSession(session.value);
                           setReportData(null);
                         }}
-                        className={`flex-1 rounded-2xl border py-2.5 text-center text-sm font-semibold capitalize transition ${
+                        className={`flex-1 rounded-2xl border py-2.5 px-3 text-left text-sm font-semibold transition ${
                           reportMealSession === session.value
                             ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
                             : "border-slate-200 bg-white text-slate-600 hover:bg-white"
                         }`}
                       >
-                        {session.label}
+                        <span>{session.label}</span>
+                        <span className="mt-1 block text-xs font-medium text-slate-500">
+                          {session.detail}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -543,6 +546,21 @@ export default function CafeMealsPage() {
                         ? `Weekly report from ${reportData.period.startDate} to ${reportData.period.endDate}`
                         : `Monthly report for ${reportData.period.startDate.split("-").slice(0, 2).join("-")}`}
                   </p>
+                  {(() => {
+                    const session = REPORT_MEAL_SESSIONS.find(
+                      (item) => item.value === reportMealSession,
+                    );
+                    return (
+                      <>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mt-2">
+                          {session?.label || "All Sessions"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {session?.detail || "All Sessions"}
+                        </p>
+                      </>
+                    );
+                  })()}
 
                   <div className="grid gap-3 grid-cols-3 mt-5">
                     <div className="rounded-3xl bg-white border border-blue-100 p-4 text-left">
@@ -760,9 +778,11 @@ export default function CafeMealsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-                  <p className="font-semibold">No report generated yet</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  <p className="font-semibold text-slate-800">
+                    No report generated yet
+                  </p>
+                  <p className="mt-2">
                     Pick your parameters on the left and click &quot;Generate
                     Report&quot;.
                   </p>

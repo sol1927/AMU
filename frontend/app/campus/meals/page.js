@@ -30,6 +30,36 @@ const getMealLabel = (mealType) => {
   }
 };
 
+const formatFastingTypeLabel = (type) => {
+  if (!type) return "Unknown";
+  if (type === "not_fasting") return "Normal";
+  return type
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const REPORT_TYPES = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const REPORT_MEAL_SESSIONS = [
+  { value: "total", label: "Total" },
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "dinner", label: "Dinner" },
+];
+
+const getSessionTimeLabel = (sessionValue, schedule) => {
+  if (sessionValue === "total") {
+    return "All Sessions";
+  }
+
+  return schedule?.[sessionValue]?.label || "--:-- - --:--";
+};
+
 const getSnapshotMealLabel = (mealType) => {
   switch (mealType) {
     case "breakfast":
@@ -201,13 +231,13 @@ export default function CampusMealsPage() {
   const [selectedMealType, setSelectedMealType] = useState("breakfast");
   const [mealSummary, setMealSummary] = useState(null);
   const [detailMode, setDetailMode] = useState("total");
-  const [activeTab, setActiveTab] = useState("history");
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [exportingStudents, setExportingStudents] = useState(false);
   const [error, setError] = useState("");
   const [mealSchedule, setMealSchedule] = useState(null);
   const [cafes, setCafes] = useState([]);
   const [reportType, setReportType] = useState("daily");
+  const [reportMealSession, setReportMealSession] = useState("total");
   const [reportCafe, setReportCafe] = useState("");
   const [reportDate, setReportDate] = useState(getAppDayString());
   const [reportStartDate, setReportStartDate] = useState("");
@@ -230,11 +260,6 @@ export default function CampusMealsPage() {
 
     return () => clearTimeout(timer);
   }, [error]);
-
-  const cafeNumbers = useMemo(
-    () => currentCampus?.cafeNumbers || [],
-    [currentCampus?.cafeNumbers],
-  );
 
   const cafeOptions = useMemo(() => {
     const seen = new Set();
@@ -297,6 +322,10 @@ export default function CampusMealsPage() {
         params.append("month", reportMonth);
       }
 
+      if (reportMealSession && reportMealSession !== "total") {
+        params.append("mealType", reportMealSession);
+      }
+
       const res = await fetch(
         `${url}/reports/${reportType}?${params.toString()}`,
         {
@@ -325,6 +354,12 @@ export default function CampusMealsPage() {
     const rows = [
       ["Cafe", cafeLabel],
       ["Period Type", activeReportTypeLabel],
+      [
+        "Meal Session",
+        REPORT_MEAL_SESSIONS.find(
+          (session) => session.value === reportMealSession,
+        )?.label || "Total",
+      ],
       ["Period Start", reportData.period?.startDate || ""],
       ["Period End", reportData.period?.endDate || ""],
       ["Total Regular", reportData.stats?.totalRegular ?? ""],
@@ -770,9 +805,11 @@ export default function CampusMealsPage() {
   return (
     <>
       <CampusNavbar />
-      <div className="page-shell min-h-screen px-6 pb-12 pt-20 md:px-20 md:pt-28">
+      <div className="page-shell relative min-h-screen overflow-hidden px-6 pb-12 pt-20 md:px-20 md:pt-28">
+        <div className="pointer-events-none absolute left-0 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-blue-200/30 blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-16 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl" />
         <div className="mx-auto max-w-6xl">
-          <div className="surface-panel mb-8 rounded-[28px] p-6 md:p-8">
+          <div className="surface-panel relative overflow-hidden rounded-[28px] bg-white/95 p-6 md:p-8">
             <p className="text-sm uppercase tracking-[0.35em] text-blue-500/80">
               Campus Meals
             </p>
@@ -780,12 +817,12 @@ export default function CampusMealsPage() {
               Meal Session History
             </h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-600 dark:text-slate-400 md:text-base">
-              Review history for any date and meal session, filtered by total
-              campus history or specific cafes.
+              Review campus meal sessions by cafe, date, and meal type — then
+              generate attendance reports for the selected cafeteria.
             </p>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="hidden">
             <div className="surface-card rounded-[28px] p-6">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 Filters
@@ -871,7 +908,7 @@ export default function CampusMealsPage() {
               )}
             </div>
 
-            <div className="surface-panel rounded-[28px] p-6">
+            <div className="surface-panel flex min-h-0 flex-col rounded-[30px] border border-slate-200 bg-white/95 p-6 shadow-sm">
               <p className="text-xs uppercase tracking-[0.3em] text-blue-500/80">
                 Snapshot
               </p>
@@ -1158,28 +1195,27 @@ export default function CampusMealsPage() {
           <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <div className="surface-card rounded-[28px] p-6">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                Attendance Reports
+                Report Filters
               </h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Generate daily, weekly, or monthly attendance reports for the
-                selected cafeteria.
+                Select the period type, cafeteria, and time range to calculate
+                attendance.
               </p>
 
-              <div className="mt-6 grid gap-4">
+              <div className="mt-6 grid gap-4 lg:grid-cols-[1.3fr_1fr]">
                 <div>
                   <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Report Type
                   </span>
                   <div className="grid gap-2 sm:grid-cols-3">
-                    {[
-                      { value: "daily", label: "Daily" },
-                      { value: "weekly", label: "Weekly" },
-                      { value: "monthly", label: "Monthly" },
-                    ].map((type) => (
+                    {REPORT_TYPES.map((type) => (
                       <button
                         key={type.value}
                         type="button"
-                        onClick={() => setReportType(type.value)}
+                        onClick={() => {
+                          setReportType(type.value);
+                          setReportData(null);
+                        }}
                         className={`flex-1 rounded-2xl border py-2.5 text-sm font-semibold capitalize transition ${
                           reportType === type.value
                             ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
@@ -1192,109 +1228,157 @@ export default function CampusMealsPage() {
                   </div>
                 </div>
 
-                <label className="block">
+                <div>
                   <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Cafeteria
+                    Meal Session
                   </span>
-                  <select
-                    value={reportCafe}
-                    onChange={(e) => setReportCafe(e.target.value)}
-                    className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
-                  >
-                    {cafeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                  <div className="flex flex-wrap gap-2">
+                    {REPORT_MEAL_SESSIONS.map((session) => (
+                      <button
+                        key={session.value}
+                        type="button"
+                        onClick={() => {
+                          setReportMealSession(session.value);
+                          setReportData(null);
+                        }}
+                        className={`min-w-[130px] rounded-2xl border px-3 py-3 text-left transition ${
+                          reportMealSession === session.value
+                            ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <div className="text-sm font-semibold capitalize">
+                          {session.label}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {getSessionTimeLabel(session.value, mealSchedule)}
+                        </div>
+                      </button>
                     ))}
-                  </select>
-                </label>
+                  </div>
+                </div>
+              </div>
 
-                {reportType === "daily" && (
-                  <label className="block animate-fadeIn">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Cafeteria
+                </span>
+                <select
+                  value={reportCafe}
+                  onChange={(e) => {
+                    setReportCafe(e.target.value);
+                    setReportData(null);
+                  }}
+                  className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                >
+                  {cafeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {reportType === "daily" && (
+                <label className="block animate-fadeIn">
+                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Date
+                  </span>
+                  <input
+                    type="date"
+                    value={reportDate}
+                    onChange={(e) => {
+                      setReportDate(e.target.value);
+                      setReportData(null);
+                    }}
+                    className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                  />
+                </label>
+              )}
+
+              {reportType === "weekly" && (
+                <div className="grid gap-3 sm:grid-cols-2 animate-fadeIn">
+                  <label className="block">
                     <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Date
+                      Start Date
                     </span>
                     <input
                       type="date"
-                      value={reportDate}
-                      onChange={(e) => setReportDate(e.target.value)}
+                      value={reportStartDate}
+                      onChange={(e) => {
+                        setReportStartDate(e.target.value);
+                        setReportData(null);
+                      }}
                       className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
                     />
                   </label>
-                )}
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      End Date
+                    </span>
+                    <input
+                      type="date"
+                      value={reportEndDate}
+                      onChange={(e) => {
+                        setReportEndDate(e.target.value);
+                        setReportData(null);
+                      }}
+                      className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                    />
+                  </label>
+                </div>
+              )}
 
-                {reportType === "weekly" && (
-                  <div className="grid gap-3 sm:grid-cols-2 animate-fadeIn">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Start Date
-                      </span>
-                      <input
-                        type="date"
-                        value={reportStartDate}
-                        onChange={(e) => setReportStartDate(e.target.value)}
-                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        End Date
-                      </span>
-                      <input
-                        type="date"
-                        value={reportEndDate}
-                        onChange={(e) => setReportEndDate(e.target.value)}
-                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {reportType === "monthly" && (
-                  <div className="grid gap-3 sm:grid-cols-2 animate-fadeIn">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Month
-                      </span>
-                      <select
-                        value={reportMonth}
-                        onChange={(e) => setReportMonth(e.target.value)}
-                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
-                      >
-                        {Array.from({ length: 12 }, (_, index) => ({
-                          value: String(index + 1),
-                          label: new Date(0, index).toLocaleString("en-US", {
-                            month: "long",
-                          }),
-                        })).map((month) => (
-                          <option key={month.value} value={month.value}>
-                            {month.label}
+              {reportType === "monthly" && (
+                <div className="grid gap-3 sm:grid-cols-2 animate-fadeIn">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Month
+                    </span>
+                    <select
+                      value={reportMonth}
+                      onChange={(e) => {
+                        setReportMonth(e.target.value);
+                        setReportData(null);
+                      }}
+                      className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                    >
+                      {Array.from({ length: 12 }, (_, index) => ({
+                        value: String(index + 1),
+                        label: new Date(0, index).toLocaleString("en-US", {
+                          month: "long",
+                        }),
+                      })).map((month) => (
+                        <option key={month.value} value={month.value}>
+                          {month.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Year
+                    </span>
+                    <select
+                      value={reportYear}
+                      onChange={(e) => {
+                        setReportYear(e.target.value);
+                        setReportData(null);
+                      }}
+                      className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
+                    >
+                      {Array.from({ length: 6 }, (_, index) => {
+                        const year = new Date().getFullYear() + index;
+                        return (
+                          <option key={year} value={String(year)}>
+                            {year}
                           </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Year
-                      </span>
-                      <select
-                        value={reportYear}
-                        onChange={(e) => setReportYear(e.target.value)}
-                        className="field-surface w-full rounded-2xl px-4 py-2.5 outline-none transition focus:border-blue-500 text-slate-900 dark:text-white"
-                      >
-                        {Array.from({ length: 6 }, (_, index) => {
-                          const year = new Date().getFullYear() + index;
-                          return (
-                            <option key={year} value={String(year)}>
-                              {year}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </label>
-                  </div>
-                )}
-              </div>
+                        );
+                      })}
+                    </select>
+                  </label>
+                </div>
+              )}
 
               <button
                 onClick={fetchReport}
@@ -1326,92 +1410,256 @@ export default function CampusMealsPage() {
               )}
 
               {reportData ? (
-                <div className="mt-4 flex flex-col h-full">
-                  <h2 className="text-2xl font-black leading-tight text-slate-900">
-                    {reportCafeOption?.label || "All Cafes"}
+                <div className="mt-2 flex flex-col h-full">
+                  <h2 className="text-2xl font-black leading-tight text-(--app-text) md:text-3xl">
+                    {reportCafeOption?.label ||
+                      (reportData.cafeNumber
+                        ? reportData.cafeDisplayName ||
+                          String(reportData.cafeNumber)
+                        : "All Cafes")}
                   </h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     {reportType === "daily"
-                      ? `Daily report for ${reportData.period?.startDate || ""}`
+                      ? `Daily report for ${reportData.period.startDate}`
                       : reportType === "weekly"
-                        ? `Weekly report from ${reportData.period?.startDate || ""} to ${reportData.period?.endDate || ""}`
-                        : `Monthly report for ${reportData.period?.startDate?.split("-").slice(0, 2).join("-") || ""}`}
+                        ? `Weekly report from ${reportData.period.startDate} to ${reportData.period.endDate}`
+                        : `Monthly report for ${reportData.period.startDate.split("-").slice(0, 2).join("-")}`}
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mt-2">
+                    {REPORT_MEAL_SESSIONS.find(
+                      (item) => item.value === reportMealSession,
+                    )?.label || "All Sessions"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {getSessionTimeLabel(reportMealSession, mealSchedule) ||
+                      "All Sessions"}
                   </p>
 
                   <div className="grid gap-3 grid-cols-3 mt-5">
                     <div className="rounded-3xl bg-white border border-blue-100 p-4 text-left">
                       <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">
-                        Total Regular
+                        Total Students
                       </p>
                       <p className="mt-1 text-2xl font-black text-blue-900">
-                        {reportData.stats?.totalRegular?.toLocaleString() ?? 0}
+                        {reportData.stats.totalRegular.toLocaleString()}
                       </p>
                     </div>
-                    <div className="rounded-3xl bg-white border border-emerald-100 p-4 text-left">
-                      <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
-                        Total Served
-                      </p>
-                      <p className="mt-1 text-2xl font-black text-emerald-900">
-                        {reportData.stats?.totalServed?.toLocaleString() ?? 0}
-                      </p>
-                    </div>
-                    <div className="rounded-3xl bg-white border border-amber-100 p-4 text-left">
-                      <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
-                        Total Unserved
-                      </p>
-                      <p className="mt-1 text-2xl font-black text-amber-900">
-                        {reportData.stats?.totalUnserved?.toLocaleString() ?? 0}
-                      </p>
+
+                    {reportCafe ? (
+                      <>
+                        <div className="rounded-3xl bg-white border border-emerald-100 p-4 text-left">
+                          <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+                            Served
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-emerald-900">
+                            {reportData.stats.totalServed.toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="rounded-3xl bg-white border border-amber-100 p-4 text-left">
+                          <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+                            Unserved
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-amber-900">
+                            {reportData.stats.totalUnserved.toLocaleString()}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="rounded-3xl bg-white border border-emerald-100 p-4 text-left">
+                          <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+                            Regular
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-emerald-900">
+                            {reportData.stats.totalAssigned.toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="rounded-3xl bg-white border border-amber-100 p-4 text-left">
+                          <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+                            Unassigned
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-amber-900">
+                            {reportData.stats.totalUnassigned.toLocaleString()}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="mt-6 rounded-3xl bg-white p-4 border border-slate-200">
+                    <h3 className="text-sm font-bold text-slate-800">
+                      Served Progress Ratio
+                    </h3>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs font-semibold text-slate-500 mb-1">
+                        <span>
+                          Served (
+                          {(
+                            (reportData.stats.totalServed /
+                              (reportData.stats.totalAssigned || 1)) *
+                            100
+                          ).toFixed(1)}
+                          %)
+                        </span>
+                        <span>
+                          Unserved (
+                          {(
+                            (reportData.stats.totalUnserved /
+                              (reportData.stats.totalAssigned || 1)) *
+                            100
+                          ).toFixed(1)}
+                          %)
+                        </span>
+                      </div>
+                      <div className="w-full h-4 rounded-full bg-white overflow-hidden flex">
+                        <div
+                          style={{
+                            width: `${(reportData.stats.totalServed / (reportData.stats.totalAssigned || 1)) * 100}%`,
+                          }}
+                          className="h-full bg-linear-to-r from-emerald-500 to-teal-500"
+                        />
+                        <div
+                          style={{
+                            width: `${(reportData.stats.totalUnserved / (reportData.stats.totalAssigned || 1)) * 100}%`,
+                          }}
+                          className="h-full bg-amber-500"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 space-y-3">
-                    {Object.entries(reportData.stats?.breakdown || {}).map(
-                      ([key, value]) => (
-                        <div
-                          key={key}
-                          className="rounded-3xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-bold text-slate-800 capitalize">
-                              {key.replace(/_/g, " ")}
+                  <div className="mt-6 flex-1">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4 mb-6">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                            Total Report Summary
+                          </p>
+                          <p className="mt-1 text-sm text-slate-600">
+                            Regular students, served students, and unserved
+                            students totals.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              Total Served
                             </p>
-                            <p className="text-sm font-semibold text-slate-600">
-                              {value.total ?? 0} total
+                            <p className="mt-2 text-2xl font-black text-emerald-900">
+                              {reportData.stats.totalServed.toLocaleString()}
                             </p>
                           </div>
-                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                            <div className="rounded-2xl bg-white p-3 text-xs text-slate-600 ring-1 ring-slate-200">
-                              Served
-                              <div className="mt-2 text-lg font-black text-emerald-700">
-                                {value.served ?? 0}
-                              </div>
-                            </div>
-                            <div className="rounded-2xl bg-white p-3 text-xs text-slate-600 ring-1 ring-slate-200">
-                              Unserved
-                              <div className="mt-2 text-lg font-black text-amber-700">
-                                {value.unserved ?? 0}
-                              </div>
-                            </div>
-                            <div className="rounded-2xl bg-white p-3 text-xs text-slate-600 ring-1 ring-slate-200">
-                              Rate
-                              <div className="mt-2 text-lg font-black text-blue-700">
-                                {value.total
-                                  ? `${Math.round(((value.served || 0) / value.total) * 100)}%`
-                                  : "0%"}
-                              </div>
-                            </div>
+                          <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              Total Unserved
+                            </p>
+                            <p className="mt-2 text-2xl font-black text-amber-900">
+                              {reportData.stats.totalUnserved.toLocaleString()}
+                            </p>
                           </div>
                         </div>
-                      ),
-                    )}
+                      </div>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-(--app-text) mb-3">
+                      Attendance Breakdown by Fasting Type
+                    </h3>
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-white text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                            <th className="px-4 py-3">Fasting Type</th>
+                            <th className="px-4 py-3 text-right">
+                              Regular Students
+                            </th>
+                            <th className="px-4 py-3 text-right">
+                              Served Students
+                            </th>
+                            <th className="px-4 py-3 text-right">
+                              Unserved Students
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+                          {Object.entries(reportData.stats.breakdown).map(
+                            ([key, rowData]) => (
+                              <tr key={key} className="hover:bg-white">
+                                <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
+                                  {formatFastingTypeLabel(key)}
+                                </td>
+                                <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400 font-medium">
+                                  {rowData.total.toLocaleString()}
+                                </td>
+                                <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">
+                                  {rowData.served.toLocaleString()}
+                                </td>
+                                <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400 font-semibold">
+                                  {rowData.unserved.toLocaleString()}
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-3xl bg-white p-4 border border-slate-200">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
+                      Attendance by Fasting Type
+                    </h3>
+                    <div className="space-y-3">
+                      {Object.entries(reportData.stats.breakdown).map(
+                        ([key, categoryData], index) => {
+                          const servedPct =
+                            categoryData.total > 0
+                              ? (categoryData.served / categoryData.total) * 100
+                              : 0;
+                          const colors = [
+                            "from-blue-500 to-cyan-500",
+                            "from-violet-500 to-fuchsia-500",
+                            "from-emerald-500 to-teal-500",
+                            "from-amber-500 to-orange-500",
+                            "from-rose-500 to-pink-500",
+                          ];
+                          const color = colors[index % colors.length];
+
+                          return (
+                            <div key={key} className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  {formatFastingTypeLabel(key)}
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-400">
+                                  {categoryData.served} of {categoryData.total}{" "}
+                                  served ({servedPct.toFixed(0)}%)
+                                </span>
+                              </div>
+                              <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                <div
+                                  style={{ width: `${servedPct}%` }}
+                                  className={`h-full bg-linear-to-r ${color}`}
+                                />
+                              </div>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-slate-500">
-                  Generate an attendance report to preview totals and fasting
-                  breakdown.
-                </p>
+                <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  <p className="font-semibold text-slate-800">
+                    No report generated yet
+                  </p>
+                  <p className="mt-2">
+                    Pick your parameters on the left and click &quot;Generate
+                    Report&quot;.
+                  </p>
+                </div>
               )}
             </div>
           </section>

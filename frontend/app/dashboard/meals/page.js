@@ -7,13 +7,6 @@ import { getAppDayString } from "@/app/utils/appTimezone";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
-const formatDate = (date) =>
-  new Date(date).toLocaleDateString([], {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
 const formatFastingTypeLabel = (type) => {
   if (!type) return "Normal";
   if (type === "not_fasting") return "Normal";
@@ -30,6 +23,20 @@ const getReportTypeLabel = (type) => {
   return "Report";
 };
 
+const getMealLabel = (mealType) => {
+  if (mealType === "breakfast") return "Breakfast";
+  if (mealType === "lunch") return "Lunch";
+  if (mealType === "dinner") return "Dinner";
+  return "All Sessions";
+};
+
+const REPORT_MEAL_SESSIONS = [
+  { value: "total", label: "Total", detail: "All Sessions" },
+  { value: "breakfast", label: "Breakfast", detail: "06:00 - 09:00" },
+  { value: "lunch", label: "Lunch", detail: "11:00 - 14:00" },
+  { value: "dinner", label: "Dinner", detail: "17:00 - 20:00" },
+];
+
 const toSafeFilePart = (value, fallback = "report") =>
   String(value || fallback)
     .trim()
@@ -42,6 +49,7 @@ export default function MealsPage() {
   const [selectedCampus, setSelectedCampus] = useState("");
   const [reportType, setReportType] = useState("daily");
   const [reportCafe, setReportCafe] = useState("");
+  const [reportMealSession, setReportMealSession] = useState("total");
   const [reportDate, setReportDate] = useState("");
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
@@ -107,6 +115,20 @@ export default function MealsPage() {
 
   useEffect(() => {
     setReportData(null);
+    setReportError("");
+  }, [
+    reportCafe,
+    reportMealSession,
+    reportDate,
+    reportStartDate,
+    reportEndDate,
+    reportMonth,
+    reportYear,
+    reportType,
+  ]);
+
+  useEffect(() => {
+    setReportData(null);
     setReportCafe("");
     setReportError("");
   }, [selectedCampus]);
@@ -164,6 +186,9 @@ export default function MealsPage() {
       params.append("campusId", campusIdForReport);
       if (reportCafe) {
         params.append("cafeNumber", reportCafe);
+      }
+      if (reportMealSession && reportMealSession !== "total") {
+        params.append("mealType", reportMealSession);
       }
 
       let endpoint = `${url}/reports/daily`;
@@ -242,6 +267,7 @@ export default function MealsPage() {
       ["Campus", reportData.campusName || ""],
       ["Cafe", cafeLabel],
       ["Report Type", getReportTypeLabel(reportData.period?.type)],
+      ["Meal Session", getMealLabel(reportMealSession)],
       ["Period Start", reportData.period?.startDate || ""],
       ["Period End", reportData.period?.endDate || ""],
       ["Total Regular", reportData.stats?.totalRegular ?? ""],
@@ -349,27 +375,54 @@ export default function MealsPage() {
                 </label>
 
                 {cafeOptions.length > 0 && (
-                  <label className="block md:col-span-2">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">
-                      Cafe (optional)
-                    </span>
-                    <select
-                      value={reportCafe}
-                      onChange={(e) => setReportCafe(e.target.value)}
-                      className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
-                    >
-                      <option value="">All Cafes</option>
-                      {cafeOptions.map((cafe) => (
-                        <option
-                          key={cafe.value}
-                          value={cafe.value}
-                          className="text-black"
-                        >
-                          {cafe.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <>
+                    <div className="block md:col-span-2">
+                      <span className="mb-2 block text-sm font-medium text-slate-700">
+                        Meal Session
+                      </span>
+                      <div className="flex flex-nowrap gap-2 overflow-x-auto py-1">
+                        {REPORT_MEAL_SESSIONS.map((session) => (
+                          <button
+                            key={session.value}
+                            type="button"
+                            onClick={() => setReportMealSession(session.value)}
+                            className={`min-w-[11rem] rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition ${
+                              reportMealSession === session.value
+                                ? "border-cyan-400 bg-cyan-50 text-cyan-700"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            <span>{session.label}</span>
+                            <span className="mt-1 block text-xs font-medium text-slate-500">
+                              {session.detail}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm font-medium text-slate-700">
+                        Cafeteria
+                      </span>
+                      <select
+                        value={reportCafe}
+                        onChange={(e) => setReportCafe(e.target.value)}
+                        className="field-surface w-full rounded-2xl px-4 py-3 outline-none transition focus:border-cyan-400"
+                      >
+                        <option value="">All Cafes</option>
+                        {cafeOptions.map((cafe) => (
+                          <option
+                            key={cafe.value}
+                            value={cafe.value}
+                            className="text-black"
+                          >
+                            {cafe.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
                 )}
 
                 {reportType === "daily" && (
@@ -495,14 +548,32 @@ export default function MealsPage() {
                   <p className="text-xs uppercase tracking-[0.3em] text-cyan-300/80">
                     Report Summary
                   </p>
-                  <h2 className="mt-3 text-2xl font-black leading-tight md:text-3xl">
-                    {reportData ? reportCafeLabel : "No report loaded"}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {reportData
-                      ? getReportPeriodLabel(reportData.period)
-                      : "Choose a report type and generate to view campus attendance stats."}
-                  </p>
+                  {reportData && (
+                    <>
+                      <h2 className="mt-3 text-2xl font-black leading-tight md:text-3xl">
+                        {reportCafeLabel}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {getReportPeriodLabel(reportData.period)}
+                      </p>
+                      {(() => {
+                        const session = REPORT_MEAL_SESSIONS.find(
+                          (s) => s.value === reportMealSession,
+                        );
+                        return (
+                          <>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {session?.label ||
+                                getMealLabel(reportMealSession)}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {session?.detail || "All Sessions"}
+                            </p>
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
                 </div>
 
                 {reportData && (
@@ -628,9 +699,14 @@ export default function MealsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-                  Select a campus and a report period, then click the button to
-                  load attendance snapshots for the campus.
+                <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  <p className="font-semibold text-slate-800">
+                    No report generated yet
+                  </p>
+                  <p className="mt-2">
+                    Pick your parameters on the left and click &quot;Generate
+                    Report&quot;.
+                  </p>
                 </div>
               )}
             </div>
