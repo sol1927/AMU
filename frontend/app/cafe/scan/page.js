@@ -344,7 +344,7 @@ export default function CafeScanPage() {
                         }`}
                       >
                         {student.fastingType === "fasting"
-                          ? "ጾመኛ"
+                          ? "የኦርቶዶክስ ጾመኛ"
                           : student.fastingType === "sunday_fasting"
                             ? "የእሁድ ጾመኛ"
                             : student.fastingType === "muslim_fasting"

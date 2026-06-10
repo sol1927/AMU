@@ -51,8 +51,17 @@ export default function CampusStudentsPage() {
 
   const getCafeName = (name) => {
     if (!name) return "";
+    // If the name is like "cafe1" or "cafe 1", return a readable label "Cafe 1"
+    const cafeNumberMatch = name.match(/^cafe\s*(\d+)$/i);
+    if (cafeNumberMatch) {
+      return `Cafe ${cafeNumberMatch[1]}`;
+    }
+
     if (/^cafe/i.test(name)) {
-      return name.replace(/^cafe/i, "").trim();
+      const stripped = name.replace(/^cafe/i, "").trim();
+      // If stripping produced only digits (e.g. "1"), prefer "Cafe X"
+      if (/^\d+$/.test(stripped)) return `Cafe ${stripped}`;
+      return stripped;
     }
     const formatted = name.charAt(0).toUpperCase() + name.slice(1);
     return formatted.replace(/([^-\s])(\d+)/g, "$1 $2").trim();
@@ -568,7 +577,7 @@ export default function CampusStudentsPage() {
                 className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56"
               >
                 <option value="">All Fasting Types</option>
-                <option value="fasting">Fasting</option>
+                <option value="fasting">Orthodox Fasting</option>
                 <option value="not_fasting">Not Fasting</option>
                 <option value="sunday_fasting">Sunday Fasting</option>
                 <option value="muslim_fasting">Muslim Fasting</option>
@@ -630,7 +639,7 @@ export default function CampusStudentsPage() {
                   className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
                 >
                   <option value="">Select Fasting</option>
-                  <option value="fasting">Fasting</option>
+                  <option value="fasting">Orthodox Fasting</option>
                   <option value="not_fasting">Not Fasting</option>
                   <option value="sunday_fasting">Sunday Fasting</option>
                   <option value="muslim_fasting">Muslim Fasting</option>

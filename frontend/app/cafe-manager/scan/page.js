@@ -58,7 +58,7 @@ export default function CafeScanPage() {
   const [shokeKey, setShokeKey] = useState(0);
   const [mealSchedule, setMealSchedule] = useState(null);
   const [currentMealSession, setCurrentMealSession] = useState(() =>
-    getCurrentMealSession(null)
+    getCurrentMealSession(null),
   );
 
   const hiddenInputRef = useRef(null);
@@ -160,8 +160,7 @@ export default function CafeScanPage() {
       const statusMessage =
         (typeof data?.student?.statusMessage === "string"
           ? data.student.statusMessage.trim()
-          : "") ||
-        (!allowed ? message : "");
+          : "") || (!allowed ? message : "");
 
       if (data?.student) {
         setStudent({
@@ -182,8 +181,7 @@ export default function CafeScanPage() {
         setStudent({
           name: displayName,
           studentId,
-          statusMessage:
-            message === "Student not found" ? undefined : message,
+          statusMessage: message === "Student not found" ? undefined : message,
         });
         setAllowed(allowed);
         return;
@@ -240,18 +238,17 @@ export default function CafeScanPage() {
     window.location.reload();
   };
 
-  if (!currentUser || currentUser.role !== "cafe" || !activeCafeNum) return null;
+  if (!currentUser || currentUser.role !== "cafe" || !activeCafeNum)
+    return null;
 
   const getCardClasses = () => {
-    if (!student) return "bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500";
+    if (!student)
+      return "bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500";
     if (student.isInternship)
       return "bg-gradient-to-r from-pink-500 to-red-600 text-white shadow-lg animate-shake";
     if (student.name === "Student not found")
       return "bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg animate-shake";
-    if (
-      student.name === "Time is up / ሰዓት አልቋል" ||
-      student.name === "ሰዓት አልቋል"
-    )
+    if (student.name === "Time is up / ሰዓት አልቋል" || student.name === "ሰዓት አልቋል")
       return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold animate-shake";
     if (allowed)
       return "bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg";
@@ -276,7 +273,7 @@ export default function CafeScanPage() {
   return (
     <div className="scan-page page-shell flex flex-col px-4 pt-4 md:px-6 min-h-[75vh] bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <CafeNavbar />
-      
+
       <div className="flex flex-1 items-center justify-center pb-24 md:pb-28">
         <div className="flex w-full max-w-6xl items-center justify-center gap-12">
           <div className="flex min-h-[400px] min-w-0 max-w-4xl flex-1 flex-col items-center justify-center">
@@ -344,7 +341,7 @@ export default function CafeScanPage() {
                         }`}
                       >
                         {student.fastingType === "fasting"
-                          ? "ጾመኛ"
+                          ? "የኦርቶዶክስ ጾመኛ"
                           : student.fastingType === "sunday_fasting"
                             ? "የእሁድ ጾመኛ"
                             : student.fastingType === "muslim_fasting"

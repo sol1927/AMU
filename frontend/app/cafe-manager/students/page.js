@@ -441,7 +441,7 @@ export default function CafeStudentsPage() {
             className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[200px] truncate"
           >
             <option value="">All Fasting Types</option>
-            <option value="fasting">Fasting</option>
+            <option value="fasting">Orthodox Fasting</option>
             <option value="not_fasting">Not Fasting</option>
             <option value="sunday_fasting">Sunday Fasting</option>
             <option value="muslim_fasting">Muslim Fasting</option>
@@ -484,7 +484,7 @@ export default function CafeStudentsPage() {
               className="field-surface appearance-none rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
             >
               <option value="">Select Fasting</option>
-              <option value="fasting">Fasting</option>
+              <option value="fasting">Orthodox Fasting</option>
               <option value="not_fasting">Not Fasting</option>
               <option value="sunday_fasting">Sunday Fasting</option>
               <option value="muslim_fasting">Muslim Fasting</option>

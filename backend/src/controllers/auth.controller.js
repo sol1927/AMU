@@ -66,7 +66,7 @@ export const login = async (req, res) => {
     if (isUsernameLogin) {
       // Cafe login by username.
       user =
-        (await User.findOne({ name: identifier }, { includePassword: true })) ||
+        (await User.findOne({ name: identifier.toLowerCase() }, { includePassword: true })) ||
         (await User.findOne(
           { email: identifier.toLowerCase() },
           { includePassword: true },
