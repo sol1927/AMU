@@ -2,13 +2,18 @@ import StationScan from "../models/stationScan.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import Meal from "../models/meal.model.js";
 import User from "../models/user.model.js";
+import mealSessionConfigHistory from "../models/mealSessionConfigHistory.model.js";
+import mealAttendanceSnapshot from "../models/mealAttendanceSnapshot.model.js";
+import MealSessionSnapshot from "../models/mealSessionSnapshot.model.js";
+import MealScanHistory from "../models/mealScanHistory.model.js";
+import { getAppMinutesFromDate } from "../utils/appTimezone.js";
 import {
   finalizeExpiredStationScans,
   getDashboardMealContext,
   getCurrentSemester,
   getCurrentYear,
   getDayString,
-  getMealSchedule,
+  getMealScheduleAt,
   getMealWindowLabel,
 } from "../utils/mealSession.js";
 import {
@@ -20,12 +25,12 @@ import {
   getStudentCampusQuery,
   getStudentCampusSyncQuery,
 } from "../utils/campusId.js";
+import { APP_TIMEZONE } from "../utils/appTimezone.js";
 import { logInternalError, sendServerError } from "../utils/safeError.js";
 import {
   filterStudentsForCafeNumber,
   getCafeDisplayName,
   getEffectiveStudentCafeNumber,
-  getStudentCafeMismatchMessage,
 } from "../utils/cafeScope.js";
 
 const buildFastingBreakdown = (students = []) => ({
@@ -71,6 +76,44 @@ const createStudentSnapshot = (
   scannedAt: scannedAt.toISOString(),
 });
 
+const getAppDayOfWeek = (date = new Date()) => {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: APP_TIMEZONE,
+    weekday: "short",
+  }).format(date);
+
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekday);
+};
+
+const isOrthodoxFastingBreakfastDenied = (
+  student = {},
+  mealType,
+  date = new Date(),
+) => {
+  if (mealType !== "breakfast") return false;
+  if (getStudentFastingType(student) !== "fasting") return false;
+
+  const dayOfWeek = getAppDayOfWeek(date);
+  return dayOfWeek >= 1 && dayOfWeek <= 5;
+};
+
+const isMuslimFastingMealDenied = (student = {}, mealType) => {
+  if (getStudentFastingType(student) !== "muslim_fasting") return false;
+  return mealType !== "dinner";
+};
+
+const isSundayFastingBreakfastDenied = (
+  student = {},
+  mealType,
+  date = new Date(),
+) => {
+  if (mealType !== "breakfast") return false;
+  if (getStudentFastingType(student) !== "sunday_fasting") return false;
+
+  const dayOfWeek = getAppDayOfWeek(date);
+  return dayOfWeek === 0; // Sunday
+};
+
 const buildMealSummarySnapshot = (
   campusStudents = [],
   servedStudentIds = [],
@@ -102,6 +145,85 @@ const buildMealSummarySnapshot = (
     pendingFastingBreakdown: buildFastingBreakdown(pendingRegularStudentsList),
     capturedAt: new Date().toISOString(),
   };
+};
+
+const getReadableCafeName = (name, displayName, cafeNumber) => {
+  if (displayName) return displayName;
+  const safeName = String(name || "").trim();
+  if (!safeName) return `Cafe ${cafeNumber}`;
+
+  const cafeNumberMatch = safeName.match(/^cafe\s*(\d+)$/i);
+  if (cafeNumberMatch) return `Cafe ${cafeNumberMatch[1]}`;
+
+  if (/^cafe/i.test(safeName)) {
+    const stripped = safeName.replace(/^cafe/i, "").trim();
+    if (/^\d+$/.test(stripped)) {
+      return `Cafe ${stripped}`;
+    }
+  }
+
+  return safeName
+    .split(/([\s-]+)/)
+    .map((segment) =>
+      segment.match(/^[\s-]+$/)
+        ? segment
+        : segment[0]?.toUpperCase() + segment.slice(1).toLowerCase(),
+    )
+    .join("");
+};
+
+const getCafeLabelForNumber = (cafes = [], cafeNumber) => {
+  const normalizedCafeNumber = Number(cafeNumber);
+  if (!Number.isInteger(normalizedCafeNumber) || normalizedCafeNumber < 1) {
+    return null;
+  }
+
+  const matchedCafe = cafes.find((cafe, index) => {
+    const cafeNumberCandidate = Number(
+      cafe.cafeNumber ?? String(cafe.name || "").match(/\d+/)?.[0],
+    );
+
+    if (Number.isInteger(cafeNumberCandidate) && cafeNumberCandidate > 0) {
+      return cafeNumberCandidate === normalizedCafeNumber;
+    }
+
+    return index + 1 === normalizedCafeNumber;
+  });
+
+  if (matchedCafe) {
+    return getReadableCafeName(
+      matchedCafe.name,
+      matchedCafe.displayName,
+      normalizedCafeNumber,
+    );
+  }
+
+  const fallbackCafe = cafes[normalizedCafeNumber - 1];
+  return fallbackCafe
+    ? getReadableCafeName(
+      fallbackCafe.name,
+      fallbackCafe.displayName,
+      normalizedCafeNumber,
+    )
+    : `Cafe ${normalizedCafeNumber}`;
+};
+
+const parseTimeToMinutes = (value) => {
+  if (typeof value !== "string") return null;
+  const [hourText, minuteText] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+  return hour * 60 + minute;
 };
 
 const getAppliedWindowDate = (dayString, timeValue) => {
@@ -146,7 +268,7 @@ export const scanStudentStation = async (req, res) => {
 
     const today = new Date(`${todayString}T00:00:00+03:00`);
 
-    const mealSchedule = await getMealSchedule(req.campus.id);
+    const mealSchedule = await getMealScheduleAt(req.campus.id, scanTime);
 
     const now = scanTime.getTime();
 
@@ -172,6 +294,85 @@ export const scanStudentStation = async (req, res) => {
       });
     }
 
+    // Check if snapshot is locked/ended for today's session
+    const existingSnapshotForCheck = await MealSessionSnapshot.findOne({
+      campusId: req.campus.id,
+      cafeteriaId: req.cafeNumber,
+      date: todayString,
+      mealSession: currentMealType,
+    });
+
+    const currentMinutes = getAppMinutesFromDate(scanTime);
+    const activeEndMinutes = parseTimeToMinutes(appliedWindow.end);
+
+    if (existingSnapshotForCheck) {
+      const activeStartMinutes = parseTimeToMinutes(appliedWindow.start);
+
+      if (
+        existingSnapshotForCheck.sessionStatus === "Closed" &&
+        activeStartMinutes !== null &&
+        currentMinutes >= activeStartMinutes &&
+        activeEndMinutes !== null &&
+        currentMinutes < activeEndMinutes
+      ) {
+        await MealSessionSnapshot.updateById(existingSnapshotForCheck.id, {
+          sessionStatus: "Active",
+          sessionStartTime: appliedWindow.start,
+          sessionEndTime: appliedWindow.end,
+        });
+      }
+
+      if (
+        existingSnapshotForCheck.sessionStatus === "Closed" &&
+        (activeEndMinutes === null || currentMinutes >= activeEndMinutes)
+      ) {
+        return res.status(400).json({
+          allowed: false,
+          message: "Time is up",
+        });
+      }
+
+      if (
+        existingSnapshotForCheck.sessionStatus === "Active" &&
+        existingSnapshotForCheck.sessionEndTime !== appliedWindow.end
+      ) {
+        await MealSessionSnapshot.updateById(existingSnapshotForCheck.id, {
+          sessionEndTime: appliedWindow.end,
+        });
+      }
+
+      if (activeEndMinutes !== null && currentMinutes >= activeEndMinutes) {
+        if (existingSnapshotForCheck.sessionStatus === "Active") {
+          await MealSessionSnapshot.updateById(existingSnapshotForCheck.id, {
+            sessionStatus: "Closed",
+          });
+        }
+        return res.status(400).json({
+          allowed: false,
+          message: "Time is up",
+        });
+      }
+    }
+
+    let activeConfig = await mealSessionConfigHistory.findActiveConfig(
+      req.campus.id,
+      currentMealType,
+      todayString,
+    );
+    if (!activeConfig) {
+      activeConfig = await mealSessionConfigHistory.create({
+        sessionName: currentMealType,
+        startTime: appliedWindow.start,
+        endTime: appliedWindow.end,
+        appliedDate: todayString,
+        appliedTimestamp: new Date(),
+        campusId: req.campus.id,
+        createdBy: req.campus.id,
+        version: 1,
+      });
+    }
+    const appliedSessionConfigId = activeConfig.id;
+
     const student = await CafeStudent.findOne({
       studentId,
       ...studentCampusQuery,
@@ -192,6 +393,17 @@ export const scanStudentStation = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
+    const campusCafes = (
+      await User.findAll({
+        campusId: campusForScope.campusId || campusForScope.id,
+        role: "cafe",
+      })
+    ).sort((a, b) => a.id - b.id);
+    const assignedCafeName = getCafeLabelForNumber(
+      campusCafes,
+      assignedCafeNumber,
+    );
+
     const accessibleStudents = filterStudentsForCafeNumber(
       [student],
       campusForScope,
@@ -199,10 +411,7 @@ export const scanStudentStation = async (req, res) => {
     );
 
     if (accessibleStudents.length === 0) {
-      const cafeMismatchMessage = getStudentCafeMismatchMessage(
-        student,
-        campusForScope,
-      );
+      const cafeMismatchMessage = `የተመደቡበት ካፌ ${assignedCafeName}`;
 
       return res.json({
         allowed: false,
@@ -210,6 +419,7 @@ export const scanStudentStation = async (req, res) => {
         student: {
           ...normalizeStudent(student),
           assignedCafeNumber,
+          assignedCafeName,
           statusMessage: cafeMismatchMessage,
         },
       });
@@ -229,6 +439,50 @@ export const scanStudentStation = async (req, res) => {
       });
     }
 
+    if (
+      isOrthodoxFastingBreakfastDenied(
+        normalizedStudent,
+        currentMealType,
+        today,
+      )
+    ) {
+      const fastingMessage = "አልተፈቀደም";
+      return res.json({
+        allowed: false,
+        message: fastingMessage,
+        student: {
+          ...normalizedStudent,
+          statusMessage: fastingMessage,
+        },
+      });
+    }
+
+    if (isMuslimFastingMealDenied(normalizedStudent, currentMealType)) {
+      const muslimFastingMessage = "አልተፈቀደም";
+      return res.json({
+        allowed: false,
+        message: muslimFastingMessage,
+        student: {
+          ...normalizedStudent,
+          statusMessage: muslimFastingMessage,
+        },
+      });
+    }
+
+    if (
+      isSundayFastingBreakfastDenied(normalizedStudent, currentMealType, today)
+    ) {
+      const sundayFastingMessage = "አልተፈቀደም";
+      return res.json({
+        allowed: false,
+        message: sundayFastingMessage,
+        student: {
+          ...normalizedStudent,
+          statusMessage: sundayFastingMessage,
+        },
+      });
+    }
+
     const existingStationScan = await StationScan.findOne({
       studentId: student.studentId,
       campus: req.campus.id,
@@ -240,9 +494,11 @@ export const scanStudentStation = async (req, res) => {
       const duplicateMessage = "\u12a0\u120d\u1270\u1348\u1240\u12f0\u121d";
       return res.json({
         allowed: false,
+        denialCode: "duplicate",
         message: duplicateMessage,
         student: {
           ...normalizedStudent,
+          denialCode: "duplicate",
           statusMessage: duplicateMessage,
         },
       });
@@ -350,6 +606,123 @@ export const scanStudentStation = async (req, res) => {
       });
     }
 
+    // Save attendance snapshot!
+    await mealAttendanceSnapshot
+      .create({
+        studentId: student.studentId,
+        studentDetails: normalizedStudent,
+        fastingType: normalizedStudent.fastingType,
+        campusId: req.campus.id,
+        cafeteria: req.cafeNumber,
+        mealSession: currentMealType,
+        sessionStartTime: appliedWindow.start,
+        sessionEndTime: appliedWindow.end,
+        attendanceDate: todayString,
+        scanTimestamp: scanTime,
+        appliedSessionConfigId,
+      })
+      .catch((err) => {
+        console.error("Failed to save attendance snapshot:", err.message);
+      });
+
+    // Historical Meal Session Snapshot System
+    try {
+      const existingSnapshot = await MealSessionSnapshot.findOne({
+        campusId: req.campus.id,
+        cafeteriaId: req.cafeNumber,
+        date: todayString,
+        mealSession: currentMealType,
+      });
+
+      if (!existingSnapshot) {
+        // First student successfully scanned. Create snapshot!
+        const allCampusStudents = await CafeStudent.findAll({
+          ...studentCampusQuery,
+          isInternship: 0,
+        });
+        const cafeteriaStudents = filterStudentsForCafeNumber(
+          allCampusStudents,
+          campusForScope,
+          req.cafeNumber,
+        );
+
+        const totalStudents = cafeteriaStudents.length;
+        const assignedStudents = cafeteriaStudents.length;
+        const unassignedStudents = allCampusStudents.filter(
+          (s) => getEffectiveStudentCafeNumber(s, campusForScope) === null,
+        ).length;
+
+        const orthodoxFastingCount = cafeteriaStudents.filter(
+          (s) => getStudentFastingType(s) === "fasting",
+        ).length;
+        const muslimFastingCount = cafeteriaStudents.filter(
+          (s) => getStudentFastingType(s) === "muslim_fasting",
+        ).length;
+        const sundayFastingCount = cafeteriaStudents.filter(
+          (s) => getStudentFastingType(s) === "sunday_fasting",
+        ).length;
+        const notFastingCount = cafeteriaStudents.filter(
+          (s) => getStudentFastingType(s) === "not_fasting",
+        ).length;
+
+        const servedCount = 1;
+        const unservedCount = Math.max(0, assignedStudents - 1);
+
+        const cafeteriaName =
+          getCafeLabelForNumber(campusCafes, req.cafeNumber) ||
+          `Cafe ${req.cafeNumber}`;
+
+        await MealSessionSnapshot.create({
+          campusId: req.campus.id,
+          cafeteriaId: req.cafeNumber,
+          cafeteriaName,
+          date: todayString,
+          mealSession: currentMealType,
+          sessionStartTime: appliedWindow.start,
+          sessionEndTime: appliedWindow.end,
+          snapshotCreatedAt: scanTime,
+          sessionStatus: "Active",
+          totalStudents,
+          assignedStudents,
+          unassignedStudents,
+          orthodoxFastingCount,
+          muslimFastingCount,
+          sundayFastingCount,
+          notFastingCount,
+          servedCount,
+          unservedCount,
+        });
+      } else {
+        // Snapshot already exists. Increment servedCount and decrement unservedCount
+        const newServedCount = existingSnapshot.servedCount + 1;
+        const newUnservedCount = Math.max(
+          0,
+          existingSnapshot.assignedStudents - newServedCount,
+        );
+        await MealSessionSnapshot.updateById(existingSnapshot.id, {
+          servedCount: newServedCount,
+          unservedCount: newUnservedCount,
+        });
+      }
+
+      // Store in MealScanHistory
+      await MealScanHistory.create({
+        studentId: student.studentId,
+        studentName: normalizedStudent.name,
+        mealSession: currentMealType,
+        date: todayString,
+        exactScanTimestamp: scanTime,
+        cafeteria: req.cafeNumber,
+        campus: req.campus.id,
+        fastingTypeAtScanTime: normalizedStudent.fastingType,
+      });
+    } catch (snapshotErr) {
+      console.error(
+        "Failed to handle historical snapshot / scan history:",
+        snapshotErr.message,
+      );
+    }
+
     res.json({
       allowed: true,
       message: "Allowed to Eat",
@@ -367,7 +740,8 @@ export const getCampusDashboardStats = async (req, res) => {
   try {
     const campusId = req.campus.id;
     const studentSyncQuery = getStudentCampusSyncQuery(req.campus);
-    const totalCampusStudents = await CafeStudent.countDocuments(studentSyncQuery);
+    const totalCampusStudents =
+      await CafeStudent.countDocuments(studentSyncQuery);
 
     const now = new Date();
     const { mealType, label, targetDate } = await getDashboardMealContext(
@@ -377,7 +751,7 @@ export const getCampusDashboardStats = async (req, res) => {
     const mealDayString = getDayString(targetDate);
     const year = getCurrentYear(targetDate);
     const semester = getCurrentSemester(targetDate);
-    const mealSchedule = await getMealSchedule(campusId);
+    const mealSchedule = await getMealScheduleAt(campusId, targetDate);
 
     const isAllCafes = req.query.all === "true";
     let activeCafeNumber = req.cafeNumber;
@@ -400,11 +774,36 @@ export const getCampusDashboardStats = async (req, res) => {
       let totalServed = 0;
       let totalPending = 0;
 
-      const combinedFastingBreakdown = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
-      const combinedRegularFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
-      const combinedInternshipFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
-      const combinedServedFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
-      const combinedPendingFasting = { fasting: 0, sundayFasting: 0, muslimFasting: 0, notFasting: 0 };
+      const combinedFastingBreakdown = {
+        fasting: 0,
+        sundayFasting: 0,
+        muslimFasting: 0,
+        notFasting: 0,
+      };
+      const combinedRegularFasting = {
+        fasting: 0,
+        sundayFasting: 0,
+        muslimFasting: 0,
+        notFasting: 0,
+      };
+      const combinedInternshipFasting = {
+        fasting: 0,
+        sundayFasting: 0,
+        muslimFasting: 0,
+        notFasting: 0,
+      };
+      const combinedServedFasting = {
+        fasting: 0,
+        sundayFasting: 0,
+        muslimFasting: 0,
+        notFasting: 0,
+      };
+      const combinedPendingFasting = {
+        fasting: 0,
+        sundayFasting: 0,
+        muslimFasting: 0,
+        notFasting: 0,
+      };
 
       recentScans = await StationScan.findAll({
         campus: campusId,
@@ -428,7 +827,10 @@ export const getCampusDashboardStats = async (req, res) => {
         });
 
         const servedStudentIds = servedScans.map((s) => s.studentId);
-        const summary = buildMealSummarySnapshot(cafeStudents, servedStudentIds);
+        const summary = buildMealSummarySnapshot(
+          cafeStudents,
+          servedStudentIds,
+        );
 
         if (summary) {
           totalRegular += summary.regularStudents || 0;
@@ -446,7 +848,10 @@ export const getCampusDashboardStats = async (req, res) => {
 
           addBreakdown(combinedFastingBreakdown, summary.fastingBreakdown);
           addBreakdown(combinedRegularFasting, summary.regularFastingBreakdown);
-          addBreakdown(combinedInternshipFasting, summary.internshipFastingBreakdown);
+          addBreakdown(
+            combinedInternshipFasting,
+            summary.internshipFastingBreakdown,
+          );
           addBreakdown(combinedServedFasting, summary.servedFastingBreakdown);
           addBreakdown(combinedPendingFasting, summary.pendingFastingBreakdown);
         }
@@ -502,9 +907,9 @@ export const getCampusDashboardStats = async (req, res) => {
       });
 
       if (meal && !meal.summarySnapshot) {
-        await Meal.updateById(meal.id, { summarySnapshot: activeSummary }).catch(
-          () => null,
-        );
+        await Meal.updateById(meal.id, {
+          summarySnapshot: activeSummary,
+        }).catch(() => null);
       }
     }
 
@@ -514,7 +919,9 @@ export const getCampusDashboardStats = async (req, res) => {
       mealSchedule,
       mealDate: mealDayString,
       cafeNumber: isAllCafes ? 0 : activeCafeNumber,
-      cafeDisplayName: isAllCafes ? "All Cafes" : getCafeDisplayName(req.campus.name, activeCafeNumber),
+      cafeDisplayName: isAllCafes
+        ? "All Cafes"
+        : getCafeDisplayName(req.campus.name, activeCafeNumber),
       totalStudents: totalCampusStudents,
       regularStudents: activeSummary?.regularStudents ?? 0,
       internshipStudents: activeSummary?.internshipStudents ?? 0,

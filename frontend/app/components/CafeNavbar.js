@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
 import ThemeToggle from "./ThemeToggle";
 import ConfirmModal from "./ConfirmModal";
+import { capitalizeWords } from "../utils/stringUtils";
 import { HiOutlineLogout, HiOutlineUserCircle } from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -18,6 +19,12 @@ export default function CafeNavbar() {
   const menuRef = React.useRef(null);
 
   const brandLogo = currentUser?.logo?.url || "/logo.png";
+  const cafeDisplayName = capitalizeWords(
+    currentUser?.displayName ||
+      currentUser?.name ||
+      currentUser?.uname ||
+      "Cafe Operator",
+  );
 
   React.useEffect(() => {
     const handleClickOutside = (event) => {
@@ -33,12 +40,6 @@ export default function CafeNavbar() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [openMenu]);
-
-  const cafeDisplayName =
-    currentUser?.displayName ||
-    currentUser?.name ||
-    currentUser?.uname ||
-    "Cafe Operator";
 
   const handleLogoutClick = () => {
     setOpenMenu(false);

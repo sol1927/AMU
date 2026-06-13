@@ -280,7 +280,7 @@ export default function CampusNavbar() {
                         {capitalizeWords(currentCampus?.name || "Campus")}
                       </p>
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                        Campus account
+                        Signed in as campus
                       </p>
                     </div>
                   </div>

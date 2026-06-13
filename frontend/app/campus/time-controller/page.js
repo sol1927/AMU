@@ -8,9 +8,9 @@ import { useRouter } from "next/navigation";
 const url = process.env.NEXT_PUBLIC_API_URL;
 
 const defaultSchedule = {
-  breakfast: { start: "06:00", end: "09:00", label: "06:00 - 09:00" },
-  lunch: { start: "11:00", end: "14:00", label: "11:00 - 14:00" },
-  dinner: { start: "17:00", end: "20:00", label: "17:00 - 20:00" },
+  breakfast: { start: "", end: "", label: "--:-- - --:--" },
+  lunch: { start: "", end: "", label: "--:-- - --:--" },
+  dinner: { start: "", end: "", label: "--:-- - --:--" },
 };
 
 const mealCards = [

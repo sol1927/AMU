@@ -329,6 +329,23 @@ export default function CafeManagersPage() {
     }
   };
 
+  const getManagerName = (name) => {
+    if (!name) return "Manager";
+
+    let normalized = String(name)
+      .replace(/[_]+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([a-z])(\d+)/gi, "$1 $2")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return normalized
+      .split(/[-\s]+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
   return (
     <>
       <CampusNavbar />
@@ -433,7 +450,7 @@ export default function CafeManagersPage() {
                             title={manager.name}
                             className="text-xl font-bold text-slate-900 dark:text-white max-w-[150px] truncate"
                           >
-                            {manager.name}
+                            {getManagerName(manager.name)}
                           </h2>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-600 dark:text-indigo-400">

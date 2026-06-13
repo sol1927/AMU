@@ -14,10 +14,18 @@ import { TbScan } from "react-icons/tb";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
+const capitalizeWords = (str) => {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/(^|[\s-])\S/g, (match) => match.toUpperCase());
+};
+
 export default function CafeDashboardPage() {
   const router = useRouter();
   const { currentUser } = useUser();
-  const [stats, setStats] = useState({ totalStudents: 0 });
+  const [stats, setStats] = useState({ totalStudents: 0, assignedStudents: 0 });
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const isCafeManager = currentUser?.role === "cafe manager";
   const basePath = "/cafe-manager";
@@ -38,12 +46,20 @@ export default function CafeDashboardPage() {
     const fetchStats = async () => {
       try {
         const res = await fetch(
-          `${url}/dashboard/campuses/${currentUser.campusId}/students?cafeNumber=${activeCafeNum}`,
+          `${url}/dashboard/campuses/${currentUser.campusId}/students/all`,
           { credentials: "include" },
         );
         if (res.ok) {
           const data = await res.json();
-          setStats({ totalStudents: data.totalStudents || 0 });
+          const cafeTotals = data.cafeTotals || {};
+          const assignedStudents = Object.values(cafeTotals).reduce(
+            (sum, value) => sum + (Number(value) || 0),
+            0,
+          );
+          setStats({
+            totalStudents: data.totalStudents || 0,
+            assignedStudents,
+          });
         }
       } catch (err) {
         console.error("Failed to load dashboard stats:", err);
@@ -62,10 +78,13 @@ export default function CafeDashboardPage() {
       <div className="mx-auto flex max-w-6xl flex-col gap-8 animate-fadeIn">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-blue-700 sm:text-5xl">
-              {isCafeManager ? "Cafe Manager Dashboard" : "Cafe Dashboard"}
+            <p className="text-xs uppercase tracking-[0.35em] text-blue-500/80 font-bold">
+              {isCafeManager ? "Cafe Manager" : "Cafe Operator"}
+            </p>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-blue-700 sm:text-5xl">
+              Welcome, {capitalizeWords(currentUser?.name) || (isCafeManager ? "Manager" : "Operator")}
             </h1>
-            <p className="mt-2 text-lg text-slate-600 dark:text-slate-400">
+            <p className="mt-2 text-slate-600 dark:text-slate-400">
               {isCafeManager
                 ? "Manage cafe accounts, student records, and cafeteria operations."
                 : "Manage your cafe station, scanning, and student records."}
@@ -115,19 +134,37 @@ export default function CafeDashboardPage() {
             </div>
           </div>
 
-          <div className="surface-card flex flex-col justify-between rounded-3xl p-8">
-            <div className="flex items-center justify-between">
-              <div className="rounded-2xl bg-blue-50 p-4 text-blue-600">
-                <HiOutlineUserGroup className="h-7 w-7" />
+          <div className="grid gap-6">
+            <div className="surface-card flex flex-col justify-between rounded-3xl p-8">
+              <div className="flex items-center justify-between">
+                <div className="rounded-2xl bg-blue-50 p-4 text-blue-600">
+                  <HiOutlineUserGroup className="h-7 w-7" />
+                </div>
+              </div>
+              <div className="mt-8">
+                <span className="block text-sm font-semibold uppercase tracking-wider text-inherit">
+                  Total Cohort Students
+                </span>
+                <span className="mt-1 block text-5xl font-black text-inherit">
+                  {stats.totalStudents}
+                </span>
               </div>
             </div>
-            <div className="mt-8">
-              <span className="block text-sm font-semibold uppercase tracking-wider text-inherit">
-                Assigned Cohort Students
-              </span>
-              <span className="mt-1 block text-5xl font-black text-inherit">
-                {stats.totalStudents}
-              </span>
+
+            <div className="surface-card flex flex-col justify-between rounded-3xl p-8">
+              <div className="flex items-center justify-between">
+                <div className="rounded-2xl bg-blue-50 p-4 text-blue-600">
+                  <HiOutlineUsers className="h-7 w-7" />
+                </div>
+              </div>
+              <div className="mt-8">
+                <span className="block text-sm font-semibold uppercase tracking-wider text-inherit">
+                  Assigned Students
+                </span>
+                <span className="mt-1 block text-5xl font-black text-inherit">
+                  {stats.assignedStudents}
+                </span>
+              </div>
             </div>
           </div>
         </section>

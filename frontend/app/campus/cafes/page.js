@@ -217,11 +217,19 @@ export default function CafesPage() {
 
   const getCafeName = (name) => {
     if (!name) return "Cafe";
-    if (/^cafe/i.test(name)) {
-      return name.replace(/^cafe/i, "Cafe ").trim();
-    }
-    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
-    return formatted.replace(/([^-\s])(\d+)/g, "$1 $2").trim();
+
+    let normalized = String(name)
+      .replace(/[_]+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([a-z])(\d+)/gi, "$1 $2")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return normalized
+      .split(/[-\s]+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
   };
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { React, useEffect, useMemo, useState } from "react";
+import { React, useEffect, useMemo, useRef, useState } from "react";
 import CampusNavbar from "@/app/components/CampusNavbar";
 import { useCampus } from "@/app/context/CampusContext";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,7 @@ export default function CampusStudentsPage() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [refreshingStudents, setRefreshingStudents] = useState(false);
   const [cafes, setCafes] = useState([]);
+  const hasMountedSearch = useRef(false);
 
   const router = useRouter();
   const { currentCampus } = useCampus();
@@ -195,6 +196,11 @@ export default function CampusStudentsPage() {
   }, [currentCampus, selectedCafe]);
 
   useEffect(() => {
+    if (!hasMountedSearch.current) {
+      hasMountedSearch.current = true;
+      return;
+    }
+
     const timer = setTimeout(() => {
       fetchStudents(searchQuery, fastingFilter);
       setSelectedStudents([]);
@@ -202,7 +208,7 @@ export default function CampusStudentsPage() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, fastingFilter, selectedCafe]);
+  }, [searchQuery, fastingFilter]);
 
   const filteredAndSortedStudents = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();

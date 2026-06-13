@@ -263,8 +263,12 @@ export default function CafeScanPage() {
     const statusMessage = student.statusMessage?.trim();
     if (statusMessage) return statusMessage;
 
+    if (student.assignedCafeName) {
+      return `የተመደቡበት ካፌ ${student.assignedCafeName}`;
+    }
+
     if (student.assignedCafeNumber) {
-      return `This student is assigned to Cafe ${student.assignedCafeNumber}.`;
+      return `የተመደቡበት ካፌ ${student.assignedCafeNumber}`;
     }
 
     return "አልተፈቀደም";

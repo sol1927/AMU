@@ -1,16 +1,12 @@
 import "./globals.css";
 import React from "react";
-import { Inter } from "next/font/google";
 import { TempAdminProvider } from "./context/TempAdminContext";
 import { UserProvider } from "./context/UserContext";
 import { CampusProvider } from "./context/CampusContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import PropTypes from "prop-types";
 
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-});
+const inter = { className: "font-sans" };
 
 export const metadata = {
   title: "GibiGebeta",

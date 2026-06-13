@@ -12,6 +12,14 @@ import { TbScan } from "react-icons/tb";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
+const capitalizeWords = (str) => {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 export default function CafeOperatorDashboardPage() {
   const router = useRouter();
   const { currentUser } = useUser();
@@ -52,10 +60,13 @@ export default function CafeOperatorDashboardPage() {
         {/* Welcome Section */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-blue-700 dark:text-blue-500 sm:text-5xl">
-              Cafe Console
+            <p className="text-xs uppercase tracking-[0.35em] text-blue-500/80 font-bold">
+              Cafe Operator
+            </p>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-blue-700 sm:text-5xl">
+              Welcome, {capitalizeWords(currentUser?.displayName || currentUser?.name) || "Operator"}
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">
+            <p className="mt-2 text-slate-600 dark:text-slate-400">
               Scan and validate student meal tickets at your active station.
             </p>
           </div>

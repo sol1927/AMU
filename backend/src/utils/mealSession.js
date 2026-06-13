@@ -3,6 +3,7 @@ import MealSchedule from "../models/mealSchedule.model.js";
 import Meal from "../models/meal.model.js";
 import CafeStudent from "../models/cafeStudent.model.js";
 import User from "../models/user.model.js";
+import { findActiveConfig } from "../models/mealSessionConfigHistory.model.js";
 import { getStudentCampusQuery } from "./campusId.js";
 import { filterStudentsForCafeNumber } from "./cafeScope.js";
 import {
@@ -182,38 +183,29 @@ export const getMealScheduleAt = async (
 
   const baseSchedule = await getMealSchedule(campusId);
   const referenceDay = getAppDayString(referenceDate);
-  const meals = await Meal.findAll({ campus: campusId, date: referenceDay });
 
-  if (meals.length === 0) {
-    return baseSchedule;
+  const schedule = {};
+  for (const mealType of MEAL_ORDER) {
+    const activeConfig = await findActiveConfig(campusId, mealType, referenceDay);
+    if (activeConfig) {
+      schedule[mealType] = {
+        start: activeConfig.startTime,
+        end: activeConfig.endTime,
+        label: `${activeConfig.startTime} - ${activeConfig.endTime}`,
+      };
+    } else {
+      schedule[mealType] = baseSchedule[mealType] || DEFAULT_MEAL_SCHEDULE[mealType];
+    }
   }
 
-  return MEAL_ORDER.reduce(
-    (schedule, mealType) => {
-      const meal = meals.find((entry) => entry.mealType === mealType);
-      const appliedWindow = meal?.appliedWindow;
-
-      if (!appliedWindow?.start || !appliedWindow?.end) {
-        return schedule;
-      }
-
-      schedule[mealType] = {
-        start: appliedWindow.start,
-        end: appliedWindow.end,
-        label: getMealWindowLabel(appliedWindow),
-      };
-
-      return schedule;
-    },
-    { ...baseSchedule },
-  );
+  return formatMealScheduleForResponse(schedule);
 };
 
 export const getCurrentMealType = async (
   campusId,
   currentDate = new Date(),
 ) => {
-  const schedule = await getMealSchedule(campusId);
+  const schedule = await getMealScheduleAt(campusId, currentDate);
   const currentMinutes = getAppMinutesFromDate(currentDate);
 
   for (const mealType of MEAL_ORDER) {
@@ -235,7 +227,7 @@ export const getDashboardMealContext = async (
   campusId,
   currentDate = new Date(),
 ) => {
-  const schedule = await getMealSchedule(campusId);
+  const schedule = await getMealScheduleAt(campusId, currentDate);
   const current = new Date(currentDate);
   const currentMinutes = getAppMinutesFromDate(current);
 

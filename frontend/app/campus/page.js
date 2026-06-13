@@ -11,7 +11,6 @@ import {
   HiOutlineSwitchHorizontal,
   HiOutlineUserCircle,
   HiOutlineArrowLeft,
-  HiOutlineTrendingUp,
 } from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -58,10 +57,9 @@ const capitalizeWords = (str) => {
 const getCafeDisplayName = (cafe) => {
   if (!cafe) return "";
   if (cafe.displayName) return cafe.displayName;
-  const numMatch = cafe.name?.match(/\d+/);
-  return numMatch
-    ? String(numMatch[0])
-    : cafe.name?.charAt(0).toUpperCase() + cafe.name?.slice(1);
+  return cafe.name
+    ? cafe.name.charAt(0).toUpperCase() + cafe.name.slice(1)
+    : "";
 };
 
 export default function CampusDashboardPage() {
@@ -537,8 +535,8 @@ export default function CampusDashboardPage() {
   return (
     <>
       <CampusNavbar />
-      <div className="page-shell min-h-screen px-6 pb-12 pt-20 md:px-20 md:pt-28">
-        <section className="mb-12 relative">
+      <div className="page-shell min-h-screen px-6 pb-12 pt-28 md:px-20 md:pt-36">
+        <section className="mb-12 relative mx-auto max-w-5xl">
           {/* Sleek Auto-refreshing Live Cafes at Top Right */}
           <div className="absolute top-0 right-0 hidden lg:flex flex-col items-end gap-2 text-xs animate-fadeIn">
             <span className="flex items-center gap-1.5 font-bold text-slate-400 uppercase tracking-wider">
@@ -583,10 +581,18 @@ export default function CampusDashboardPage() {
             </div>
           </div>
 
-          <div className="text-center mb-8">
-            <h1 className="mb-4 text-3xl font-extrabold md:text-5xl text-blue-700">
-              Welcome, {capitalizeWords(currentCampus?.name || "Campus")}
-            </h1>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-blue-500/80 font-bold">
+                Campus Admin
+              </p>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-blue-700 sm:text-5xl">
+                Welcome, {capitalizeWords(currentCampus?.name || "Campus")}
+              </h1>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                Manage cafeteria terminals, scanning schedules, and student directory cohorts.
+              </p>
+            </div>
           </div>
 
           {/* Mobile responsive view of live cafes */}
@@ -655,14 +661,6 @@ export default function CampusDashboardPage() {
                     </p>
 
                     <div className="mt-8 flex flex-wrap gap-4">
-                      <button
-                        onClick={() => setShowSnapshot(true)}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3.5 shadow-lg shadow-blue-500/25 transition active:scale-95 duration-200"
-                      >
-                        <HiOutlineTrendingUp className="h-5 w-5 animate-pulse" />
-                        View Live Meal Snapshot
-                      </button>
-
                       <button
                         onClick={() => fetchDashboardStats(true)}
                         disabled={isRefreshing}

@@ -158,39 +158,39 @@ export default function AdminDashboardPage() {
   );
 
   return (
-    <div className="page-shell px-4 pb-10 pt-24 md:px-8">
+    <div className="page-shell min-h-screen px-6 pb-12 pt-28 md:px-20 md:pt-36">
       <div className="mx-auto max-w-6xl">
-        <section className="grid gap-6">
-          <div className="surface-panel rounded-[30px] p-6 md:p-7">
-            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">
-              Main Admin
-            </p>
-            <h1 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
-              Welcome, {capitalizeWords(currentUser?.name) || "Admin"}
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
-              This dashboard stays focused on navigation and campus oversight.
-              Meal totals are now kept in the history page, so this space is
-              lighter and easier to read.
-            </p>
+        <section className="mb-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-blue-500/80 font-bold">
+                Main Admin
+              </p>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-blue-700 sm:text-5xl">
+                Welcome, {capitalizeWords(currentUser?.name) || "Admin"}
+              </h1>
+              <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-400">
+                This dashboard stays focused on navigation and campus oversight.
+                Meal totals are now kept in the history page, so this space is
+                lighter and easier to read.
+              </p>
+            </div>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               <Link
                 href="/dashboard/campuses"
-                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:scale-[1.01]"
+                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01]"
               >
                 Open Campuses
               </Link>
               <Link
                 href="/dashboard/meals"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
                 Open Meal History
               </Link>
             </div>
           </div>
-
-          {/* Live Campuses section moved to campus dashboard */}
         </section>
 
         <section className="mt-8 grid gap-6 md:grid-cols-3">

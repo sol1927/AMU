@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
 import ThemeToggle from "./ThemeToggle";
 import ConfirmModal from "./ConfirmModal";
+import { capitalizeWords } from "../utils/stringUtils";
 import { HiOutlineLogout, HiOutlineUserCircle } from "react-icons/hi";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
@@ -18,6 +19,9 @@ export default function CafeManagerNavbar() {
   const menuRef = React.useRef(null);
 
   const brandLogo = currentUser?.logo?.url || "/logo.png";
+  const formattedUserName = capitalizeWords(
+    currentUser?.displayName || currentUser?.name || "Cafe Manager",
+  );
 
   React.useEffect(() => {
     const handleClickOutside = (event) => {
@@ -99,10 +103,10 @@ export default function CafeManagerNavbar() {
                 )}
               </div>
               <span
-                title={currentUser?.displayName || currentUser?.name || "Cafe Manager"}
+                title={formattedUserName}
                 className="hidden max-w-[150px] truncate font-medium text-slate-700 sm:inline-block"
               >
-                {currentUser?.displayName || currentUser?.name || "Cafe Manager"}
+                {formattedUserName}
               </span>
               <span
                 className={`text-xs text-slate-500 transition-transform duration-300 ${openMenu ? "rotate-180" : ""}`}
@@ -133,10 +137,10 @@ export default function CafeManagerNavbar() {
                   </div>
                   <div className="min-w-0">
                     <p
-                      title={currentUser?.displayName || currentUser?.name || "Cafe Manager"}
+                      title={formattedUserName}
                       className="truncate text-sm font-semibold text-slate-900"
                     >
-                      {currentUser?.displayName || currentUser?.name || "Cafe Manager"}
+                      {formattedUserName}
                     </p>
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
                       Signed in as cafe manager

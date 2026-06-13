@@ -109,19 +109,22 @@ const getAdminLogoUrlForUser = async (user) => {
     if (currentRole === "campus" && currentCreatedBy) {
       const [rows] = await getDB().execute(
         "SELECT logo_url FROM users WHERE id = ?",
-        [currentCreatedBy]
+        [currentCreatedBy],
       );
       if (rows[0]?.logo_url) return rows[0].logo_url;
-    } else if (["cafe", "cafe manager"].includes(currentRole) && currentCreatedBy) {
+    } else if (
+      ["cafe", "cafe manager"].includes(currentRole) &&
+      currentCreatedBy
+    ) {
       const [campusRows] = await getDB().execute(
         "SELECT createdBy FROM users WHERE id = ?",
-        [currentCreatedBy]
+        [currentCreatedBy],
       );
       const parentAdminId = campusRows[0]?.createdBy;
       if (parentAdminId) {
         const [adminRows] = await getDB().execute(
           "SELECT logo_url FROM users WHERE id = ?",
-          [parentAdminId]
+          [parentAdminId],
         );
         if (adminRows[0]?.logo_url) return adminRows[0].logo_url;
       }
@@ -133,7 +136,7 @@ const getAdminLogoUrlForUser = async (user) => {
   // Fallback to the first system admin's logo
   try {
     const [fallbackRows] = await getDB().execute(
-      "SELECT logo_url FROM users WHERE role = 'admin' LIMIT 1"
+      "SELECT logo_url FROM users WHERE role = 'admin' LIMIT 1",
     );
     return fallbackRows[0]?.logo_url || null;
   } catch {
@@ -152,6 +155,10 @@ const findAll = async (filter = {}, options = {}) => {
   if (filter.name !== undefined) {
     query += " AND name = ?";
     params.push(filter.name);
+  }
+  if (filter.nameExact !== undefined) {
+    query += " AND BINARY name = ?";
+    params.push(filter.nameExact);
   }
   if (filter.nameInsensitive !== undefined) {
     query += " AND LOWER(name) = LOWER(?)";

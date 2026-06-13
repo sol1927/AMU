@@ -60,9 +60,11 @@ export default function CafeScanPage() {
   const [currentMealSession, setCurrentMealSession] = useState(() =>
     getCurrentMealSession(null),
   );
+  const [cardTimeoutMs, setCardTimeoutMs] = useState(3000);
 
   const hiddenInputRef = useRef(null);
   const manualInputRef = useRef(null);
+  const panelRef = useRef(null);
   const bufferRef = useRef("");
   const lastTimeRef = useRef(0);
   const timeoutRef = useRef(null);
@@ -85,23 +87,35 @@ export default function CafeScanPage() {
 
   useEffect(() => {
     if (!student) return;
+    if (cardTimeoutMs <= 0) return undefined;
 
     const timer = setTimeout(() => {
       setStudent(null);
       setAllowed(null);
-    }, 3000);
+    }, cardTimeoutMs);
 
     return () => clearTimeout(timer);
-  }, [student]);
+  }, [student, cardTimeoutMs]);
 
   useEffect(() => {
     hiddenInputRef.current?.focus();
     lastTimeRef.current = Date.now();
-  }, []);
+
+    const handlePageClick = (event) => {
+      if (showManualScan) return;
+      if (panelRef.current?.contains(event.target)) return;
+      hiddenInputRef.current?.focus();
+    };
+
+    window.addEventListener("click", handlePageClick);
+    return () => window.removeEventListener("click", handlePageClick);
+  }, [showManualScan]);
 
   useEffect(() => {
     if (showManualScan) {
       manualInputRef.current?.focus();
+    } else {
+      hiddenInputRef.current?.focus();
     }
   }, [showManualScan]);
 
@@ -172,6 +186,8 @@ export default function CafeScanPage() {
         setStudent({
           ...data.student,
           statusMessage,
+          denialCode: data?.student?.denialCode || data?.denialCode,
+          reason: data?.student?.reason || data?.reason || "",
         });
         setAllowed(allowed);
         setShokeKey((prev) => prev + 1);
@@ -207,6 +223,7 @@ export default function CafeScanPage() {
   useEffect(() => {
     const handleScannerInput = (event) => {
       if (event.target === manualInputRef.current) return;
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
 
       const now = Date.now();
       if (now - lastTimeRef.current > 50) bufferRef.current = "";
@@ -221,7 +238,7 @@ export default function CafeScanPage() {
             bufferRef.current = "";
             processScan(studentId);
           }
-        }, 50);
+        }, 100);
       } else if (event.key === "Enter") {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         const studentId = bufferRef.current.trim();
@@ -230,8 +247,9 @@ export default function CafeScanPage() {
       }
     };
 
-    window.addEventListener("keydown", handleScannerInput);
-    return () => window.removeEventListener("keydown", handleScannerInput);
+    document.addEventListener("keydown", handleScannerInput, true);
+    return () =>
+      document.removeEventListener("keydown", handleScannerInput, true);
   }, []);
 
   const handleManualScan = () => {
@@ -249,6 +267,10 @@ export default function CafeScanPage() {
   const getCardClasses = () => {
     if (!student)
       return "bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500";
+    if (student.denialCode === "fasting_restriction")
+      return "bg-red-700 text-white shadow-2xl animate-shake border border-red-900";
+    if (student.denialCode === "duplicate")
+      return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold animate-shake border border-orange-500";
     if (student.isInternship)
       return "bg-gradient-to-r from-pink-500 to-red-600 text-white shadow-lg animate-shake";
     if (student.name === "Student not found")
@@ -257,19 +279,28 @@ export default function CafeScanPage() {
       return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold animate-shake";
     if (allowed)
       return "bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg";
-    return "bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg font-semibold";
+    return "bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg animate-shake";
   };
 
   const getStatusText = () => {
     if (!student) return "";
     if (student.name === "Student not found") return "";
     if (allowed) return "ተፈቅዷል";
+    if (
+      student.denialCode === "fasting_restriction" ||
+      student.denialCode === "duplicate"
+    )
+      return "አልተፈቀደም";
 
     const statusMessage = student.statusMessage?.trim();
     if (statusMessage) return statusMessage;
 
+    if (student.assignedCafeName) {
+      return `የተመደቡበት ካፌ ${student.assignedCafeName}`;
+    }
+
     if (student.assignedCafeNumber) {
-      return `This student is assigned to Cafe ${student.assignedCafeNumber}.`;
+      return `የተመደቡበት ካፌ ${student.assignedCafeNumber}`;
     }
 
     return "አልተፈቀደም";
@@ -337,9 +368,9 @@ export default function CafeScanPage() {
                     <div className="flex min-w-0 gap-2">
                       <span className="shrink-0 font-semibold">Fasting:</span>
                       <span
-                        className={`min-w-0 flex-1 break-words text-left ${
-                          student.fastingType !== "not_fasting"
-                            ? "text-2xl font-semibold"
+                        className={`min-w-0 flex-1 break-words text-left text-2xl font-semibold ${
+                          student.denialCode === "fasting_restriction"
+                            ? "animate-breathing"
                             : ""
                         }`}
                       >
@@ -369,7 +400,29 @@ export default function CafeScanPage() {
       </div>
 
       <div className="fixed right-4 bottom-4 z-40 flex justify-end">
-        <div className="surface-panel w-full max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+        <div
+          ref={panelRef}
+          className="surface-panel w-full max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
+        >
+          <div className="mb-3 rounded-2xl bg-slate-100 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold">Card timeout</span>
+              <select
+                value={cardTimeoutMs}
+                onChange={(event) =>
+                  setCardTimeoutMs(Number(event.target.value))
+                }
+                className="rounded-xl border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value={0}>Off</option>
+                <option value={3000}>3 seconds</option>
+                <option value={5000}>5 seconds</option>
+                <option value={8000}>8 seconds</option>
+                <option value={10000}>10 seconds</option>
+              </select>
+            </div>
+          </div>
+
           {!showManualScan ? (
             <div className="flex flex-col gap-2">
               <div className="rounded-2xl bg-blue-600 px-3 py-2 text-white">
@@ -440,7 +493,9 @@ export default function CafeScanPage() {
       <input
         ref={hiddenInputRef}
         type="text"
-        className="pointer-events-none absolute h-0 w-0 opacity-0"
+        aria-hidden="true"
+        tabIndex={-1}
+        className="absolute left-[-9999px] top-[-9999px] h-0 w-0 opacity-0"
       />
 
       {toast && (
@@ -477,6 +532,21 @@ export default function CafeScanPage() {
 
         .animate-shake {
           animation: shake 0.6s ease-in-out;
+        }
+
+        @keyframes breathing {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.06);
+          }
+        }
+
+        .animate-breathing {
+          display: inline-block;
+          animation: breathing 2.2s ease-in-out infinite;
         }
       `}</style>
     </div>

@@ -66,7 +66,10 @@ export const login = async (req, res) => {
     if (isUsernameLogin) {
       // Cafe login by username.
       user =
-        (await User.findOne({ name: identifier.toLowerCase() }, { includePassword: true })) ||
+        (await User.findOne(
+          { nameExact: identifier },
+          { includePassword: true },
+        )) ||
         (await User.findOne(
           { email: identifier.toLowerCase() },
           { includePassword: true },
@@ -120,7 +123,11 @@ export const login = async (req, res) => {
     user = await resetAccountLock(role, user.id, { includePassword: true });
 
     if (role === "cafe" && user.mustChangePassword) {
-      user = await User.updateById(user.id, { mustChangePassword: false }, { includePassword: true });
+      user = await User.updateById(
+        user.id,
+        { mustChangePassword: false },
+        { includePassword: true },
+      );
     }
 
     const token =
@@ -250,4 +257,3 @@ export const selectCafeNumber = async (req, res) => {
     res.status(500).json({ message: "Could not select cafe number" });
   }
 };
-

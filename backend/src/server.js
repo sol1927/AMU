@@ -10,6 +10,11 @@ import { createTable as createStationScanTable } from "./models/stationScan.mode
 import { createTable as createTempAdminTable } from "./models/TempAdmin.model.js";
 import { createTable as createTempEmailChangeTable } from "./models/TempEmailChange.model.js";
 import { createTable as createPendingApprovalTable } from "./models/pendingApproval.model.js";
+import { createTable as createMealSessionConfigHistoryTable } from "./models/mealSessionConfigHistory.model.js";
+import { createTable as createMealAttendanceSnapshotTable } from "./models/mealAttendanceSnapshot.model.js";
+
+import { createTable as createMealSessionSnapshotTable } from "./models/mealSessionSnapshot.model.js";
+import { createTable as createMealScanHistoryTable } from "./models/mealScanHistory.model.js";
 
 dotenv.config();
 
@@ -29,6 +34,10 @@ const initializeDatabase = async () => {
   await createTempAdminTable();
   await createTempEmailChangeTable();
   await createPendingApprovalTable();
+  await createMealSessionConfigHistoryTable();
+  await createMealAttendanceSnapshotTable();
+  await createMealSessionSnapshotTable();
+  await createMealScanHistoryTable();
 };
 
 const ensureDatabaseTables = async ({ force = false } = {}) => {

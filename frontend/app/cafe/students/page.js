@@ -24,6 +24,23 @@ const getCafeName = (name) => {
   return formatted.replace(/([^-\s])(\d+)/g, "$1 $2").trim();
 };
 
+const getCafeLabelByNumber = (cafes, cafeNumber) => {
+  const normalized = Number(cafeNumber);
+  if (!Number.isInteger(normalized) || normalized < 1) {
+    return `Cafe ${cafeNumber}`;
+  }
+
+  const matchedCafe = cafes.find((cafe, index) => {
+    const resolvedNumber =
+      cafe?.cafeNumber || getCafeNum(cafe?.name) || index + 1;
+    return Number(resolvedNumber) === normalized;
+  });
+
+  return matchedCafe
+    ? matchedCafe.displayName || getCafeName(matchedCafe.name)
+    : `Cafe ${normalized}`;
+};
+
 export default function CafeStudentsPage() {
   const router = useRouter();
   const { currentUser } = useUser();
@@ -74,6 +91,8 @@ export default function CafeStudentsPage() {
 
   const activeCafeNum =
     currentUser?.activeCafeNumber || currentUser?.selectedCafeNumber || 1;
+
+  const activeCafeLabel = getCafeLabelByNumber(cafes, activeCafeNum);
 
   const isAuthorized = currentUser && currentUser.role === "cafe";
 
@@ -221,13 +240,13 @@ export default function CafeStudentsPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold leading-none text-slate-900">
-              Cafe {activeCafeNum} Students
+              {activeCafeLabel} Students
             </h1>
             <p className="rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">
               Showing {filteredAndSortedStudents.length} students
             </p>
             <p className="rounded-full bg-sky-50 dark:bg-sky-950/45 px-3 py-1 text-sm font-semibold text-sky-700 dark:text-sky-400">
-              Station Cafe {activeCafeNum} Total: {totalStudents}
+              Station {activeCafeLabel} Total: {totalStudents}
             </p>
           </div>
 
@@ -271,7 +290,7 @@ export default function CafeStudentsPage() {
             className="field-surface appearance-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-56 max-w-[200px] truncate"
           >
             <option value="">All Fasting Types</option>
-            <option value="fasting">Fasting</option>
+            <option value="fasting">Orthodox Fasting</option>
             <option value="not_fasting">Not Fasting</option>
             <option value="sunday_fasting">Sunday Fasting</option>
             <option value="muslim_fasting">Muslim Fasting</option>

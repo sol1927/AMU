@@ -19,6 +19,7 @@ import {
 } from "../controllers/campus.controller.js";
 import {
   getCampusStudents,
+  getCampusStudentsAll,
   getCampusBatches,
   getStudentsByBatch,
   bulkUpdateFasting,
@@ -38,6 +39,7 @@ router.put("/meal-schedule/:campusId", verifyToken, updateMealSchedule);
 router.post("/campuses", verifyToken, createCampus);
 router.get("/campuses", verifyToken, getCampuses);
 router.get("/campuses/:id/students", verifyToken, getCampusStudents);
+router.get("/campuses/:id/students/all", verifyToken, getCampusStudentsAll);
 router.get("/campuses/:id/students/batches", verifyToken, getCampusBatches);
 router.patch(
   "/campuses/:id/students/batches/:batch/cafe-number",
