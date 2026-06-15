@@ -61,7 +61,6 @@ export default function DashboardCampusCafeViewPage() {
 
   const [campus, setCampus] = useState(null);
   const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState(null);
@@ -142,8 +141,6 @@ export default function DashboardCampusCafeViewPage() {
         setStudents(data.students || []);
       } catch (err) {
         setError(getErrorMessage(err, "We could not load students right now."));
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -151,12 +148,6 @@ export default function DashboardCampusCafeViewPage() {
     fetchStudents();
   }, [campusId]);
 
-  const getCafeDisplayName = (cafeNumber) => {
-    const matchedCafe = campusCafes.find(
-      (cafe) => Number(cafe.cafeNumber) === Number(cafeNumber),
-    );
-    return matchedCafe?.displayName || String(cafeNumber);
-  };
 
   const handleOpenCafe = (cafeNumber) => {
     router.push(`/dashboard/students/${campusId}?cafeNumber=${cafeNumber}`);

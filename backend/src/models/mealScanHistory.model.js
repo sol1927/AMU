@@ -1,5 +1,5 @@
 import { getDB } from "../config/db.js";
-import { mapRow, mapRows, normalizeDate } from "./modelUtils.js";
+import { mapRows, normalizeDate } from "./modelUtils.js";
 
 const createTable = async () => {
   const query = `

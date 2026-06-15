@@ -1,5 +1,5 @@
 import { getDB } from "../config/db.js";
-import { mapRow, mapRows, normalizeDate, parseJsonField } from "./modelUtils.js";
+import { mapRows, normalizeDate, parseJsonField } from "./modelUtils.js";
 
 const mapSnapshotRow = (row) => ({
   ...row,

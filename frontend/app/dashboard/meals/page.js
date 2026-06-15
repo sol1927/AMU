@@ -148,7 +148,8 @@ export default function MealsPage() {
     const fetchInitialSchedule = async () => {
       if (!selectedCampus) return;
       try {
-        const campusIdForReport = selectedCampusData?.campusId ?? selectedCampus;
+        const campusIdForReport =
+          selectedCampusData?.campusId ?? selectedCampus;
         const today = getAppDayString();
         const params = new URLSearchParams();
         params.append("campusId", campusIdForReport);
@@ -198,7 +199,10 @@ export default function MealsPage() {
     }
 
     if (baseCafeLabel) {
-      if (campusName && !baseCafeLabel.toLowerCase().includes(campusName.toLowerCase())) {
+      if (
+        campusName &&
+        !baseCafeLabel.toLowerCase().includes(campusName.toLowerCase())
+      ) {
         return `${campusName} ${baseCafeLabel}`;
       }
       return baseCafeLabel;
@@ -379,7 +383,8 @@ export default function MealsPage() {
                 </h1>
               </div>
               <p className="text-xs text-slate-500 max-w-2xl">
-                Generate daily, weekly, or monthly attendance snapshots for all students and export the results.
+                Generate daily, weekly, or monthly attendance snapshots for all
+                students and export the results.
               </p>
             </div>
           </div>
@@ -468,7 +473,9 @@ export default function MealsPage() {
                             <button
                               key={session.value}
                               type="button"
-                              onClick={() => setReportMealSession(session.value)}
+                              onClick={() =>
+                                setReportMealSession(session.value)
+                              }
                               className={`min-w-[11rem] rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition ${
                                 reportMealSession === session.value
                                   ? "border-cyan-400 bg-cyan-50 text-cyan-700"
@@ -645,7 +652,8 @@ export default function MealsPage() {
                           (s) => s.value === reportMealSession,
                         );
                         let detail = session?.detail;
-                        const schedule = reportData?.mealSchedule || mealSchedule || {};
+                        const schedule =
+                          reportData?.mealSchedule || mealSchedule || {};
                         const appliedWindow = reportData?.appliedMealWindow;
 
                         if (
@@ -693,7 +701,9 @@ export default function MealsPage() {
                   </div>
                 ) : (
                   <div className="mt-6 grid gap-4">
-                    <div className={`grid gap-3 mt-5 ${reportCafe ? "grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
+                    <div
+                      className={`grid gap-3 mt-5 ${reportCafe ? "grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}
+                    >
                       <div className="rounded-3xl bg-white border border-blue-100 p-4 text-left">
                         <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">
                           Total Students
@@ -748,7 +758,12 @@ export default function MealsPage() {
                               Internship
                             </p>
                             <p className="mt-1 text-2xl font-black text-slate-800">
-                              {(reportData.stats.totalInternships ?? reportData.stats.totalInternship ?? reportData.stats.internshipStudents ?? 0).toLocaleString()}
+                              {(
+                                reportData.stats.totalInternships ??
+                                reportData.stats.totalInternship ??
+                                reportData.stats.internshipStudents ??
+                                0
+                              ).toLocaleString()}
                             </p>
                           </div>
                         </>
@@ -815,7 +830,10 @@ export default function MealsPage() {
                                 Total Students
                               </p>
                               <p className="mt-2 text-2xl font-black text-blue-900">
-                                {(reportData.stats.totalServed + reportData.stats.totalUnserved).toLocaleString()}
+                                {(
+                                  reportData.stats.totalServed +
+                                  reportData.stats.totalUnserved
+                                ).toLocaleString()}
                               </p>
                             </div>
                             <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">

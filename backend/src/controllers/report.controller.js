@@ -540,19 +540,42 @@ const calculateReportStats = async (
           let snapSunday = Number(row.sundayFastingCount) || 0;
           let snapNotFasting = Number(row.notFastingCount) || 0;
 
-          if (snapOrthodox + snapMuslim + snapSunday + snapNotFasting === 0) {
-            snapOrthodox = studentsForScope.filter(
+          const rowDateStr = getAppDayString(
+            row.date instanceof Date ? row.date : new Date(row.date),
+          );
+          if (rowDateStr === today || snapOrthodox + snapMuslim + snapSunday + snapNotFasting === 0) {
+            const currentOrthodox = studentsForScope.filter(
               (s) => s.fastingType === "fasting",
             ).length;
-            snapMuslim = studentsForScope.filter(
+            const currentMuslim = studentsForScope.filter(
               (s) => s.fastingType === "muslim_fasting",
             ).length;
-            snapSunday = studentsForScope.filter(
+            const currentSunday = studentsForScope.filter(
               (s) => s.fastingType === "sunday_fasting",
             ).length;
-            snapNotFasting = studentsForScope.filter(
+            const currentNotFasting = studentsForScope.filter(
               (s) => s.fastingType === "not_fasting",
             ).length;
+
+            if (
+              currentOrthodox !== snapOrthodox ||
+              currentMuslim !== snapMuslim ||
+              currentSunday !== snapSunday ||
+              currentNotFasting !== snapNotFasting
+            ) {
+              snapOrthodox = currentOrthodox;
+              snapMuslim = currentMuslim;
+              snapSunday = currentSunday;
+              snapNotFasting = currentNotFasting;
+
+              // Save the updated counts back to the snapshot in the database
+              await getDB().execute(
+                "UPDATE meal_session_snapshots SET orthodoxFastingCount = ?, muslimFastingCount = ?, sundayFastingCount = ?, notFastingCount = ? WHERE id = ?",
+                [snapOrthodox, snapMuslim, snapSunday, snapNotFasting, row.id],
+              ).catch((e) => {
+                console.error("Failed to update snapshot fasting counts:", e.message);
+              });
+            }
           }
 
           dayOrthodox += snapOrthodox;
