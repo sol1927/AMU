@@ -37,23 +37,7 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const initSession = async () => {
-      if (typeof window !== "undefined") {
-        if (!sessionStorage.getItem("tabActiveSession")) {
-          try {
-            await fetch(`${url}/auth/logout`, {
-              method: "POST",
-              credentials: "include",
-            });
-          } catch (err) {
-            console.error("Session cleanup failed", err);
-          }
-          sessionStorage.setItem("tabActiveSession", "true");
-        }
-      }
-      setSessionChecked(true);
-    };
-    initSession();
+    setSessionChecked(true);
   }, []);
 
   useEffect(() => {

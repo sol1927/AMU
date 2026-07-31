@@ -61,6 +61,7 @@ export default function CafeScanPage() {
     getCurrentMealSession(null),
   );
   const [cardTimeoutMs, setCardTimeoutMs] = useState(3000);
+  const [cameraOn, setCameraOn] = useState(false);
 
   const hiddenInputRef = useRef(null);
   const manualInputRef = useRef(null);
@@ -68,6 +69,13 @@ export default function CafeScanPage() {
   const bufferRef = useRef("");
   const lastTimeRef = useRef(0);
   const timeoutRef = useRef(null);
+  const videoRef = useRef(null);
+  const readerRef = useRef(null);
+  const scanCooldownRef = useRef(false);
+  const processScanRef = useRef(null);
+  const originalConsoleErrorRef = useRef(null);
+  const originalConsoleWarnRef = useRef(null);
+  const streamRef = useRef(null);
   const [toast, setToast] = useState(null);
 
   const activeCafeNum =
@@ -252,6 +260,9 @@ export default function CafeScanPage() {
       document.removeEventListener("keydown", handleScannerInput, true);
   }, []);
 
+  // Keep processScanRef up to date so camera callback always has latest version
+  processScanRef.current = processScan;
+
   const handleManualScan = () => {
     if (!manualInput.trim()) return;
     processScan(manualInput.trim());
@@ -261,6 +272,95 @@ export default function CafeScanPage() {
   const handleRefresh = () => {
     window.location.reload();
   };
+
+  const startCamera = async () => {
+    // Suppress ZXing's per-frame scanning noise
+    const isZXingNoise = (...args) =>
+      typeof args[0] === "string" && args[0].includes("MultiFormatReader");
+    originalConsoleErrorRef.current = console.error;
+    originalConsoleWarnRef.current = console.warn;
+    console.error = (...args) => { if (!isZXingNoise(...args)) originalConsoleErrorRef.current?.apply(console, args); };
+    console.warn  = (...args) => { if (!isZXingNoise(...args)) originalConsoleWarnRef.current?.apply(console, args); };
+
+    // We own the stream so we can fully release it in stopCamera
+    const getStream = async () => {
+      const constraints = {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      };
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch {
+        // Fallback: no facingMode preference (works on PC)
+        return await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+      }
+    };
+
+    try {
+      const stream = await getStream();
+      streamRef.current = stream;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => {});
+
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const reader = new BrowserMultiFormatReader();
+      readerRef.current = reader;
+
+      reader.decodeFromVideoElement(videoRef.current, (result) => {
+        if (result && !scanCooldownRef.current) {
+          const studentId = result.getText().trim();
+          if (!studentId) return;
+          scanCooldownRef.current = true;
+          processScanRef.current(studentId);
+          setTimeout(() => { scanCooldownRef.current = false; }, 3000);
+        }
+      });
+    } catch {
+      showToast("Camera unavailable or permission denied.");
+      setCameraOn(false);
+    }
+  };
+
+  const stopCamera = () => {
+    // Stop ZXing decoder
+    if (readerRef.current) {
+      try { readerRef.current.reset(); } catch { }
+      readerRef.current = null;
+    }
+    // Stop all tracks on OUR stream — this kills the webcam light
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    // Also clear the video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    // Restore console methods
+    if (originalConsoleErrorRef.current) {
+      console.error = originalConsoleErrorRef.current;
+      originalConsoleErrorRef.current = null;
+    }
+    if (originalConsoleWarnRef.current) {
+      console.warn = originalConsoleWarnRef.current;
+      originalConsoleWarnRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (cameraOn) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraOn]);
 
   if (!currentUser || currentUser.role !== "cafe") return null;
 
@@ -308,99 +408,126 @@ export default function CafeScanPage() {
 
   return (
     <div className="scan-page page-shell flex flex-col px-2 pt-3 md:px-6 md:pt-4 min-h-[75vh] overflow-hidden">
-      <div className="flex flex-1 items-start md:items-center justify-center pt-4 pb-48 md:pt-0 md:pb-28">
-        <div className="flex w-full max-w-6xl items-start md:items-center justify-center gap-12">
-          <div className="flex min-w-0 md:min-h-[400px] max-w-4xl flex-1 flex-col items-center justify-start md:justify-center">
-            {student ? (
-              <div
-                key={shokeKey}
-                className={`w-full max-w-2xl min-w-0 overflow-hidden rounded-2xl md:rounded-[2.5rem] p-4 md:p-8 text-center transition-all duration-300 ${getCardClasses()}`}
-              >
-                {student.name !== "Student not found" && (
-                  <div className="mx-auto mb-3 md:mb-6 flex h-20 w-20 md:h-40 md:w-40 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-300 text-center text-sm font-semibold text-black">
-                    {student.profileUrl ? (
-                      <img
-                        src={student.profileUrl}
-                        alt={student.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="break-words px-2">{student.name}</span>
-                    )}
-                  </div>
-                )}
+      {/* Card — sits at the top, no flex-1 */}
+      <div className="flex w-full items-start justify-center pt-4 md:pt-6">
+        <div className="w-full max-w-2xl min-w-0 px-1">
+          {student ? (
+            <div
+              key={shokeKey}
+              className={`w-full min-w-0 overflow-hidden rounded-2xl md:rounded-[2.5rem] p-4 md:p-8 text-center transition-all duration-300 ${getCardClasses()}`}
+            >
+              {student.name !== "Student not found" && (
+                <div className="mx-auto mb-3 md:mb-6 flex h-20 w-20 md:h-40 md:w-40 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-300 text-center text-sm font-semibold text-black">
+                  {student.profileUrl ? (
+                    <img
+                      src={student.profileUrl}
+                      alt={student.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="break-words px-2">{student.name}</span>
+                  )}
+                </div>
+              )}
 
-                <h3 className="mb-2 md:mb-3 break-words px-2 text-center text-2xl md:text-4xl font-bold">
-                  {student.name}
-                </h3>
+              <h3 className="mb-2 md:mb-3 break-words px-2 text-center text-2xl md:text-4xl font-bold">
+                {student.name}
+              </h3>
 
-                {student.isInternship && (
-                  <p className="mb-1 inline-block rounded-full bg-white/20 px-3 py-0.5 md:px-4 md:py-1 text-sm md:text-lg font-bold">
-                    አፓረንት
-                  </p>
-                )}
-
-                {student.name !== "Student not found" && (
-                  <div className="mx-auto mt-2 md:mt-4 w-full min-w-0 max-w-sm space-y-1 md:space-y-2 px-2 text-sm md:text-lg">
-                    <div className="flex min-w-0 gap-2">
-                      <span className="shrink-0 font-semibold">ID:</span>
-                      <span className="min-w-0 flex-1 break-words text-left">
-                        {student.studentId || "..."}
-                      </span>
-                    </div>
-
-                    <div className="flex min-w-0 gap-2">
-                      <span className="shrink-0 font-semibold">
-                        Department:
-                      </span>
-                      <span className="min-w-0 flex-1 break-words text-left">
-                        {student.department || "..."}
-                      </span>
-                    </div>
-
-                    <div className="flex min-w-0 gap-2">
-                      <span className="shrink-0 font-semibold">Batch:</span>
-                      <span className="min-w-0 flex-1 break-words text-left">
-                        {student.batch || "..."}
-                      </span>
-                    </div>
-
-                    <div className="flex min-w-0 gap-2">
-                      <span className="shrink-0 font-semibold">Fasting:</span>
-                      <span
-                        className={`min-w-0 flex-1 break-words text-left text-base md:text-2xl font-semibold ${
-                          student.denialCode === "fasting_restriction"
-                            ? "animate-breathing"
-                            : ""
-                        }`}
-                      >
-                        {student.fastingType === "fasting"
-                          ? "የኦርቶዶክስ ጾመኛ"
-                          : student.fastingType === "sunday_fasting"
-                            ? "የእሁድ ጾመኛ"
-                            : student.fastingType === "muslim_fasting"
-                              ? "የሙስሊም ጾመኛ"
-                              : "..."}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <p className="mt-2 md:mt-4 break-words px-2 text-2xl md:text-4xl font-bold">
-                  {getStatusText()}
+              {student.isInternship && (
+                <p className="mb-1 inline-block rounded-full bg-white/20 px-3 py-0.5 md:px-4 md:py-1 text-sm md:text-lg font-bold">
+                  አፓረንት
                 </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-base md:text-xl font-bold text-slate-400 dark:text-slate-500">
-                <div className="mb-3 h-16 w-16 md:h-28 md:w-28 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-                Waiting for Card Scan...
-              </div>
-            )}
-          </div>
+              )}
+
+              {student.name !== "Student not found" && (
+                <div className="mx-auto mt-2 md:mt-4 w-full min-w-0 max-w-sm space-y-1 md:space-y-2 px-2 text-sm md:text-lg">
+                  <div className="flex min-w-0 gap-2">
+                    <span className="shrink-0 font-semibold">ID:</span>
+                    <span className="min-w-0 flex-1 break-words text-left">
+                      {student.studentId || "..."}
+                    </span>
+                  </div>
+
+                  <div className="flex min-w-0 gap-2">
+                    <span className="shrink-0 font-semibold">Department:</span>
+                    <span className="min-w-0 flex-1 break-words text-left">
+                      {student.department || "..."}
+                    </span>
+                  </div>
+
+                  <div className="flex min-w-0 gap-2">
+                    <span className="shrink-0 font-semibold">Batch:</span>
+                    <span className="min-w-0 flex-1 break-words text-left">
+                      {student.batch || "..."}
+                    </span>
+                  </div>
+
+                  <div className="flex min-w-0 gap-2">
+                    <span className="shrink-0 font-semibold">Fasting:</span>
+                    <span
+                      className={`min-w-0 flex-1 break-words text-left text-base md:text-2xl font-semibold ${student.denialCode === "fasting_restriction"
+                          ? "animate-breathing"
+                          : ""
+                        }`}
+                    >
+                      {student.fastingType === "fasting"
+                        ? "የኦርቶዶክስ ጾመኛ"
+                        : student.fastingType === "sunday_fasting"
+                          ? "የእሁድ ጾመኛ"
+                          : student.fastingType === "muslim_fasting"
+                            ? "የሙስሊም ጾመኛ"
+                            : "..."}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 md:mt-4 break-words px-2 text-2xl md:text-4xl font-bold">
+                {getStatusText()}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-base md:text-xl font-bold text-slate-400 dark:text-slate-500">
+              <div className="mb-3 h-16 w-16 md:h-28 md:w-28 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+              Waiting for Card Scan...
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Spacer so content never hides behind the fixed bottom panel */}
+      <div className="flex-1 min-h-4" />
+      <div className={`flex-shrink-0 ${cameraOn ? "h-[188px] md:h-[252px]" : "h-[98px] md:h-[162px]"}`} />
       {/* Bottom control panel — full-width strip on mobile, floating card on md+ */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 md:bottom-4 md:left-auto md:right-4 md:flex md:justify-end">
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:bottom-4 md:left-auto md:right-4 md:flex md:flex-col md:items-end">
+        {/* Camera preview — always in DOM so videoRef.current is never null */}
+        <div className={`w-full md:max-w-sm ${cameraOn ? "" : "hidden"}`}>
+          <div className="relative overflow-hidden bg-black border-t border-x border-slate-700 md:rounded-t-2xl">
+            <video
+              ref={videoRef}
+              className="w-full h-[90px] object-cover"
+              muted
+              playsInline
+            />
+            {/* Scan guide overlay */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="h-10 w-40 rounded-md border-2 border-green-400 opacity-80 shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]" />
+            </div>
+            {/* Scanning label */}
+            <div className="absolute top-1.5 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-400" />
+              <span className="text-xs font-semibold text-white">Scanning...</span>
+            </div>
+            {/* Close button */}
+            <button
+              type="button"
+                onClick={() => setCameraOn(false)}
+                className="absolute top-1.5 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-white hover:bg-black/80"
+              >
+                ✕
+            </button>
+          </div>
+        </div>
         <div
           ref={panelRef}
           className="surface-panel w-full md:max-w-sm rounded-t-2xl md:rounded-2xl border-t border-slate-200 md:border bg-white/95 px-3 py-2 md:p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
@@ -439,6 +566,17 @@ export default function CafeScanPage() {
 
               {/* Buttons */}
               <div className="flex gap-1.5 md:gap-2">
+                {/* Camera toggle */}
+                <button
+                  type="button"
+                  onClick={() => setCameraOn((prev) => !prev)}
+                  className={`rounded-lg md:rounded-xl px-2.5 py-1.5 md:flex-1 md:px-3 md:py-2 text-xs md:text-sm font-semibold whitespace-nowrap transition active:scale-95 ${cameraOn
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
+                    }`}
+                >
+                  {cameraOn ? "📷 On" : "📷 Off"}
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowManualScan(true)}
@@ -504,9 +642,8 @@ export default function CafeScanPage() {
 
       {toast && (
         <div
-          className={`app-toast fixed bottom-6 right-6 rounded-xl px-4 py-2 text-white font-bold shadow-lg transition ${
-            toast.type === "error" ? "bg-red-600" : "bg-green-600"
-          }`}
+          className={`app-toast fixed bottom-6 right-6 rounded-xl px-4 py-2 text-white font-bold shadow-lg transition ${toast.type === "error" ? "bg-red-600" : "bg-green-600"
+            }`}
         >
           {toast.message}
         </div>
