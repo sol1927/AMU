@@ -104,6 +104,8 @@ export default function CafeScanPage() {
 
   useEffect(() => {
     if (!student) return;
+    if (student.name === "Student not found") return; // handled by its own effect below
+    if (cameraUsedForCard) return; // camera cards stay open until New Scan is clicked
     if (cardTimeoutMs <= 0) return undefined;
 
     const timer = setTimeout(() => {
@@ -112,7 +114,7 @@ export default function CafeScanPage() {
     }, cardTimeoutMs);
 
     return () => clearTimeout(timer);
-  }, [student, cardTimeoutMs]);
+  }, [student, cardTimeoutMs, cameraUsedForCard]);
 
   // Auto-clear "Student not found" after 1 second
   // If it came from camera, reopen camera automatically for next scan
@@ -554,8 +556,8 @@ export default function CafeScanPage() {
 
   return (
     <div className="scan-page page-shell flex flex-col px-2 pt-3 md:px-6 md:pt-4 min-h-[75vh] overflow-hidden">
-      {/* Card / Camera area — sits at the top */}
-      <div className="flex w-full items-start justify-center pt-4 md:pt-6">
+      {/* Card / Camera area — grows to fill available space, centered on md+ */}
+      <div className="flex flex-1 w-full items-start md:items-center justify-center pt-4 md:pt-0">
         <div className="w-full max-w-2xl min-w-0 px-1">
 
           {/* ── CAMERA VIEW — mobile only (md+ uses bluetooth/manual only) ── */}
@@ -678,7 +680,7 @@ export default function CafeScanPage() {
               </p>
             </div>
           ) : !cameraOn ? (
-            <div className="flex flex-col items-center justify-center gap-4 text-base md:text-xl font-bold text-slate-400 dark:text-slate-500">
+            <div className="flex flex-col items-center justify-center gap-4 text-base md:text-xl font-bold text-slate-400 dark:text-slate-500 py-8 md:py-0">
               <div className="h-16 w-16 md:h-28 md:w-28 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
               Waiting for Card Scan...
             </div>

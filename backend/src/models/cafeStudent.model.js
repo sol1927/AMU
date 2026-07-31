@@ -37,6 +37,12 @@ const createTable = async () => {
     );
   `;
   await getDB().execute(query);
+
+  // Ensure id has AUTO_INCREMENT in case the table was created by an older migration without it
+  await getDB().execute(
+    "ALTER TABLE cafestudents MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT",
+  );
+
   await getDB().execute(
     "ALTER TABLE cafestudents MODIFY COLUMN studentId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL",
   );
