@@ -45,18 +45,35 @@ export const listCafes = async (req, res) => {
       .filter((u) => u.role === "cafe")
       .sort((a, b) => a.id - b.id);
     const campusStudents = await CafeStudent.findAll({ campusId });
-    const cafes = sortedCafes.map((cafe, index) => {
-      const cafeNumber = index + 1;
-      return {
-        ...cafe,
-        cafeNumber,
-        studentCount: filterStudentsForCafeNumber(
-          campusStudents,
-          req.campus,
+    const cafes = await Promise.all(
+      sortedCafes.map(async (cafe, index) => {
+        const cafeNumber = index + 1;
+        const isLive = isCampusLiveNow(cafe);
+
+        // Clear stale isOnline flag in DB (same logic as getCampuses)
+        if (!isLive && cafe.isOnline) {
+          await User.updateById(cafe.id, {
+            isOnline: false,
+            lastActiveAt: null,
+          });
+        }
+
+        const effectiveCafe =
+          !isLive && cafe.isOnline
+            ? { ...cafe, isOnline: false, lastActiveAt: null }
+            : cafe;
+
+        return {
+          ...effectiveCafe,
           cafeNumber,
-        ).length,
-      };
-    });
+          studentCount: filterStudentsForCafeNumber(
+            campusStudents,
+            req.campus,
+            cafeNumber,
+          ).length,
+        };
+      }),
+    );
     res.json({ cafes, tickers: [] });
   } catch (err) {
     logInternalError("list-cafes", err);
@@ -1147,12 +1164,31 @@ export const listCafeManagers = async (req, res) => {
     const allUsers = await User.findAll({
       campusId,
     });
-    const cafeManagers = allUsers
-      .filter((u) => u.role === "cafe manager")
-      .map((manager) => ({
-        ...manager,
-        cafeCount: campusCafeCount,
-      }));
+    const cafeManagers = await Promise.all(
+      allUsers
+        .filter((u) => u.role === "cafe manager")
+        .map(async (manager) => {
+          const isLive = isCampusLiveNow(manager);
+
+          // Clear stale isOnline flag in DB
+          if (!isLive && manager.isOnline) {
+            await User.updateById(manager.id, {
+              isOnline: false,
+              lastActiveAt: null,
+            });
+          }
+
+          const effectiveManager =
+            !isLive && manager.isOnline
+              ? { ...manager, isOnline: false, lastActiveAt: null }
+              : manager;
+
+          return {
+            ...effectiveManager,
+            cafeCount: campusCafeCount,
+          };
+        }),
+    );
     res.json({ cafeManagers });
   } catch (err) {
     logInternalError("list-cafe-managers", err);

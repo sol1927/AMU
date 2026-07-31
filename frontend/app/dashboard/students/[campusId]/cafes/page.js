@@ -252,7 +252,7 @@ export default function DashboardCampusCafeViewPage() {
             <button
               type="button"
               onClick={handleOpenAllStudents}
-              className="mt-3 inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-2.5 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
+                className="mt-3 inline-flex items-center justify-center rounded-2xl bg-white px-2.5 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
             >
               Open Students
             </button>

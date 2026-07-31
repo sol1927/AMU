@@ -67,7 +67,7 @@ export default function CafeOperatorDashboardPage() {
               Welcome, {capitalizeWords(currentUser?.displayName || currentUser?.name) || "Operator"}
             </h1>
             <p className="mt-2 text-slate-600 dark:text-slate-400">
-              Scan and validate student meal tickets at your active station.
+              Scan and record student meals at your active cafe station.
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white dark:bg-emerald-700 dark:text-white">
@@ -132,17 +132,17 @@ export default function CafeOperatorDashboardPage() {
                 1. Position Scanner
               </div>
               <p className="text-inherit">
-                Set up the scanning terminal near the entrance with stable
-                internet access to prevent latency.
+                Set up the scanning terminal within direct sight of student ID
+                cards, with stable internet access to prevent latency.
               </p>
             </div>
             <div className="space-y-2">
               <div className="font-semibold text-inherit">
-                2. Verify Audio Prompts
+                2. Confirm Each Scan
               </div>
               <p className="text-inherit">
-                Listen for the green validation sound or audio signals on each
-                successful ticket verification.
+                Look for the green confirmation screen after each scan to ensure
+                the meal has been successfully recorded for the student.
               </p>
             </div>
             <div className="space-y-2">
@@ -150,8 +150,8 @@ export default function CafeOperatorDashboardPage() {
                 3. Flag Duplicates
               </div>
               <p className="text-inherit">
-                If a duplicate warning is triggered, block entry and ask the
-                student to verify their schedule.
+                If a duplicate warning appears, the system has already recorded
+                a meal for that student in this session — do not re-scan.
               </p>
             </div>
           </div>

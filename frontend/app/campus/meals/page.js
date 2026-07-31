@@ -26,9 +26,9 @@ const REPORT_TYPES = [
 
 const REPORT_MEAL_SESSIONS = [
   { value: "total", label: "Total", detail: "All Sessions" },
-  { value: "breakfast", label: "Breakfast", detail: "--:-- - --:--" },
-  { value: "lunch", label: "Lunch", detail: "--:-- - --:--" },
-  { value: "dinner", label: "Dinner", detail: "--:-- - --:--" },
+  { value: "breakfast", label: "Breakfast", detail: "10:23 - 10:50" },
+  { value: "lunch", label: "Lunch", detail: "11:00 - 14:00" },
+  { value: "dinner", label: "Dinner", detail: "17:00 - 20:00" },
 ];
 
 const toSafeFilePart = (value, fallback = "data") =>
@@ -305,7 +305,16 @@ export default function CampusMealsPage() {
       ],
       ["Period Start", reportData.period?.startDate || ""],
       ["Period End", reportData.period?.endDate || ""],
-      ["Total Regular", reportData.stats?.totalRegular ?? ""],
+      ["Total Students", (
+        (Number(reportData.stats?.totalAssigned) || 0) +
+        (Number(reportData.stats?.totalUnassigned) || 0) +
+        (Number(
+          reportData.stats?.totalInternships ??
+          reportData.stats?.totalInternship ??
+          reportData.stats?.internshipStudents ??
+          0
+        ))
+      )],
       ["Total Assigned", reportData.stats?.totalAssigned ?? ""],
       ["Total Unassigned", reportData.stats?.totalUnassigned ?? ""],
       ["Total Internship", reportData.stats?.totalInternships ?? ""],
@@ -418,7 +427,7 @@ export default function CampusMealsPage() {
                   <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Meal Session
                   </span>
-                  <div className="flex gap-2">
+                  <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 w-full py-1">
                     {REPORT_MEAL_SESSIONS.map((session) => {
                       let displayDetail = session.detail;
                       // Use real meal schedule times if available
@@ -438,13 +447,13 @@ export default function CampusMealsPage() {
                             setReportMealSession(session.value);
                             setReportData(null);
                           }}
-                          className={`flex-1 rounded-2xl border py-2.5 px-3 text-left text-sm font-semibold transition ${reportMealSession === session.value
-                              ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200"
-                              : "border-slate-200 bg-white text-slate-600 hover:bg-white"
+                          className={`w-full rounded-xl border px-2 py-1.5 text-center transition ${reportMealSession === session.value
+                              ? "border-blue-300 bg-white text-blue-700 shadow-sm ring-1 ring-blue-200 font-bold"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-white font-semibold"
                             }`}
                         >
-                          <span>{session.label}</span>
-                          <span className="mt-1 block text-xs font-medium text-slate-500">
+                          <span className="block text-xs sm:text-sm">{session.label}</span>
+                          <span className="mt-0.5 block text-[10px] sm:text-xs font-medium text-slate-500">
                             {displayDetail}
                           </span>
                         </button>
@@ -663,8 +672,17 @@ export default function CampusMealsPage() {
                             Total Students
                           </p>
                           <p className="mt-1 text-2xl font-black text-blue-900">
-                            {reportData.stats.totalRegular.toLocaleString()}
-                          </p>
+                          {(
+                            (Number(reportData.stats.totalAssigned) || 0) +
+                            (Number(reportData.stats.totalUnassigned) || 0) +
+                            (Number(
+                              reportData.stats.totalInternships ??
+                              reportData.stats.totalInternship ??
+                              reportData.stats.internshipStudents ??
+                              0
+                            ))
+                          ).toLocaleString()}
+                        </p>
                         </div>
 
                         {reportCafe ? (
@@ -763,7 +781,7 @@ export default function CampusMealsPage() {
 
                       <div className="mt-6 flex-1">
                         <div className="rounded-3xl border border-slate-200 bg-white p-4 mb-6">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex flex-col gap-4">
                             <div>
                               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
                                 Total Report Summary
@@ -773,28 +791,31 @@ export default function CampusMealsPage() {
                                 students totals.
                               </p>
                             </div>
-                            <div className="grid gap-3 sm:grid-cols-3">
-                              <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <div className="grid gap-2 grid-cols-3 w-full">
+                              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 sm:p-4 text-center sm:text-left min-w-0">
+                                <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                                   Total Students
                                 </p>
-                                <p className="mt-2 text-2xl font-black text-blue-900">
-                                  {(reportData.stats.totalServed + reportData.stats.totalUnserved).toLocaleString()}
+                                <p className="mt-1 sm:mt-2 text-base sm:text-2xl font-black text-blue-900 break-all">
+                                  {(
+                                    reportData.stats.totalServed +
+                                    reportData.stats.totalUnserved
+                                  ).toLocaleString()}
                                 </p>
                               </div>
-                              <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 sm:p-4 text-center sm:text-left min-w-0">
+                                <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                                   Total Served
                                 </p>
-                                <p className="mt-2 text-2xl font-black text-emerald-900">
+                                <p className="mt-1 sm:mt-2 text-base sm:text-2xl font-black text-emerald-900 break-all">
                                   {reportData.stats.totalServed.toLocaleString()}
                                 </p>
                               </div>
-                              <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 sm:p-4 text-center sm:text-left min-w-0">
+                                <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                                   Total Unserved
                                 </p>
-                                <p className="mt-2 text-2xl font-black text-amber-900">
+                                <p className="mt-1 sm:mt-2 text-base sm:text-2xl font-black text-amber-900 break-all">
                                   {reportData.stats.totalUnserved.toLocaleString()}
                                 </p>
                               </div>

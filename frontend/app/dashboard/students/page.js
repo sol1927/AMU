@@ -149,7 +149,7 @@ export default function DashboardStudentsPage() {
                       onClick={() =>
                         router.push(`/dashboard/students/${campus._id}`)
                       }
-                      className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                      className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                     >
                       Open Students
                     </button>

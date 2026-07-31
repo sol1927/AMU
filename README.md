@@ -202,9 +202,7 @@ External student table or view must provide these source columns:
 ### Optional external columns
 
 - `campId`: mapped to local `campusId`
-- `profileUrl`: optional student photo URL. To use it, add
-  `EXTERNAL_DB_PROFILE_URL=photoUrl` to `backend/.env` and ensure that column
-  exists in the external table.
+- `profileUrl`: optional student photo URL. The system automatically inspects the external table and maps columns named `profileUrl`, `photoUrl`, or `photo`. If no such column exists in the external database, the system gracefully runs without it.
 
 If `campId` exists, campus sync filters students by the campus ID assigned to
 the campus account. This is the recommended setup.

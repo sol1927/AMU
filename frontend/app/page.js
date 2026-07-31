@@ -279,7 +279,7 @@ export default function LandingPage() {
             <h4 className="mb-3 text-xl font-semibold text-blue-600">
               1. Register
             </h4>
-            <p className="text-sm text-slate-600">Add students with ID.</p>
+            <p className="text-sm text-slate-600">Sync students from registrar.</p>
           </div>
 
           <div className="app-card rounded-2xl p-8">

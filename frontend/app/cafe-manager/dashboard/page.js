@@ -100,71 +100,32 @@ export default function CafeDashboardPage() {
           </div>
         </div>
 
-        <section className="grid gap-6 md:grid-cols-3">
-          <div className="surface-panel relative overflow-hidden rounded-3xl p-8 md:col-span-2">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl pointer-events-none"></div>
-            <div className="relative z-10 flex h-full flex-col justify-between space-y-6">
-              <div>
-                <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-700">
-                  {isCafeManager ? "Manager Workspace" : "Active Station"}
-                </span>
-                <h2 className="mt-4 text-3xl font-black text-inherit">
-                  {isCafeManager
-                    ? "Cafe Manager Console"
-                    : `Cafe Station ${activeCafeNum}`}
-                </h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  {isCafeManager
-                    ? "Create and manage cafe accounts, review student records, and keep cafeteria operations organized."
-                    : `Managing meal sessions and access authentication for student cohorts under Cafe Station ${activeCafeNum}.`}
-                </p>
-              </div>
-              {!isCafeManager && (
-                <div className="pt-4">
-                  <button
-                    onClick={() =>
-                      router.push("/cafe-manager/select-cafe-number")
-                    }
-                    className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-700 active:scale-95"
-                  >
-                    Change Station
-                  </button>
-                </div>
-              )}
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="surface-card flex items-center gap-4 rounded-2xl p-4 sm:p-5">
+            <div className="rounded-xl bg-blue-50 p-3 text-blue-600 shrink-0">
+              <HiOutlineUserGroup className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Total Cohort Students
+              </span>
+              <span className="mt-0.5 block text-2xl sm:text-3xl font-black text-inherit">
+                {stats.totalStudents}
+              </span>
             </div>
           </div>
 
-          <div className="grid gap-6">
-            <div className="surface-card flex flex-col justify-between rounded-3xl p-8">
-              <div className="flex items-center justify-between">
-                <div className="rounded-2xl bg-blue-50 p-4 text-blue-600">
-                  <HiOutlineUserGroup className="h-7 w-7" />
-                </div>
-              </div>
-              <div className="mt-8">
-                <span className="block text-sm font-semibold uppercase tracking-wider text-inherit">
-                  Total Cohort Students
-                </span>
-                <span className="mt-1 block text-5xl font-black text-inherit">
-                  {stats.totalStudents}
-                </span>
-              </div>
+          <div className="surface-card flex items-center gap-4 rounded-2xl p-4 sm:p-5">
+            <div className="rounded-xl bg-blue-50 p-3 text-blue-600 shrink-0">
+              <HiOutlineUsers className="h-6 w-6" />
             </div>
-
-            <div className="surface-card flex flex-col justify-between rounded-3xl p-8">
-              <div className="flex items-center justify-between">
-                <div className="rounded-2xl bg-blue-50 p-4 text-blue-600">
-                  <HiOutlineUsers className="h-7 w-7" />
-                </div>
-              </div>
-              <div className="mt-8">
-                <span className="block text-sm font-semibold uppercase tracking-wider text-inherit">
-                  Assigned Students
-                </span>
-                <span className="mt-1 block text-5xl font-black text-inherit">
-                  {stats.assignedStudents}
-                </span>
-              </div>
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Assigned Students
+              </span>
+              <span className="mt-0.5 block text-2xl sm:text-3xl font-black text-inherit">
+                {stats.assignedStudents}
+              </span>
             </div>
           </div>
         </section>
@@ -229,8 +190,8 @@ export default function CafeDashboardPage() {
                 1. Position Device
               </div>
               <p className="text-slate-500 dark:text-slate-400">
-                Ensure the scanning scanner is positioned in direct sight, with
-                stable network access to prevent latency.
+                Ensure the scanner is positioned within direct sight of the
+                student ID card, with stable network access to prevent latency.
               </p>
             </div>
             <div className="space-y-2">
@@ -238,8 +199,8 @@ export default function CafeDashboardPage() {
                 2. Verify Scan Prompt
               </div>
               <p className="text-slate-500 dark:text-slate-400">
-                Listen for the audio prompt or look for the green confirmation
-                screen on each student card validation.
+                Look for the green confirmation screen after each student card
+                scan to confirm the meal has been successfully recorded.
               </p>
             </div>
             <div className="space-y-2">
@@ -247,8 +208,8 @@ export default function CafeDashboardPage() {
                 3. Duplicate Warning
               </div>
               <p className="text-slate-500 dark:text-slate-400">
-                If a student attempts to scan twice during the same session, the
-                terminal will flash red and deny exit access.
+                If a student attempts to scan twice during the same meal
+                session, the system will reject the scan and display an alert.
               </p>
             </div>
           </div>

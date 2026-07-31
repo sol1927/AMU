@@ -23,7 +23,7 @@ const getExternalStudentFieldMapping = () => ({
   batch: "batchYear",
   department: "deptName",
   campusId: "campId",
-  profileUrl: process.env.EXTERNAL_DB_PROFILE_URL || "",
+  profileUrl: "profileUrl",
 });
 
 const assertIdentifier = (value, label) => {
@@ -75,31 +75,60 @@ const findAll = async ({ campusId } = {}) => {
     );
   }
 
-  const fieldMapping = getExternalStudentFieldMapping();
-  validateRequiredFieldMappings(fieldMapping);
-  const selectedColumns = buildSelectColumns(fieldMapping);
-  const table = assertIdentifier(
-    process.env.EXTERNAL_DB_TABLE,
-    "External table",
-  );
-  const where = [];
-  const params = [];
-
-  if (fieldMapping.campusId && campusId !== undefined && campusId !== null) {
-    where.push(
-      `${assertIdentifier(fieldMapping.campusId, "External campus field")} = ?`,
-    );
-    params.push(campusId);
-  }
-
-  const query = `
-    SELECT ${selectedColumns.join(", ")}
-    FROM ${table}
-    ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
-  `;
-
+  const table = process.env.EXTERNAL_DB_TABLE;
   const connection = await createExternalConnection();
   try {
+    let existingColumns = [];
+    try {
+      const [columnsInfo] = await connection.execute(`SHOW COLUMNS FROM \`${table}\``);
+      existingColumns = columnsInfo.map((col) => (col.Field || col.field || "").toLowerCase());
+    } catch (colErr) {
+      console.warn("Could not inspect external columns:", colErr.message);
+    }
+
+    const fieldMapping = {
+      studentId: "stId",
+      name: "fullName",
+      batch: "batchYear",
+      department: "deptName",
+      campusId: "campId",
+    };
+
+    let detectedProfileUrlCol = null;
+
+    if (existingColumns.length > 0) {
+      if (existingColumns.includes("profileurl")) {
+        detectedProfileUrlCol = "profileUrl";
+      } else if (existingColumns.includes("photourl")) {
+        detectedProfileUrlCol = "photoUrl";
+      } else if (existingColumns.includes("photo")) {
+        detectedProfileUrlCol = "photo";
+      }
+    }
+
+    if (detectedProfileUrlCol) {
+      fieldMapping.profileUrl = detectedProfileUrlCol;
+    }
+
+    validateRequiredFieldMappings(fieldMapping);
+    const selectedColumns = buildSelectColumns(fieldMapping);
+    const safeTable = assertIdentifier(table, "External table");
+    const where = [];
+    const params = [];
+
+    if (fieldMapping.campusId && campusId !== undefined && campusId !== null) {
+      where.push(
+        `${assertIdentifier(fieldMapping.campusId, "External campus field")} = ?`,
+      );
+      params.push(campusId);
+    }
+
+    const query = `
+      SELECT ${selectedColumns.join(", ")}
+      FROM ${safeTable}
+      ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
+    `;
+
     const [rows] = await connection.execute(query, params);
     return rows.map((row) => ({
       name: row.name,

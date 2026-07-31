@@ -33,9 +33,9 @@ const getMealLabel = (mealType) => {
 
 const REPORT_MEAL_SESSIONS = [
   { value: "total", label: "Total", detail: "All Sessions" },
-  { value: "breakfast", label: "Breakfast", detail: "--:-- - --:--" },
-  { value: "lunch", label: "Lunch", detail: "--:-- - --:--" },
-  { value: "dinner", label: "Dinner", detail: "--:-- - --:--" },
+  { value: "breakfast", label: "Breakfast", detail: "10:23 - 10:50" },
+  { value: "lunch", label: "Lunch", detail: "11:00 - 14:00" },
+  { value: "dinner", label: "Dinner", detail: "17:00 - 20:00" },
 ];
 
 const toSafeFilePart = (value, fallback = "report") =>
@@ -338,7 +338,24 @@ export default function MealsPage() {
       ["Meal Session", getMealLabel(reportMealSession)],
       ["Period Start", reportData.period?.startDate || ""],
       ["Period End", reportData.period?.endDate || ""],
-      ["Total Regular", reportData.stats?.totalRegular ?? ""],
+      ["Total Students", (
+        (Number(reportData.stats?.totalAssigned) || 0) +
+        (Number(reportData.stats?.totalUnassigned) || 0) +
+        (Number(
+          reportData.stats?.totalInternships ??
+          reportData.stats?.totalInternship ??
+          reportData.stats?.internshipStudents ??
+          0
+        ))
+      )],
+      ["Regular", reportData.stats?.totalAssigned ?? 0],
+      ["Unassigned", reportData.stats?.totalUnassigned ?? 0],
+      ["Internship", (
+        reportData.stats?.totalInternships ??
+        reportData.stats?.totalInternship ??
+        reportData.stats?.internshipStudents ??
+        0
+      )],
       ["Total Served", reportData.stats?.totalServed ?? ""],
       ["Total Unserved", reportData.stats?.totalUnserved ?? ""],
       [],
@@ -458,7 +475,7 @@ export default function MealsPage() {
                       <span className="mb-2 block text-sm font-medium text-slate-700">
                         Meal Session
                       </span>
-                      <div className="flex flex-nowrap gap-2 overflow-x-auto py-1">
+                      <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 w-full py-1">
                         {REPORT_MEAL_SESSIONS.map((session) => {
                           let displayDetail = session.detail;
                           if (
@@ -476,14 +493,14 @@ export default function MealsPage() {
                               onClick={() =>
                                 setReportMealSession(session.value)
                               }
-                              className={`min-w-[11rem] rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition ${
+                              className={`w-full rounded-xl border px-2 py-1.5 text-center transition ${
                                 reportMealSession === session.value
-                                  ? "border-cyan-400 bg-cyan-50 text-cyan-700"
-                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                  ? "border-cyan-400 bg-cyan-50 text-cyan-700 font-bold"
+                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold"
                               }`}
                             >
-                              <span>{session.label}</span>
-                              <span className="mt-1 block text-xs font-medium text-slate-500">
+                              <span className="block text-xs sm:text-sm">{session.label}</span>
+                              <span className="mt-0.5 block text-[10px] sm:text-xs font-medium text-slate-500">
                                 {displayDetail}
                               </span>
                             </button>
@@ -709,7 +726,16 @@ export default function MealsPage() {
                           Total Students
                         </p>
                         <p className="mt-1 text-2xl font-black text-blue-900">
-                          {reportData.stats.totalRegular.toLocaleString()}
+                          {(
+                            (Number(reportData.stats.totalAssigned) || 0) +
+                            (Number(reportData.stats.totalUnassigned) || 0) +
+                            (Number(
+                              reportData.stats.totalInternships ??
+                              reportData.stats.totalInternship ??
+                              reportData.stats.internshipStudents ??
+                              0
+                            ))
+                          ).toLocaleString()}
                         </p>
                       </div>
 
@@ -814,7 +840,7 @@ export default function MealsPage() {
 
                     <div className="flex-1">
                       <div className="rounded-3xl border border-slate-200 bg-white p-4 mb-6">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-4">
                           <div>
                             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
                               Total Report Summary
@@ -824,31 +850,31 @@ export default function MealsPage() {
                               students totals.
                             </p>
                           </div>
-                          <div className="grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
-                              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                          <div className="grid gap-2 grid-cols-3 w-full">
+                            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 sm:p-4 text-center sm:text-left min-w-0">
+                              <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                                 Total Students
                               </p>
-                              <p className="mt-2 text-2xl font-black text-blue-900">
+                              <p className="mt-1 sm:mt-2 text-base sm:text-2xl font-black text-blue-900 break-all">
                                 {(
                                   reportData.stats.totalServed +
                                   reportData.stats.totalUnserved
                                 ).toLocaleString()}
                               </p>
                             </div>
-                            <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
-                              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 sm:p-4 text-center sm:text-left min-w-0">
+                              <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                                 Total Served
                               </p>
-                              <p className="mt-2 text-2xl font-black text-emerald-900">
+                              <p className="mt-1 sm:mt-2 text-base sm:text-2xl font-black text-emerald-900 break-all">
                                 {reportData.stats.totalServed.toLocaleString()}
                               </p>
                             </div>
-                            <div className="rounded-3xl bg-slate-50 border border-slate-200 p-4">
-                              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 sm:p-4 text-center sm:text-left min-w-0">
+                              <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                                 Total Unserved
                               </p>
-                              <p className="mt-2 text-2xl font-black text-amber-900">
+                              <p className="mt-1 sm:mt-2 text-base sm:text-2xl font-black text-amber-900 break-all">
                                 {reportData.stats.totalUnserved.toLocaleString()}
                               </p>
                             </div>

@@ -307,17 +307,17 @@ export default function CafeScanPage() {
   };
 
   return (
-    <div className="scan-page page-shell flex flex-col px-4 pt-4 md:px-6 min-h-[75vh]">
-      <div className="flex flex-1 items-center justify-center pb-24 md:pb-28">
-        <div className="flex w-full max-w-6xl items-center justify-center gap-12">
-          <div className="flex min-h-[400px] min-w-0 max-w-4xl flex-1 flex-col items-center justify-center">
+    <div className="scan-page page-shell flex flex-col px-2 pt-3 md:px-6 md:pt-4 min-h-[75vh] overflow-hidden">
+      <div className="flex flex-1 items-start md:items-center justify-center pt-4 pb-48 md:pt-0 md:pb-28">
+        <div className="flex w-full max-w-6xl items-start md:items-center justify-center gap-12">
+          <div className="flex min-w-0 md:min-h-[400px] max-w-4xl flex-1 flex-col items-center justify-start md:justify-center">
             {student ? (
               <div
                 key={shokeKey}
-                className={`w-full max-w-2xl min-w-0 overflow-hidden rounded-[2.5rem] p-8 text-center transition-all duration-300 ${getCardClasses()}`}
+                className={`w-full max-w-2xl min-w-0 overflow-hidden rounded-2xl md:rounded-[2.5rem] p-4 md:p-8 text-center transition-all duration-300 ${getCardClasses()}`}
               >
                 {student.name !== "Student not found" && (
-                  <div className="mx-auto mb-6 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-300 text-center text-sm font-semibold text-black">
+                  <div className="mx-auto mb-3 md:mb-6 flex h-20 w-20 md:h-40 md:w-40 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-300 text-center text-sm font-semibold text-black">
                     {student.profileUrl ? (
                       <img
                         src={student.profileUrl}
@@ -330,18 +330,18 @@ export default function CafeScanPage() {
                   </div>
                 )}
 
-                <h3 className="mb-3 break-words px-2 text-center text-4xl font-bold">
+                <h3 className="mb-2 md:mb-3 break-words px-2 text-center text-2xl md:text-4xl font-bold">
                   {student.name}
                 </h3>
 
                 {student.isInternship && (
-                  <p className="mb-2 inline-block rounded-full bg-white/20 px-4 py-1 text-lg font-bold">
+                  <p className="mb-1 inline-block rounded-full bg-white/20 px-3 py-0.5 md:px-4 md:py-1 text-sm md:text-lg font-bold">
                     አፓረንት
                   </p>
                 )}
 
                 {student.name !== "Student not found" && (
-                  <div className="mx-auto mt-4 w-full min-w-0 max-w-sm space-y-2 px-2 text-lg">
+                  <div className="mx-auto mt-2 md:mt-4 w-full min-w-0 max-w-sm space-y-1 md:space-y-2 px-2 text-sm md:text-lg">
                     <div className="flex min-w-0 gap-2">
                       <span className="shrink-0 font-semibold">ID:</span>
                       <span className="min-w-0 flex-1 break-words text-left">
@@ -368,7 +368,7 @@ export default function CafeScanPage() {
                     <div className="flex min-w-0 gap-2">
                       <span className="shrink-0 font-semibold">Fasting:</span>
                       <span
-                        className={`min-w-0 flex-1 break-words text-left text-2xl font-semibold ${
+                        className={`min-w-0 flex-1 break-words text-left text-base md:text-2xl font-semibold ${
                           student.denialCode === "fasting_restriction"
                             ? "animate-breathing"
                             : ""
@@ -385,13 +385,13 @@ export default function CafeScanPage() {
                     </div>
                   </div>
                 )}
-                <p className="mt-4 break-words px-2 text-4xl font-bold">
+                <p className="mt-2 md:mt-4 break-words px-2 text-2xl md:text-4xl font-bold">
                   {getStatusText()}
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center text-xl font-bold text-slate-400 dark:text-slate-500">
-                <div className="mb-4 h-28 w-28 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+              <div className="flex flex-col items-center justify-center text-base md:text-xl font-bold text-slate-400 dark:text-slate-500">
+                <div className="mb-3 h-16 w-16 md:h-28 md:w-28 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
                 Waiting for Card Scan...
               </div>
             )}
@@ -399,12 +399,14 @@ export default function CafeScanPage() {
         </div>
       </div>
 
-      <div className="fixed right-4 bottom-4 z-40 flex justify-end">
+      {/* Bottom control panel — full-width strip on mobile, floating card on md+ */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:bottom-4 md:left-auto md:right-4 md:flex md:justify-end">
         <div
           ref={panelRef}
-          className="surface-panel w-full max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
+          className="surface-panel w-full md:max-w-sm rounded-t-2xl md:rounded-2xl border-t border-slate-200 md:border bg-white/95 px-3 py-2 md:p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
         >
-          <div className="mb-3 rounded-2xl bg-slate-100 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+          {/* Card timeout row */}
+          <div className="mb-2 rounded-xl bg-slate-100 px-2.5 py-1.5 md:mb-3 md:rounded-2xl md:px-3 md:py-2 text-xs md:text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold">Card timeout</span>
               <select
@@ -412,7 +414,7 @@ export default function CafeScanPage() {
                 onChange={(event) =>
                   setCardTimeoutMs(Number(event.target.value))
                 }
-                className="rounded-xl border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                className="rounded-lg md:rounded-xl border border-slate-300 bg-white px-1.5 py-0.5 md:px-2 md:py-1 text-xs md:text-sm text-slate-900 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               >
                 <option value={0}>Off</option>
                 <option value={3000}>3 seconds</option>
@@ -424,9 +426,10 @@ export default function CafeScanPage() {
           </div>
 
           {!showManualScan ? (
-            <div className="flex flex-col gap-2">
-              <div className="rounded-2xl bg-blue-600 px-3 py-2 text-white">
-                <div className="truncate text-sm font-bold">
+            <div className="flex items-center gap-2 md:flex-col md:items-stretch">
+              {/* Meal session badge */}
+              <div className="flex-1 rounded-xl md:rounded-2xl bg-blue-600 px-2.5 py-1.5 md:px-3 md:py-2 text-white">
+                <div className="truncate text-xs md:text-sm font-bold">
                   {currentMealSession.label}
                 </div>
                 <div className="truncate text-xs text-blue-100">
@@ -434,33 +437,34 @@ export default function CafeScanPage() {
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              {/* Buttons */}
+              <div className="flex gap-1.5 md:gap-2">
                 <button
                   type="button"
                   onClick={() => setShowManualScan(true)}
-                  className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-95"
+                  className="rounded-lg md:rounded-xl bg-slate-900 px-2.5 py-1.5 md:flex-1 md:px-3 md:py-2 text-xs md:text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-95 whitespace-nowrap"
                 >
-                  Manual Scan
+                  Manual
                 </button>
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="flex-1 rounded-xl border border-slate-300 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="rounded-lg md:rounded-xl border border-slate-300 bg-white dark:border-slate-800 dark:bg-slate-900 px-2.5 py-1.5 md:flex-1 md:px-3 md:py-2 text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
                 >
                   Refresh
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5 md:gap-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-inherit">
+                <div className="text-xs md:text-sm font-semibold text-inherit">
                   Manual Scan
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowManualScan(false)}
-                  className="rounded-full border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                 >
                   Hide
                 </button>
@@ -475,12 +479,12 @@ export default function CafeScanPage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") handleManualScan();
                   }}
-                  className="field-surface min-w-0 flex-1 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50/50 focus:bg-white dark:focus:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="field-surface min-w-0 flex-1 rounded-xl px-2.5 py-1.5 md:px-3 md:py-2 border border-slate-200 dark:border-slate-800 bg-slate-50/50 focus:bg-white dark:focus:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs md:text-sm"
                 />
                 <button
                   type="button"
                   onClick={handleManualScan}
-                  className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 active:scale-95"
+                  className="rounded-xl bg-blue-600 px-3 py-1.5 md:py-2 text-xs md:text-sm font-semibold text-white transition hover:bg-blue-700 active:scale-95"
                 >
                   Scan
                 </button>
@@ -510,6 +514,12 @@ export default function CafeScanPage() {
 
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
+        /* Lock scroll while scan page is open */
+        body, html {
+          overflow: hidden !important;
+          height: 100% !important;
+        }
+
         @keyframes shake {
           0%,
           100% {

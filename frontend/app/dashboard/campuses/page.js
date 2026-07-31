@@ -162,8 +162,7 @@ export default function CampusesPage() {
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm text-slate-600 md:text-base">
                   This page shows the current registered student count for each
-                  campus at the moment the admin opens it. Meal served and
-                  pending numbers are removed from here.
+                  campus at the moment the admin opens it.
                 </p>
               </div>
 
