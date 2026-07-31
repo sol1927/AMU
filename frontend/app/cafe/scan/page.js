@@ -62,7 +62,11 @@ export default function CafeScanPage() {
   );
   const [cardTimeoutMs, setCardTimeoutMs] = useState(3000);
   const [cameraOn, setCameraOn] = useState(false);
-
+  const [imageScanLoading, setImageScanLoading] = useState(false);
+  const [timeoutOpen, setTimeoutOpen] = useState(false);
+  const [cameraUsedForCard, setCameraUsedForCard] = useState(false);
+  // null = show default guide; { left, top, width, height } in % = tracked barcode
+  const [barcodeBox, setBarcodeBox] = useState(null);
   const hiddenInputRef = useRef(null);
   const manualInputRef = useRef(null);
   const panelRef = useRef(null);
@@ -75,7 +79,12 @@ export default function CafeScanPage() {
   const processScanRef = useRef(null);
   const originalConsoleErrorRef = useRef(null);
   const originalConsoleWarnRef = useRef(null);
+  const originalConsoleLogRef = useRef(null);
   const streamRef = useRef(null);
+  const rafRef = useRef(null);
+  const lastScannedIdRef = useRef(null);
+  const lastScannedTimeRef = useRef(0);
+  const timeoutDropdownRef = useRef(null);
   const [toast, setToast] = useState(null);
 
   const activeCafeNum =
@@ -105,11 +114,31 @@ export default function CafeScanPage() {
     return () => clearTimeout(timer);
   }, [student, cardTimeoutMs]);
 
+  // Auto-clear "Student not found" after 1 second
+  // If it came from camera, reopen camera automatically for next scan
+  useEffect(() => {
+    if (student?.name === "Student not found") {
+      const t = setTimeout(() => {
+        setStudent(null);
+        setAllowed(null);
+        if (cameraUsedForCard) {
+          setCameraUsedForCard(false);
+          setCameraOn(true); // reopen camera automatically
+        }
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+  }, [student, cameraUsedForCard]);
+
   useEffect(() => {
     hiddenInputRef.current?.focus();
     lastTimeRef.current = Date.now();
 
     const handlePageClick = (event) => {
+      // Close timeout dropdown if clicking outside it
+      if (timeoutDropdownRef.current && !timeoutDropdownRef.current.contains(event.target)) {
+        setTimeoutOpen(false);
+      }
       if (showManualScan) return;
       if (panelRef.current?.contains(event.target)) return;
       hiddenInputRef.current?.focus();
@@ -274,15 +303,17 @@ export default function CafeScanPage() {
   };
 
   const startCamera = async () => {
-    // Suppress ZXing's per-frame scanning noise
+    // Suppress ZXing per-frame noise (only used in fallback path)
     const isZXingNoise = (...args) =>
       typeof args[0] === "string" && args[0].includes("MultiFormatReader");
     originalConsoleErrorRef.current = console.error;
     originalConsoleWarnRef.current = console.warn;
+    originalConsoleLogRef.current = console.log;
     console.error = (...args) => { if (!isZXingNoise(...args)) originalConsoleErrorRef.current?.apply(console, args); };
     console.warn  = (...args) => { if (!isZXingNoise(...args)) originalConsoleWarnRef.current?.apply(console, args); };
+    console.log   = (...args) => { if (!isZXingNoise(...args)) originalConsoleLogRef.current?.apply(console, args); };
 
-    // We own the stream so we can fully release it in stopCamera
+    // Acquire the camera stream (we own it so we can stop it in stopCamera)
     const getStream = async () => {
       const constraints = {
         video: {
@@ -294,31 +325,136 @@ export default function CafeScanPage() {
       try {
         return await navigator.mediaDevices.getUserMedia(constraints);
       } catch {
-        // Fallback: no facingMode preference (works on PC)
         return await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 } },
         });
       }
     };
 
+    // Helper: compute and set the bounding box overlay from result points
+    const updateBarcodeBox = (points) => {
+      try {
+        const vid = videoRef.current;
+        const natW = vid.videoWidth || 1;
+        const natH = vid.videoHeight || 1;
+        const dispW = vid.clientWidth || 1;
+        const dispH = vid.clientHeight || 1;
+        const scaleX = dispW / natW;
+        const scaleY = dispH / natH;
+        const xs = points.map((p) => (p.x ?? p.getX?.() ?? 0) * scaleX);
+        const ys = points.map((p) => (p.y ?? p.getY?.() ?? 0) * scaleY);
+        const pad = 6;
+        setBarcodeBox({
+          left:   (Math.max(0, Math.min(...xs) - pad) / dispW) * 100,
+          top:    (Math.max(0, Math.min(...ys) - pad) / dispH) * 100,
+          width:  ((Math.min(dispW, Math.max(...xs) + pad) - Math.max(0, Math.min(...xs) - pad)) / dispW) * 100,
+          height: ((Math.min(dispH, Math.max(...ys) + pad) - Math.max(0, Math.min(...ys) - pad)) / dispH) * 100,
+        });
+        setTimeout(() => setBarcodeBox(null), 500); // snap back quickly for next scan
+      } catch { /* points unavailable */ }
+    };
+
+    // Helper: basic sanity check on raw barcode text
+    // Rejects garbage/noise results that aren't plausible student IDs
+    const isPlausibleId = (text) => {
+      if (!text || text.length < 4) return false;           // too short
+      if (!/^[\x20-\x7E]+$/.test(text)) return false;      // non-printable chars
+      if (!/[A-Za-z0-9]/.test(text)) return false;          // must have at least one alphanumeric
+      return true;
+    };
+
+    // Helper: check if barcode center falls inside the center guide zone
+    // Zone = middle 80% width × middle 60% height of the video frame
+    const isInGuideZone = (points) => {
+      if (!points || points.length === 0) return true; // no points = trust it
+      const vid = videoRef.current;
+      const W = vid.videoWidth  || vid.clientWidth  || 1;
+      const H = vid.videoHeight || vid.clientHeight || 1;
+      const xs = points.map(p => p.x ?? p.getX?.() ?? 0);
+      const ys = points.map(p => p.y ?? p.getY?.() ?? 0);
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      const inX = cx >= W * 0.10 && cx <= W * 0.90; // middle 80% width
+      const inY = cy >= H * 0.20 && cy <= H * 0.80; // middle 60% height
+      return inX && inY;
+    };
+
+    // Helper: called on every successful decode
+    // Same card: blocked for 2s to prevent double-scan while card is still in view
+    // Different card: scans instantly — zero delay
+    const SAME_CARD_BLOCK_MS = 2000;
+    const onDetected = (rawText, points) => {
+      const studentId = rawText.trim();
+      if (!isPlausibleId(studentId)) return;  // sanity check
+      if (!isInGuideZone(points)) return;     // must be in guide zone
+      const now = Date.now();
+      if (
+        studentId === lastScannedIdRef.current &&
+        now - lastScannedTimeRef.current < SAME_CARD_BLOCK_MS
+      ) return;
+      lastScannedIdRef.current = studentId;
+      lastScannedTimeRef.current = now;
+      if (points) updateBarcodeBox(points);
+      // Auto-close camera, mark that camera was used, then process scan
+      setCameraUsedForCard(true);
+      setCameraOn(false);
+      processScanRef.current(studentId);
+    };
+
     try {
       const stream = await getStream();
       streamRef.current = stream;
       videoRef.current.srcObject = stream;
-      await videoRef.current.play().catch(() => {});
 
-      const { BrowserMultiFormatReader } = await import("@zxing/browser");
-      const reader = new BrowserMultiFormatReader();
+      // ── PATH 1: Native BarcodeDetector (Chrome/Android — C++ speed) ──────────
+      // 1D formats only since student IDs use line barcodes
+      const FORMATS_1D = ["code_128", "code_39", "codabar", "itf"];
+
+      if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+        const detector = new window.BarcodeDetector({ formats: FORMATS_1D });
+        const tick = async () => {
+          if (!streamRef.current) return; // camera was stopped
+          try {
+            const barcodes = await detector.detect(videoRef.current);
+            if (barcodes.length > 0) {
+              const bc = barcodes[0];
+              onDetected(bc.rawValue, bc.cornerPoints ? [...bc.cornerPoints] : null);
+            }
+          } catch { /* frame not ready */ }
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+        return; // don't start ZXing
+      }
+
+      // ── PATH 2: ZXing fallback — restricted to 1D formats only ───────────────
+      const [{ BrowserMultiFormatReader }, { DecodeHintType, BarcodeFormat }] =
+        await Promise.all([
+          import("@zxing/browser"),
+          import("@zxing/library"),
+        ]);
+
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,
+        BarcodeFormat.CODABAR,
+        BarcodeFormat.ITF,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+      ]);
+
+      const reader = new BrowserMultiFormatReader(hints);
       readerRef.current = reader;
 
       reader.decodeFromVideoElement(videoRef.current, (result) => {
-        if (result && !scanCooldownRef.current) {
-          const studentId = result.getText().trim();
-          if (!studentId) return;
-          scanCooldownRef.current = true;
-          processScanRef.current(studentId);
-          setTimeout(() => { scanCooldownRef.current = false; }, 3000);
-        }
+        if (!result) return;
+        let points = null;
+        try { points = result.getResultPoints(); } catch { }
+        onDetected(result.getText(), points);
       });
     } catch {
       showToast("Camera unavailable or permission denied.");
@@ -327,17 +463,23 @@ export default function CafeScanPage() {
   };
 
   const stopCamera = () => {
-    // Stop ZXing decoder
+    setBarcodeBox(null);
+    // Cancel native BarcodeDetector rAF loop
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    // Stop ZXing decoder (fallback path)
     if (readerRef.current) {
       try { readerRef.current.reset(); } catch { }
       readerRef.current = null;
     }
-    // Stop all tracks on OUR stream — this kills the webcam light
+    // Stop all tracks on OUR stream — kills the webcam light
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-    // Also clear the video element
+    // Clear the video element
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -349,6 +491,10 @@ export default function CafeScanPage() {
     if (originalConsoleWarnRef.current) {
       console.warn = originalConsoleWarnRef.current;
       originalConsoleWarnRef.current = null;
+    }
+    if (originalConsoleLogRef.current) {
+      console.log = originalConsoleLogRef.current;
+      originalConsoleLogRef.current = null;
     }
   };
 
@@ -408,10 +554,55 @@ export default function CafeScanPage() {
 
   return (
     <div className="scan-page page-shell flex flex-col px-2 pt-3 md:px-6 md:pt-4 min-h-[75vh] overflow-hidden">
-      {/* Card — sits at the top, no flex-1 */}
+      {/* Card / Camera area — sits at the top */}
       <div className="flex w-full items-start justify-center pt-4 md:pt-6">
         <div className="w-full max-w-2xl min-w-0 px-1">
-          {student ? (
+
+          {/* ── CAMERA VIEW — mobile only (md+ uses bluetooth/manual only) ── */}
+          <div className={`md:hidden relative overflow-hidden rounded-2xl bg-black border border-slate-700 ${cameraOn ? "" : "hidden"}`}>
+            <video
+              ref={videoRef}
+              className="w-full h-[220px] md:h-[320px] object-cover"
+              muted
+              playsInline
+            />
+            {/* Scan guide / barcode tracking overlay */}
+            <div className="pointer-events-none absolute inset-0">
+              {barcodeBox ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: `${barcodeBox.left}%`,
+                    top: `${barcodeBox.top}%`,
+                    width: `${barcodeBox.width}%`,
+                    height: `${barcodeBox.height}%`,
+                    transition: "all 0.15s ease",
+                  }}
+                  className="rounded border-2 border-green-400 shadow-[0_0_8px_2px_rgba(74,222,128,0.5)]"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-10 w-64 rounded-md border-2 border-green-400 opacity-70 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+                </div>
+              )}
+            </div>
+            {/* Scanning label */}
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg bg-black/60 px-2.5 py-1">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-400" />
+              <span className="text-xs font-semibold text-white">Scanning...</span>
+            </div>
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setCameraOn(false)}
+              className="absolute top-3 right-3 rounded-full bg-black/60 px-3 py-1 text-sm font-bold text-white hover:bg-black/80"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* ── STUDENT RESULT CARD (shown when camera off) ── */}
+          {!cameraOn && student ? (
             <div
               key={shokeKey}
               className={`w-full min-w-0 overflow-hidden rounded-2xl md:rounded-[2.5rem] p-4 md:p-8 text-center transition-all duration-300 ${getCardClasses()}`}
@@ -467,8 +658,8 @@ export default function CafeScanPage() {
                     <span className="shrink-0 font-semibold">Fasting:</span>
                     <span
                       className={`min-w-0 flex-1 break-words text-left text-base md:text-2xl font-semibold ${student.denialCode === "fasting_restriction"
-                          ? "animate-breathing"
-                          : ""
+                        ? "animate-breathing"
+                        : ""
                         }`}
                     >
                       {student.fastingType === "fasting"
@@ -486,74 +677,81 @@ export default function CafeScanPage() {
                 {getStatusText()}
               </p>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center text-base md:text-xl font-bold text-slate-400 dark:text-slate-500">
-              <div className="mb-3 h-16 w-16 md:h-28 md:w-28 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+          ) : !cameraOn ? (
+            <div className="flex flex-col items-center justify-center gap-4 text-base md:text-xl font-bold text-slate-400 dark:text-slate-500">
+              <div className="h-16 w-16 md:h-28 md:w-28 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
               Waiting for Card Scan...
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* Spacer so content never hides behind the fixed bottom panel */}
       <div className="flex-1 min-h-4" />
-      <div className={`flex-shrink-0 ${cameraOn ? "h-[188px] md:h-[252px]" : "h-[98px] md:h-[162px]"}`} />
+      <div className="flex-shrink-0 h-[98px] md:h-[162px]" />
       {/* Bottom control panel — full-width strip on mobile, floating card on md+ */}
       <div className="fixed bottom-0 left-0 right-0 z-40 md:bottom-4 md:left-auto md:right-4 md:flex md:flex-col md:items-end">
-        {/* Camera preview — always in DOM so videoRef.current is never null */}
-        <div className={`w-full md:max-w-sm ${cameraOn ? "" : "hidden"}`}>
-          <div className="relative overflow-hidden bg-black border-t border-x border-slate-700 md:rounded-t-2xl">
-            <video
-              ref={videoRef}
-              className="w-full h-[90px] object-cover"
-              muted
-              playsInline
-            />
-            {/* Scan guide overlay */}
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-10 w-40 rounded-md border-2 border-green-400 opacity-80 shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]" />
-            </div>
-            {/* Scanning label */}
-            <div className="absolute top-1.5 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-400" />
-              <span className="text-xs font-semibold text-white">Scanning...</span>
-            </div>
-            {/* Close button */}
-            <button
-              type="button"
-                onClick={() => setCameraOn(false)}
-                className="absolute top-1.5 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-white hover:bg-black/80"
-              >
-                ✕
-            </button>
-          </div>
-        </div>
         <div
           ref={panelRef}
           className="surface-panel w-full md:max-w-sm rounded-t-2xl md:rounded-2xl border-t border-slate-200 md:border bg-white/95 px-3 py-2 md:p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
         >
-          {/* Card timeout row */}
-          <div className="mb-2 rounded-xl bg-slate-100 px-2.5 py-1.5 md:mb-3 md:rounded-2xl md:px-3 md:py-2 text-xs md:text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold">Card timeout</span>
-              <select
-                value={cardTimeoutMs}
-                onChange={(event) =>
-                  setCardTimeoutMs(Number(event.target.value))
-                }
-                className="rounded-lg md:rounded-xl border border-slate-300 bg-white px-1.5 py-0.5 md:px-2 md:py-1 text-xs md:text-sm text-slate-900 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              >
-                <option value={0}>Off</option>
-                <option value={3000}>3 seconds</option>
-                <option value={5000}>5 seconds</option>
-                <option value={8000}>8 seconds</option>
-                <option value={10000}>10 seconds</option>
-              </select>
-            </div>
-          </div>
+          {/* Card timeout row:
+               - md+: always show
+               - mobile: show only when camera is NOT active AND (no card OR card came from non-camera scan)
+          */}
+          {(() => {
+            const showTimeout = !cameraOn && !cameraUsedForCard;
+            const timeoutOptions = [
+              { value: 0,     label: "Off" },
+              { value: 3000,  label: "3 seconds" },
+              { value: 5000,  label: "5 seconds" },
+              { value: 8000,  label: "8 seconds" },
+              { value: 10000, label: "10 seconds" },
+            ];
+            const selectedLabel = timeoutOptions.find(o => o.value === cardTimeoutMs)?.label ?? "3 seconds";
+            return (
+              <div className={`${showTimeout ? "" : "hidden"} md:block relative mb-2 md:mb-3`} ref={timeoutDropdownRef}>
+                <div className="flex items-center justify-between gap-2 rounded-xl md:rounded-2xl bg-slate-100 px-2.5 md:px-3 py-1.5 md:py-2 text-xs md:text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                  <span className="font-semibold">⏱ Card timeout</span>
+                  <button
+                    type="button"
+                    onClick={() => setTimeoutOpen(o => !o)}
+                    className="flex items-center gap-1 rounded-lg md:rounded-xl border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-950 px-2 py-0.5 md:py-1 text-xs md:text-sm text-slate-900 dark:text-slate-100 font-medium transition hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {selectedLabel}
+                    <svg className={`h-3 w-3 transition-transform ${timeoutOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                {timeoutOpen && (
+                  <ul
+                    className="absolute right-0 z-50 mb-1 min-w-[130px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
+                    style={{ bottom: "100%" }}
+                  >
+                    {timeoutOptions.map(opt => (
+                      <li key={opt.value}>
+                        <button
+                          type="button"
+                          onClick={() => { setCardTimeoutMs(opt.value); setTimeoutOpen(false); }}
+                          className={`w-full px-3 py-2 text-left text-xs md:text-sm transition hover:bg-blue-50 dark:hover:bg-slate-800 ${
+                            cardTimeoutMs === opt.value
+                              ? "font-bold text-blue-600 dark:text-blue-400"
+                              : "text-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
 
           {!showManualScan ? (
-            <div className="flex items-center gap-2 md:flex-col md:items-stretch">
+            <div className="flex items-center gap-2">
               {/* Meal session badge */}
               <div className="flex-1 rounded-xl md:rounded-2xl bg-blue-600 px-2.5 py-1.5 md:px-3 md:py-2 text-white">
                 <div className="truncate text-xs md:text-sm font-bold">
@@ -566,17 +764,30 @@ export default function CafeScanPage() {
 
               {/* Buttons */}
               <div className="flex gap-1.5 md:gap-2">
-                {/* Camera toggle */}
-                <button
-                  type="button"
-                  onClick={() => setCameraOn((prev) => !prev)}
-                  className={`rounded-lg md:rounded-xl px-2.5 py-1.5 md:flex-1 md:px-3 md:py-2 text-xs md:text-sm font-semibold whitespace-nowrap transition active:scale-95 ${cameraOn
-                    ? "bg-green-600 text-white hover:bg-green-700"
-                    : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
-                    }`}
-                >
-                  {cameraOn ? "📷 On" : "📷 Off"}
-                </button>
+                {/* Camera + New Scan — mobile only wrapper, completely hidden on md+ */}
+                <div className="md:hidden flex gap-1.5">
+                  {/* New Scan — shown when card came from camera */}
+                  {student && !cameraOn && cameraUsedForCard && (
+                    <button
+                      type="button"
+                      onClick={() => { setStudent(null); setAllowed(null); setCameraUsedForCard(false); setCameraOn(true); }}
+                      className="rounded-lg px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition active:scale-95 bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      📷 New Scan
+                    </button>
+                  )}
+                  {/* Camera toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setCameraOn((prev) => !prev)}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition active:scale-95 ${cameraOn
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
+                      }`}
+                  >
+                    {cameraOn ? "📷 On" : "📷 Off"}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowManualScan(true)}
