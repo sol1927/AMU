@@ -6,6 +6,13 @@ import { useUser } from "../../context/UserContext";
 import { getFastingLabel } from "../../utils/studentLabels";
 import { getApiMessage, getErrorMessage } from "../../utils/userMessage";
 import { downloadCsv } from "../../utils/exportCsv";
+import { useOnlineStatus } from "../../utils/useOnlineStatus";
+import {
+  saveCafeStudents,
+  loadCafeStudents,
+  saveCafes,
+  loadCafes,
+} from "../../utils/offlineStore";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -44,9 +51,11 @@ const getCafeLabelByNumber = (cafes, cafeNumber) => {
 export default function CafeStudentsPage() {
   const router = useRouter();
   const { currentUser } = useUser();
+  const { isOnline } = useOnlineStatus();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cafes, setCafes] = useState([]);
+  const [isFromCache, setIsFromCache] = useState(false);
 
   const getStudentCafeLabel = (student) => {
     const explicitCafe = Number(
@@ -64,20 +73,30 @@ export default function CafeStudentsPage() {
       : String(cafeNumber);
   };
 
+  const campusId = currentUser?.campusId || currentUser?.id;
+
   useEffect(() => {
     const fetchCafes = async () => {
+      // Load cafes from cache immediately
+      const cachedCafes = loadCafes(campusId);
+      if (cachedCafes.length > 0) setCafes(cachedCafes);
+
+      if (!isOnline) return; // offline — use cache only
+
       try {
         const res = await fetch("/api/campus/cafes");
         if (res.ok) {
           const data = await res.json();
-          setCafes(data.cafes || []);
+          const list = data.cafes || [];
+          setCafes(list);
+          if (campusId) saveCafes(campusId, list);
         }
-      } catch (err) {
-        console.error("Failed to load cafes:", err);
+      } catch {
+        // Network error — cached cafes already set
       }
     };
-    fetchCafes();
-  }, []);
+    if (campusId) fetchCafes();
+  }, [campusId, isOnline]);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [fastingFilter, setFastingFilter] = useState("");
@@ -127,6 +146,21 @@ export default function CafeStudentsPage() {
     setLoading(true);
     setError("");
 
+    // Load from cache immediately for instant display
+    const cached = loadCafeStudents(campusId, activeCafeNum);
+    if (cached?.students) {
+      setStudents(cached.students);
+      setTotalStudents(Number(cached.totalStudents) || 0);
+      setInitialLoadDone(true);
+      setIsFromCache(true);
+    }
+
+    if (!isOnline) {
+      // Offline — keep showing cached data
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(
         `${url}/campus/students/all?cafeNumber=${activeCafeNum}`,
@@ -143,6 +177,9 @@ export default function CafeStudentsPage() {
       setStudents(data.students || []);
       setTotalStudents(Number(data.totalStudents) || 0);
       setInitialLoadDone(true);
+      setIsFromCache(false);
+      // Save to cache for offline use
+      saveCafeStudents(campusId, activeCafeNum, data.students || [], Number(data.totalStudents) || 0);
     } catch (err) {
       setError(getErrorMessage(err, "We could not load students right now."));
     } finally {
@@ -191,6 +228,10 @@ export default function CafeStudentsPage() {
   }, [students, searchQuery, fastingFilter, batchFilter, departmentFilter]);
 
   const handleRefreshStudents = async () => {
+    if (!isOnline) {
+      showToast("Cannot refresh while offline", "error");
+      return;
+    }
     setRefreshingStudents(true);
     try {
       await fetchStudents();
@@ -236,6 +277,14 @@ export default function CafeStudentsPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-7xl flex-col overflow-hidden px-6 pt-2 text-slate-900">
+      {/* Offline banner */}
+      {(isFromCache || !isOnline) && (
+        <div className="mb-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-4 py-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+          {isOnline
+            ? "Loaded from cache — refreshing in background"
+            : "Offline — showing cached student list"}
+        </div>
+      )}
       <div className="surface-panel rounded-3xl px-4 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-3">
@@ -254,14 +303,15 @@ export default function CafeStudentsPage() {
             <button
               type="button"
               onClick={handleRefreshStudents}
-              disabled={refreshingStudents}
+              disabled={refreshingStudents || !isOnline}
               className={`rounded-xl px-4 py-2 text-white shadow-sm transition ${
-                refreshingStudents
+                refreshingStudents || !isOnline
                   ? "cursor-not-allowed bg-slate-400"
                   : "bg-emerald-600 hover:bg-emerald-700"
               }`}
+              title={!isOnline ? "Unavailable offline" : ""}
             >
-              {refreshingStudents ? "Refreshing..." : "Refresh"}
+              {refreshingStudents ? "Refreshing..." : isOnline ? "Refresh" : "Offline"}
             </button>
             <button
               type="button"

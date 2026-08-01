@@ -9,6 +9,11 @@ import {
   HiOutlineCheckCircle,
 } from "react-icons/hi";
 import { TbScan } from "react-icons/tb";
+import { useOnlineStatus } from "../../utils/useOnlineStatus";
+import {
+  saveDashboardStats,
+  loadDashboardStats,
+} from "../../utils/offlineStore";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -23,16 +28,28 @@ const capitalizeWords = (str) => {
 export default function CafeOperatorDashboardPage() {
   const router = useRouter();
   const { currentUser } = useUser();
+  const { isOnline } = useOnlineStatus();
   const [stats, setStats] = useState({ totalStudents: 0 });
+  const [isFromCache, setIsFromCache] = useState(false);
 
   const activeCafeNum =
     currentUser?.activeCafeNumber || currentUser?.selectedCafeNumber || 1;
+  const campusId = currentUser?.campusId || currentUser?.id;
 
   useEffect(() => {
     if (!currentUser || currentUser.role !== "cafe") {
       router.replace("/");
       return;
     }
+
+    // Load cached stats immediately for instant display
+    const cached = loadDashboardStats(campusId, activeCafeNum);
+    if (cached?.totalStudents !== undefined) {
+      setStats({ totalStudents: cached.totalStudents });
+      setIsFromCache(true);
+    }
+
+    if (!isOnline) return; // offline — keep showing cached data
 
     const fetchStats = async () => {
       try {
@@ -42,15 +59,18 @@ export default function CafeOperatorDashboardPage() {
         );
         if (res.ok) {
           const data = await res.json();
-          setStats({ totalStudents: data.totalStudents || 0 });
+          const total = data.totalStudents || 0;
+          setStats({ totalStudents: total });
+          setIsFromCache(false);
+          saveDashboardStats(campusId, activeCafeNum, { totalStudents: total });
         }
-      } catch (err) {
-        console.error("Failed to load dashboard stats:", err);
+      } catch {
+        // Network error — cached data already shown
       }
     };
 
     fetchStats();
-  }, [currentUser, activeCafeNum, router]);
+  }, [currentUser, activeCafeNum, campusId, isOnline, router]);
 
   if (!currentUser || currentUser.role !== "cafe") return null;
 
@@ -70,11 +90,25 @@ export default function CafeOperatorDashboardPage() {
               Scan and record student meals at your active cafe station.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white dark:bg-emerald-700 dark:text-white">
+          {/* Dynamic online/offline status badge */}
+          <div
+            className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white ${
+              isOnline
+                ? "bg-emerald-600 dark:bg-emerald-700"
+                : "bg-slate-500 dark:bg-slate-600"
+            }`}
+          >
             <HiOutlineCheckCircle className="h-5 w-5" />
-            <span>System Active & Online</span>
+            <span>{isOnline ? "System Active & Online" : "Working Offline"}</span>
           </div>
         </div>
+
+        {/* Offline cache notice */}
+        {isFromCache && !isOnline && (
+          <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-5 py-3 text-sm text-amber-800 dark:text-amber-300">
+            Showing cached data from last sync. Stats will update when you reconnect.
+          </div>
+        )}
 
         {/* Grid Layout for Stats & Cards */}
         <div className="grid gap-6 md:grid-cols-2">
@@ -114,6 +148,11 @@ export default function CafeOperatorDashboardPage() {
               <span className="text-4xl font-black block mt-1 text-inherit">
                 {stats.totalStudents}
               </span>
+              {isFromCache && (
+                <span className="text-xs text-slate-400 dark:text-slate-500 mt-1 block">
+                  cached
+                </span>
+              )}
             </div>
           </div>
         </div>

@@ -1,1 +1,28 @@
-const fetch = global.fetch; (async () => { try { const loginUrl='http://localhost:5000/api/auth/login'; const loginRes=await fetch(loginUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'admin@example.com',password:'admin1234'})}); const loginText=await loginRes.text(); console.log('login status',loginRes.status); console.log(loginText); const setCookie=loginRes.headers.get('set-cookie'); console.log('cookie',setCookie); if(!setCookie) return; const cookie=setCookie.split(';')[0]; const reportUrl='http://localhost:5000/api/reports/daily?campusId=1&date=2026-06-09'; const reportRes=await fetch(reportUrl,{headers:{cookie}}); console.log('report status',reportRes.status); console.log(await reportRes.text()); } catch (e) { console.error(e); } })();
+const fetch = global.fetch;
+(async () => {
+  try {
+    const loginUrl = "http://localhost:5000/api/auth/login";
+    const loginRes = await fetch(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "admin@example.com",
+        password: "admin1234",
+      }),
+    });
+    const loginText = await loginRes.text();
+    console.log("login status", loginRes.status);
+    console.log(loginText);
+    const setCookie = loginRes.headers.get("set-cookie");
+    console.log("cookie", setCookie);
+    if (!setCookie) return;
+    const cookie = setCookie.split(";")[0];
+    const reportUrl =
+      "http://localhost:5000/api/reports/daily?campusId=1&date=2026-06-09";
+    const reportRes = await fetch(reportUrl, { headers: { cookie } });
+    console.log("report status", reportRes.status);
+    console.log(await reportRes.text());
+  } catch (e) {
+    console.error(e);
+  }
+})();

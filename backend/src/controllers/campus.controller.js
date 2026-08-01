@@ -37,7 +37,7 @@ export const listCafes = async (req, res) => {
     if (!["campus", "cafe manager", "cafe"].includes(req.userRole)) {
       return res.status(403).json({ message: "Access denied" });
     }
-    const campusId = req.campus?.campusId || req.user?.campusId;
+    const campusId = req.campus?.campusId || req.campus?.id || req.user?.campusId;
     const allUsers = await User.findAll({
       campusId,
     });

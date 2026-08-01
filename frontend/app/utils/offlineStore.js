@@ -151,3 +151,45 @@ export const removePendingScan = (campusId, cafeNum, localId) => {
 export const clearPendingScans = (campusId, cafeNum) => {
   safeRemove(pendingKey(campusId, cafeNum));
 };
+
+// ─── Dashboard stats ──────────────────────────────────────────────────────────
+
+const dashStatsKey = (campusId, cafeNum) =>
+  `${PREFIX}:dashstats:${campusId}:${cafeNum}`;
+
+export const saveDashboardStats = (campusId, cafeNum, stats) => {
+  safeSet(dashStatsKey(campusId, cafeNum), { ...stats, savedAt: Date.now() });
+};
+
+export const loadDashboardStats = (campusId, cafeNum) => {
+  return safeGet(dashStatsKey(campusId, cafeNum));
+};
+
+// ─── Full student list (for students page) ────────────────────────────────────
+
+const cafeStudentsKey = (campusId, cafeNum) =>
+  `${PREFIX}:cafestudents:${campusId}:${cafeNum}`;
+
+export const saveCafeStudents = (campusId, cafeNum, students, totalStudents) => {
+  safeSet(cafeStudentsKey(campusId, cafeNum), {
+    students,
+    totalStudents,
+    savedAt: Date.now(),
+  });
+};
+
+export const loadCafeStudents = (campusId, cafeNum) => {
+  return safeGet(cafeStudentsKey(campusId, cafeNum));
+};
+
+// ─── Cafes list ───────────────────────────────────────────────────────────────
+
+const cafesKey = (campusId) => `${PREFIX}:cafes:${campusId}`;
+
+export const saveCafes = (campusId, cafes) => {
+  safeSet(cafesKey(campusId), cafes);
+};
+
+export const loadCafes = (campusId) => {
+  return safeGet(cafesKey(campusId)) || [];
+};
