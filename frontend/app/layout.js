@@ -15,6 +15,15 @@ export const metadata = {
     icon: "/logo.png",
     apple: "/logo.png",
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "GibiGebeta",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -30,6 +39,21 @@ export default function RootLayout({ children }) {
             </TempAdminProvider>
           </UserProvider>
         </ThemeProvider>
+
+        {/* Register service worker for offline-first app shell caching */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                  navigator.serviceWorker.register('/service-worker.js').catch(function () {
+                    // SW registration failed — app still works online
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
@@ -38,3 +62,4 @@ export default function RootLayout({ children }) {
 RootLayout.propTypes = {
   children: PropTypes.node.isRequired,
 };
+

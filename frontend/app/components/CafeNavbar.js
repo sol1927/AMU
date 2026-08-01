@@ -54,6 +54,8 @@ export default function CafeNavbar() {
     });
 
     if (res.ok) {
+      // Clear offline user cache so this device doesn't auto-restore the session
+      try { localStorage.removeItem("ofs:cachedUser"); } catch { /* ignore */ }
       setCurrentUser(null);
       window.location.replace("/");
     }

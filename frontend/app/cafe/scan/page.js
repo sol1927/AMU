@@ -3,6 +3,9 @@
 import { React, useEffect, useRef, useState } from "react";
 import { useUser } from "../../context/UserContext";
 import { useRouter } from "next/navigation";
+import { useSyncManager } from "../../utils/useSyncManager.js";
+import { validateScanLocally, getCurrentMealTypeLocal, getTodayString } from "../../utils/offlineValidator.js";
+import { markScanned, loadSchedule } from "../../utils/offlineStore.js";
 
 const url = process.env.NEXT_PUBLIC_API_URL;
 
@@ -62,6 +65,7 @@ export default function CafeScanPage() {
   );
   const [cardTimeoutMs, setCardTimeoutMs] = useState(3000);
   const [cameraOn, setCameraOn] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [imageScanLoading, setImageScanLoading] = useState(false);
   const [timeoutOpen, setTimeoutOpen] = useState(false);
   const [cameraUsedForCard, setCameraUsedForCard] = useState(false);
@@ -75,6 +79,7 @@ export default function CafeScanPage() {
   const timeoutRef = useRef(null);
   const videoRef = useRef(null);
   const readerRef = useRef(null);
+  // eslint-disable-next-line no-unused-vars
   const scanCooldownRef = useRef(false);
   const processScanRef = useRef(null);
   const originalConsoleErrorRef = useRef(null);
@@ -89,6 +94,15 @@ export default function CafeScanPage() {
 
   const activeCafeNum =
     currentUser?.activeCafeNumber || currentUser?.selectedCafeNumber || 1;
+
+  // ── Campus ID derived from currentUser ──────────────────────────────────────
+  const campusId = currentUser?.campusId || currentUser?.id || null;
+
+  // ── Offline sync manager ────────────────────────────────────────────────────
+  const { isOnline, isSyncing, pendingCount, enqueueScan } = useSyncManager({
+    campusId,
+    cafeNum: activeCafeNum,
+  });
 
   const showToast = (message, type = "error") => {
     setToast({ message, type });
@@ -196,66 +210,57 @@ export default function CafeScanPage() {
     return () => clearInterval(intervalId);
   }, [mealSchedule]);
 
-  const processScan = async (studentId) => {
-    try {
-      const res = await fetch(`${url}/meal/students/station-scan`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId }),
+  const processScan = (studentId) => {
+    // ── Determine current meal session from local schedule ────────────────────
+    const localSchedule = mealSchedule || loadSchedule(campusId);
+    const { mealType } = getCurrentMealTypeLocal(localSchedule);
+    const today = getTodayString();
+
+    // ── Local-first validation ────────────────────────────────────────────────
+    // Always validate from local data first (works online AND offline)
+    let result = validateScanLocally({
+      studentId,
+      campusId,
+      cafeNum: activeCafeNum,
+      mealType: mealType || "lunch", // fallback so we still show the card
+      date: today,
+      campusMeta: currentUser,
+    });
+
+    // If no local meal window and no local student data yet, show a neutral message
+    if (!mealType && result.allowed === false && result.message === "Student not found") {
+      result = {
+        allowed: false,
+        student: { name: "Student not found", studentId },
+        denialCode: null,
+        message: "Student not found",
+        statusMessage: "",
+      };
+    }
+
+    // ── Show result card immediately ──────────────────────────────────────────
+    if (result.student) {
+      setStudent({
+        ...result.student,
+        statusMessage: result.statusMessage,
+        denialCode: result.denialCode,
       });
-
-      let data = null;
-      const text = await res.text();
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = { message: text };
-      }
-
-      const allowed = data?.allowed === true;
-      const message =
-        typeof data?.message === "string" ? data.message.trim() : "";
-      const statusMessage =
-        (typeof data?.student?.statusMessage === "string"
-          ? data.student.statusMessage.trim()
-          : "") || (!allowed ? message : "");
-
-      if (data?.student) {
-        setStudent({
-          ...data.student,
-          statusMessage,
-          denialCode: data?.student?.denialCode || data?.denialCode,
-          reason: data?.student?.reason || data?.reason || "",
-        });
-        setAllowed(allowed);
-        setShokeKey((prev) => prev + 1);
-        return;
-      }
-
-      if (message) {
-        const displayName = message.includes("Time is up")
-          ? "ሰዓት አልቋል"
-          : message;
-
-        setShokeKey((prev) => prev + 1);
-        setStudent({
-          name: displayName,
-          studentId,
-          statusMessage: message === "Student not found" ? undefined : message,
-        });
-        setAllowed(allowed);
-        return;
-      }
-
+      setAllowed(result.allowed);
       setShokeKey((prev) => prev + 1);
-      setStudent({ name: "Student not found", studentId });
-      setAllowed(false);
-    } catch {
-      showToast("We could not complete the scan. Please try again.");
-      setShokeKey((prev) => prev + 1);
-      setStudent({ name: "Student not found", studentId });
-      setAllowed(false);
+    }
+
+    // ── If allowed: mark locally scanned + enqueue for server upload ──────────
+    if (result.allowed && mealType && today) {
+      markScanned(campusId, activeCafeNum, today, mealType, studentId);
+
+      const localId = `${studentId}-${today}-${mealType}-${Date.now()}`;
+      enqueueScan({
+        localId,
+        studentId,
+        mealType,
+        date: today,
+        scannedAt: new Date().toISOString(),
+      });
     }
   };
 
@@ -455,7 +460,7 @@ export default function CafeScanPage() {
       reader.decodeFromVideoElement(videoRef.current, (result) => {
         if (!result) return;
         let points = null;
-        try { points = result.getResultPoints(); } catch { }
+        try { points = result.getResultPoints(); } catch { /* ignore */ }
         onDetected(result.getText(), points);
       });
     } catch {
@@ -473,7 +478,7 @@ export default function CafeScanPage() {
     }
     // Stop ZXing decoder (fallback path)
     if (readerRef.current) {
-      try { readerRef.current.reset(); } catch { }
+      try { readerRef.current.reset(); } catch { /* ignore */ }
       readerRef.current = null;
     }
     // Stop all tracks on OUR stream — kills the webcam light
@@ -507,7 +512,7 @@ export default function CafeScanPage() {
       stopCamera();
     }
     return () => stopCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // (cameraOn is the only dep needed here)
   }, [cameraOn]);
 
   if (!currentUser || currentUser.role !== "cafe") return null;
@@ -762,6 +767,29 @@ export default function CafeScanPage() {
                 <div className="truncate text-xs text-blue-100">
                   {currentMealSession.window}
                 </div>
+              </div>
+
+              {/* Online/offline + pending badge */}
+              <div className="flex flex-col items-center gap-0.5">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    isOnline
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isOnline ? "bg-green-500" : "bg-red-500"
+                    } ${isSyncing ? "animate-pulse" : ""}`}
+                  />
+                  {isSyncing ? "Syncing" : isOnline ? "Online" : "Offline"}
+                </span>
+                {pendingCount > 0 && (
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                    📤 {pendingCount}
+                  </span>
+                )}
               </div>
 
               {/* Buttons */}

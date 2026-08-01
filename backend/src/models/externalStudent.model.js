@@ -17,6 +17,7 @@ const requiredConfigKeys = [
 const hasExternalStudentConfig = () =>
   requiredConfigKeys.every((key) => process.env[key]);
 
+// eslint-disable-next-line no-unused-vars
 const getExternalStudentFieldMapping = () => ({
   studentId: "stId",
   name: "fullName",

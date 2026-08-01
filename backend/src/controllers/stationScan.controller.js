@@ -951,3 +951,381 @@ export const getCampusDashboardStats = async (req, res) => {
     );
   }
 };
+
+// ─── Offline Sync: Upload pending scans from device ──────────────────────────
+export const uploadOfflineScans = async (req, res) => {
+  try {
+    const { scans } = req.body;
+
+    if (!Array.isArray(scans) || scans.length === 0) {
+      return res.status(400).json({ message: "No scans provided", results: [] });
+    }
+
+    // Cap to 200 scans per request to avoid abuse
+    const safeScans = scans.slice(0, 200);
+    const studentCampusQuery = getStudentCampusQuery(req.campus);
+    const campusForScope = (await User.findById(req.campus.id)) || req.campus;
+    const campusCafes = (
+      await User.findAll({
+        campusId: campusForScope.campusId || campusForScope.id,
+        role: "cafe",
+      })
+    ).sort((a, b) => a.id - b.id);
+
+    const results = [];
+
+    for (const scanItem of safeScans) {
+      const { localId, studentId, scannedAt: scannedAtRaw, mealType: providedMealType } = scanItem;
+
+      try {
+        // Use device-provided timestamp to determine which meal window it belonged to
+        const scanTime = scannedAtRaw ? new Date(scannedAtRaw) : new Date();
+        if (Number.isNaN(scanTime.getTime())) {
+          results.push({ localId, status: "error", reason: "invalid_timestamp" });
+          continue;
+        }
+
+        const todayString = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Africa/Addis_Ababa",
+        }).format(scanTime);
+
+        // Determine meal type from timestamp OR use device-provided one
+        const mealSchedule = await getMealScheduleAt(req.campus.id, scanTime);
+        const now = scanTime.getTime();
+
+        let currentMealType = providedMealType || null;
+        let appliedWindow = null;
+
+        for (const [mealType, window] of Object.entries(mealSchedule)) {
+          const start = getAppliedWindowDate(todayString, window?.start)?.getTime();
+          const end = getAppliedWindowDate(todayString, window?.end)?.getTime();
+
+          if (start && end && now >= start && now <= end) {
+            currentMealType = mealType;
+            appliedWindow = window;
+            break;
+          }
+        }
+
+        // If we couldn't determine the window from time, try to use device-provided meal type
+        if (!appliedWindow && currentMealType && mealSchedule[currentMealType]) {
+          appliedWindow = mealSchedule[currentMealType];
+        }
+
+        if (!currentMealType) {
+          results.push({ localId, status: "time_up" });
+          continue;
+        }
+
+        // Find student
+        const student = await CafeStudent.findOne({
+          studentId,
+          ...studentCampusQuery,
+        });
+
+        if (!student) {
+          results.push({ localId, status: "not_found" });
+          continue;
+        }
+
+        // Check cafe assignment
+        const assignedCafeNumber = getEffectiveStudentCafeNumber(student, campusForScope);
+        if (!assignedCafeNumber || assignedCafeNumber <= 0) {
+          results.push({ localId, status: "not_found" });
+          continue;
+        }
+
+        const accessibleStudents = filterStudentsForCafeNumber(
+          [student],
+          campusForScope,
+          req.cafeNumber,
+        );
+
+        if (accessibleStudents.length === 0) {
+          const assignedCafeName = getCafeLabelForNumber(campusCafes, assignedCafeNumber);
+          results.push({
+            localId,
+            status: "wrong_cafe",
+            assignedCafeNumber,
+            assignedCafeName,
+          });
+          continue;
+        }
+
+        const normalizedStudent = normalizeStudent(student);
+
+        // Internship check
+        if (getStudentIsInternship(normalizedStudent)) {
+          results.push({ localId, status: "internship_denied" });
+          continue;
+        }
+
+        // Fasting checks
+        const today = new Date(`${todayString}T00:00:00+03:00`);
+        if (isOrthodoxFastingBreakfastDenied(normalizedStudent, currentMealType, today)) {
+          results.push({ localId, status: "fasting_denied", denialCode: "fasting_restriction" });
+          continue;
+        }
+        if (isMuslimFastingMealDenied(normalizedStudent, currentMealType)) {
+          results.push({ localId, status: "fasting_denied", denialCode: "fasting_restriction" });
+          continue;
+        }
+        if (isSundayFastingBreakfastDenied(normalizedStudent, currentMealType, today)) {
+          results.push({ localId, status: "fasting_denied", denialCode: "fasting_restriction" });
+          continue;
+        }
+
+        // Check for duplicate in DB
+        const existingStationScan = await StationScan.findOne({
+          studentId: student.studentId,
+          campus: req.campus.id,
+          date: todayString,
+          mealType: currentMealType,
+        });
+
+        if (existingStationScan) {
+          // Treat as success — the scan is already saved (maybe from another device or earlier upload)
+          results.push({ localId, status: "duplicate", stationScanId: existingStationScan.id });
+          continue;
+        }
+
+        // Save the scan
+        const stationScan = await StationScan.create({
+          student: student.id,
+          studentId: student.studentId,
+          studentName: normalizedStudent.name,
+          department: normalizedStudent.department || "",
+          batch: normalizedStudent.batch ?? null,
+          fastingType: normalizedStudent.fastingType,
+          isInternship: normalizedStudent.isInternship,
+          campus: req.campus.id,
+          campusId: req.campus.campusId ?? null,
+          campusName: req.campus.name || "Campus",
+          cafeNumber: req.cafeNumber,
+          date: todayString,
+          mealType: currentMealType,
+          scannedAt: scanTime,
+        });
+
+        // Update meal record (best effort)
+        try {
+          const campusStudents = filterStudentsForCafeNumber(
+            await CafeStudent.findAll(studentCampusQuery),
+            req.campus,
+            req.cafeNumber,
+          );
+          const campusSnapshot = createCampusSnapshot(req.campus);
+          const studentSnapshot = createStudentSnapshot(normalizedStudent, req.campus, scanTime);
+
+          const existingMeal = await Meal.findOne({
+            campus: req.campus.id,
+            cafeNumber: req.cafeNumber,
+            mealType: currentMealType,
+            date: todayString,
+          });
+
+          if (existingMeal) {
+            const students = Array.from(
+              new Set([...(existingMeal.students || []).map(String), String(student.studentId)]),
+            );
+            const studentSnapshots = [
+              ...(existingMeal.studentSnapshots || []).filter(
+                (s) => String(s.studentId) !== String(student.studentId),
+              ),
+              studentSnapshot,
+            ];
+            await Meal.updateById(existingMeal.id, {
+              students,
+              studentSnapshots,
+              summarySnapshot: buildMealSummarySnapshot(campusStudents, students),
+            });
+          } else {
+            const actualOpenedAt = appliedWindow
+              ? getBoundedOpenedAt(req.campus.lastActiveAt || scanTime, appliedWindow, todayString)
+              : scanTime.toISOString();
+            await Meal.create({
+              campus: req.campus.id,
+              cafeNumber: req.cafeNumber,
+              mealType: currentMealType,
+              date: todayString,
+              year: getCurrentYear(today),
+              semester: getCurrentSemester(today),
+              campusSnapshot,
+              appliedWindow: appliedWindow
+                ? {
+                    start: appliedWindow.start,
+                    end: appliedWindow.end,
+                    label: getMealWindowLabel(appliedWindow),
+                    actualOpenedAt,
+                    actualClosedAt: null,
+                  }
+                : null,
+              studentSnapshots: [studentSnapshot],
+              summarySnapshot: buildMealSummarySnapshot(campusStudents, [String(student.studentId)]),
+              students: [String(student.studentId)],
+            });
+          }
+        } catch (mealErr) {
+          console.error("uploadOfflineScans: meal record update failed:", mealErr.message);
+        }
+
+        // Attendance + history snapshots (best effort)
+        try {
+          let activeConfig = await mealSessionConfigHistory.findActiveConfig(
+            req.campus.id,
+            currentMealType,
+            todayString,
+          );
+          if (!activeConfig && appliedWindow) {
+            activeConfig = await mealSessionConfigHistory.create({
+              sessionName: currentMealType,
+              startTime: appliedWindow.start,
+              endTime: appliedWindow.end,
+              appliedDate: todayString,
+              appliedTimestamp: new Date(),
+              campusId: req.campus.id,
+              createdBy: req.campus.id,
+              version: 1,
+            });
+          }
+
+          if (activeConfig) {
+            await mealAttendanceSnapshot.create({
+              studentId: student.studentId,
+              studentDetails: normalizedStudent,
+              fastingType: normalizedStudent.fastingType,
+              campusId: req.campus.id,
+              cafeteria: req.cafeNumber,
+              mealSession: currentMealType,
+              sessionStartTime: appliedWindow?.start,
+              sessionEndTime: appliedWindow?.end,
+              attendanceDate: todayString,
+              scanTimestamp: scanTime,
+              appliedSessionConfigId: activeConfig.id,
+            }).catch(() => null);
+          }
+
+          await MealScanHistory.create({
+            studentId: student.studentId,
+            studentName: normalizedStudent.name,
+            mealSession: currentMealType,
+            date: todayString,
+            exactScanTimestamp: scanTime,
+            cafeteria: req.cafeNumber,
+            campus: req.campus.id,
+            fastingTypeAtScanTime: normalizedStudent.fastingType,
+          }).catch(() => null);
+
+          const existingSnapshot = await MealSessionSnapshot.findOne({
+            campusId: req.campus.id,
+            cafeteriaId: req.cafeNumber,
+            date: todayString,
+            mealSession: currentMealType,
+          });
+
+          if (existingSnapshot) {
+            const newServedCount = existingSnapshot.servedCount + 1;
+            await MealSessionSnapshot.updateById(existingSnapshot.id, {
+              servedCount: newServedCount,
+              unservedCount: Math.max(0, existingSnapshot.assignedStudents - newServedCount),
+            });
+          }
+        } catch (snapErr) {
+          console.error("uploadOfflineScans: snapshot/history failed:", snapErr.message);
+        }
+
+        results.push({ localId, status: "ok", stationScanId: stationScan.id });
+      } catch (itemErr) {
+        console.error("uploadOfflineScans: item error for", studentId, itemErr.message);
+        results.push({ localId, status: "error", reason: "server_error" });
+      }
+    }
+
+    return res.json({ results });
+  } catch (err) {
+    logInternalError("upload-offline-scans", err);
+    sendServerError(res, "Could not process offline scans. Please try again.");
+  }
+};
+
+// ─── Offline Sync: Get current session state (scanned IDs + schedule) ────────
+export const getSyncSession = async (req, res) => {
+  try {
+    const now = new Date();
+    const todayString = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Addis_Ababa",
+    }).format(now);
+
+    const mealSchedule = await getMealScheduleAt(req.campus.id, now);
+
+    let currentMealType = null;
+    let currentWindow = null;
+
+    for (const [mealType, window] of Object.entries(mealSchedule)) {
+      const start = getAppliedWindowDate(todayString, window?.start)?.getTime();
+      const end = getAppliedWindowDate(todayString, window?.end)?.getTime();
+      const nowMs = now.getTime();
+
+      if (start && end && nowMs >= start && nowMs <= end) {
+        currentMealType = mealType;
+        currentWindow = window;
+        break;
+      }
+    }
+
+    // Get all scanned student IDs for today's session in this cafe
+    const scannedStudentIds = [];
+    if (currentMealType) {
+      const scans = await StationScan.findAll({
+        campus: req.campus.id,
+        cafeNumber: req.cafeNumber,
+        date: todayString,
+        mealType: currentMealType,
+      });
+      scannedStudentIds.push(...scans.map((s) => s.studentId));
+    }
+
+    return res.json({
+      mealSchedule,
+      currentMealType,
+      currentWindow,
+      scannedStudentIds,
+      date: todayString,
+      serverTime: now.toISOString(),
+    });
+  } catch (err) {
+    logInternalError("sync-session", err);
+    sendServerError(res, "Could not load session sync data. Please try again.");
+  }
+};
+
+// ─── Offline Sync: Get student list for this campus/cafe ─────────────────────
+export const getSyncStudents = async (req, res) => {
+  try {
+    const studentCampusQuery = getStudentCampusQuery(req.campus);
+    const campusForScope = (await User.findById(req.campus.id)) || req.campus;
+
+    const allStudents = await CafeStudent.findAll(studentCampusQuery);
+    const cafeStudents = filterStudentsForCafeNumber(
+      allStudents,
+      campusForScope,
+      req.cafeNumber,
+    );
+
+    const students = cafeStudents.map((s) => ({
+      studentId: s.studentId,
+      name: s.name,
+      department: s.department || "",
+      batch: s.batch ?? null,
+      fastingType: s.fastingType || "not_fasting",
+      isInternship: Boolean(s.isInternship),
+      cafeNumber: s.cafeNumber ?? null,
+      profileUrl: s.profileUrl || null,
+    }));
+
+    return res.json({ students, campusId: req.campus.id, cafeNumber: req.cafeNumber });
+  } catch (err) {
+    logInternalError("sync-students", err);
+    sendServerError(res, "Could not load student sync data. Please try again.");
+  }
+};

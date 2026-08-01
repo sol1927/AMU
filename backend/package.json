@@ -25,7 +25,7 @@
     "multer": "^2.0.2",
     "mysql2": "^3.6.5",
     "node-cron": "^4.2.1",
-    "nodemailer": "^8.0.7",
+    "nodemailer": "^9.0.3",
     "papaparse": "^5.5.3",
     "resend": "^6.12.3",
     "sib-api-v3-sdk": "^8.5.0",

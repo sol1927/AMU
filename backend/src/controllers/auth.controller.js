@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import {
   formatMinutes,
   getSessionCookieOptions,
+  getPersistentCookieOptions,
 } from "../utils/sessionSecurity.js";
 import { logInternalError } from "../utils/safeError.js";
 import { buildCafeNumbers } from "../utils/cafeScope.js";
@@ -136,7 +137,12 @@ export const login = async (req, res) => {
         : jwt.sign({ id: user.id, role }, process.env.JWT_SECRET);
 
     const cookieName = role === "campus" ? "campusToken" : "accessToken";
-    res.cookie(cookieName, token, getSessionCookieOptions());
+    // Cafe operators get a 30-day persistent cookie so they stay logged in
+    // across browser closes and device restarts (needed for offline-first scanning).
+    // All other roles keep the default session cookie (expires on browser close).
+    const cookieOptions =
+      role === "cafe" ? getPersistentCookieOptions() : getSessionCookieOptions();
+    res.cookie(cookieName, token, cookieOptions);
 
     if (["campus", "cafe", "cafe manager"].includes(role)) {
       const loginTime = new Date();
